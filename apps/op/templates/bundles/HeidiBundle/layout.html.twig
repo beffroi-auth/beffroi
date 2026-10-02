@@ -8,10 +8,14 @@
    the middle of the screen is what that is. A page of the account is a page someone reads and comes back
    to, holding a list, a table, a heading and the way back: it takes the width of a column of text, at the
    top of the screen, and carries "account" on its main so the stylesheet can say what a panel looks like
-   there. Which one a request is, is its route (architecture §5.4). #}
+   there. Which one a request is, is its route (architecture §5.4).
+
+   The theme is on the document and not in a script (issue #447): light and dark are what the stylesheet
+   declares, and a document that names neither leaves the answer to the browser. #}
 {% set account = (app.request.attributes.get('_route') ?? '') starts with 'heidi_interaction_account' %}
+{% set chosen_theme = theme() %}
 <!DOCTYPE html>
-<html lang="{{ app.request.locale|replace({'_': '-'}) }}">
+<html lang="{{ app.request.locale|replace({'_': '-'}) }}"{% if chosen_theme.attribute() is not null %} data-theme="{{ chosen_theme.attribute() }}"{% endif %}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -29,5 +33,6 @@
             {% block content %}{% endblock %}
         </main>
     {% endblock %}
+    {% include '_theme_switcher.html.twig' %}
 </body>
 </html>

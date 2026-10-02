@@ -9,6 +9,22 @@
         <source>authorization_details.invoice_payment</source>
         <target>Invoice {identifier}: {actions} it, for at most {amount} {currency}</target>
       </trans-unit>
+      <trans-unit id="b7c1d4e9f0" resname="theme.choose">
+        <source>theme.choose</source>
+        <target>Choose a theme</target>
+      </trans-unit>
+      <trans-unit id="c3d5e7a1b2" resname="theme.light">
+        <source>theme.light</source>
+        <target>Light</target>
+      </trans-unit>
+      <trans-unit id="d9e2f4a6c8" resname="theme.dark">
+        <source>theme.dark</source>
+        <target>Dark</target>
+      </trans-unit>
+      <trans-unit id="e1f3a5b7d2" resname="theme.system">
+        <source>theme.system</source>
+        <target>As the browser asks</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

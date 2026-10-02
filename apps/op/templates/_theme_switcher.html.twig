@@ -1,0 +1,25 @@
+{# The choice of a theme (issue #447), a control of this application and of no page of the bundle: three
+   buttons in a form, no script, so that it answers a keyboard and a browser that runs nothing. The one in
+   use says so to a screen reader, and each icon carries its name for whoever does not see it. #}
+{% set current = theme() %}
+<form method="post" action="{{ path('app_theme') }}" class="join fixed right-4 bottom-4 z-10 shadow-sm" aria-label="{{ 'theme.choose'|trans([], 'heidi') }}">
+    <input type="hidden" name="target" value="{{ app.request.requestUri }}">
+    <button type="submit" name="theme" value="light"
+            class="btn join-item btn-sm{{ current.value == 'light' ? ' btn-active' : '' }}"
+            aria-pressed="{{ current.value == 'light' ? 'true' : 'false' }}">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <span class="sr-only">{{ 'theme.light'|trans([], 'heidi') }}</span>
+    </button>
+    <button type="submit" name="theme" value="dark"
+            class="btn join-item btn-sm{{ current.value == 'dark' ? ' btn-active' : '' }}"
+            aria-pressed="{{ current.value == 'dark' ? 'true' : 'false' }}">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <span class="sr-only">{{ 'theme.dark'|trans([], 'heidi') }}</span>
+    </button>
+    <button type="submit" name="theme" value="system"
+            class="btn join-item btn-sm{{ current.value == 'system' ? ' btn-active' : '' }}"
+            aria-pressed="{{ current.value == 'system' ? 'true' : 'false' }}">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+        <span class="sr-only">{{ 'theme.system'|trans([], 'heidi') }}</span>
+    </button>
+</form>

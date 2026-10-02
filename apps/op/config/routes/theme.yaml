@@ -1,0 +1,7 @@
+# The choice of a theme (issue #447), a route of this application and not of the bundle: the pages of the
+# bundle carry no look of their own, and what a visitor reads them in is the decision of the application
+# that installs them (architecture §5.2, §6). The name carries no plane, as a route of a host application
+# never does: it belongs to none and is refused by none (Plane::ofRoute).
+app_theme:
+    resource: ../../src/Controller/ChooseThemeController.php
+    type: attribute
