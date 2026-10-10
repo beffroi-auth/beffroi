@@ -781,9 +781,17 @@
         <source>notifications.not_served</source>
         <target>This provider does not tell browsers.</target>
       </trans-unit>
-      <trans-unit id="b7d8776630" resname="notifications.error.browser">
-        <source>notifications.error.browser</source>
-        <target>This browser was not added. It may have refused notifications.</target>
+      <trans-unit id="notifications.error.permission" resname="notifications.error.permission">
+        <source>notifications.error.permission</source>
+        <target>This browser was not added: it did not allow notifications. Allow them for this site in the settings of the browser, then press the button again.</target>
+      </trans-unit>
+      <trans-unit id="notifications.error.worker" resname="notifications.error.worker">
+        <source>notifications.error.worker</source>
+        <target>This browser was not added: the script that would receive the notifications could not be installed. It happens when the page is not served under a certificate this browser trusts.</target>
+      </trans-unit>
+      <trans-unit id="notifications.error.subscription" resname="notifications.error.subscription">
+        <source>notifications.error.subscription</source>
+        <target>This browser was not added: its push service refused the subscription. It happens when the browser reaches no push service, or when it already holds a subscription for another key of this provider.</target>
       </trans-unit>
       <trans-unit id="e773e70d91" resname="notifications.error.refused">
         <source>notifications.error.refused</source>

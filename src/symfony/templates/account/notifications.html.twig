@@ -82,6 +82,11 @@
         </tbody>
     </table>
     {{ include('@Beffroi/account/pager.html.twig', {listing: subscriptions}) }}
-    <p data-push-error hidden>{{ 'notifications.error.browser'|trans }}</p>
+    {# One sentence per way the browser can refuse to be added, each hidden until the script of the bundle
+       names that reason: the notifications were not allowed, the worker that would receive could not be
+       installed, or the push service of the browser refused the subscription. #}
+    <p data-push-error="permission" hidden>{{ 'notifications.error.permission'|trans }}</p>
+    <p data-push-error="worker" hidden>{{ 'notifications.error.worker'|trans }}</p>
+    <p data-push-error="subscription" hidden>{{ 'notifications.error.subscription'|trans }}</p>
     <p data-push-unsupported {% if application_server_key is not null %}hidden{% endif %}>{{ application_server_key is null ? 'notifications.not_served'|trans : 'notifications.unsupported'|trans }}</p>
 {% endblock %}

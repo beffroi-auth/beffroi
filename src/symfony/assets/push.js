@@ -21,6 +21,13 @@
  * page whose subject is which browsers may be reached makes sure this one can receive, every time it is
  * opened.
  *
+ * Three things fail here for three reasons, and each is said in the paragraph of the page that names the
+ * same one: the notifications were not allowed ("permission"), the worker that would receive could not be
+ * installed ("worker"), the push service of this browser refused the subscription ("subscription"). Each
+ * is somebody else's to act on, a permission to give back, a certificate to trust, a push service to
+ * reach, so none of them is said in the words of the others. A worker that failed to register is
+ * registered again at the next press rather than answered with the refusal of the first.
+ *
  * Nothing is loaded from anywhere else, and nothing of a subscription reaches this provider but what the
  * form posts.
  */
@@ -37,7 +44,6 @@
         && typeof Notification === 'function';
 
     const unsupported = document.querySelector('[data-push-unsupported]');
-    const refused = form.querySelector('[data-push-error]') ?? document.querySelector('[data-push-error]');
 
     if (!supported || !form.dataset.applicationServerKey) {
         if (unsupported) {
@@ -74,9 +80,17 @@
         return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     };
 
-    const fail = () => {
-        if (refused) {
-            refused.hidden = false;
+    const fail = (reason) => {
+        const message = form.querySelector(`[data-push-error="${reason}"]`)
+            ?? document.querySelector(`[data-push-error="${reason}"]`);
+        if (message) {
+            message.hidden = false;
+        }
+    };
+
+    const clear = () => {
+        for (const message of document.querySelectorAll('[data-push-error]')) {
+            message.hidden = true;
         }
     };
 
@@ -89,6 +103,11 @@
                 await navigator.serviceWorker.ready;
 
                 return registration;
+            })
+            .catch((error) => {
+                registering = null;
+
+                throw error;
             });
 
         return registering;
@@ -128,16 +147,32 @@
     recognise().catch(() => {});
 
     form.querySelector('[data-push-button]').addEventListener('click', async () => {
-        if (refused) {
-            refused.hidden = true;
-        }
-        try {
-            if (await Notification.requestPermission() !== 'granted') {
-                fail();
+        clear();
 
-                return;
-            }
-            const registration = await worker();
+        let permission;
+        try {
+            permission = await Notification.requestPermission();
+        } catch {
+            fail('permission');
+
+            return;
+        }
+        if (permission !== 'granted') {
+            fail('permission');
+
+            return;
+        }
+
+        let registration;
+        try {
+            registration = await worker();
+        } catch {
+            fail('worker');
+
+            return;
+        }
+
+        try {
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: bytesOf(form.dataset.applicationServerKey),
@@ -146,8 +181,8 @@
             form.querySelector('input[name="p256dh"]').value = base64urlOf(subscription.getKey('p256dh'));
             form.querySelector('input[name="auth"]').value = base64urlOf(subscription.getKey('auth'));
             form.submit();
-        } catch (error) {
-            fail();
+        } catch {
+            fail('subscription');
         }
     });
 })();

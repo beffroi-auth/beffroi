@@ -781,9 +781,17 @@
         <source>notifications.not_served</source>
         <target>Ce fournisseur ne prévient pas les navigateurs.</target>
       </trans-unit>
-      <trans-unit id="b7d8776630" resname="notifications.error.browser">
-        <source>notifications.error.browser</source>
-        <target>Ce navigateur n'a pas été ajouté. Il a peut-être refusé les notifications.</target>
+      <trans-unit id="notifications.error.permission" resname="notifications.error.permission">
+        <source>notifications.error.permission</source>
+        <target>Ce navigateur n'a pas été ajouté : il n'a pas autorisé les notifications. Autorisez-les pour ce site dans les réglages du navigateur, puis appuyez de nouveau sur le bouton.</target>
+      </trans-unit>
+      <trans-unit id="notifications.error.worker" resname="notifications.error.worker">
+        <source>notifications.error.worker</source>
+        <target>Ce navigateur n'a pas été ajouté : le script qui recevrait les notifications n'a pas pu être installé. Cela arrive quand la page n'est pas servie sous un certificat que ce navigateur reconnaît.</target>
+      </trans-unit>
+      <trans-unit id="notifications.error.subscription" resname="notifications.error.subscription">
+        <source>notifications.error.subscription</source>
+        <target>Ce navigateur n'a pas été ajouté : son service de notification a refusé l'abonnement. Cela arrive quand le navigateur ne joint aucun service de notification, ou quand il tient déjà un abonnement pour une autre clé de ce fournisseur.</target>
       </trans-unit>
       <trans-unit id="e773e70d91" resname="notifications.error.refused">
         <source>notifications.error.refused</source>

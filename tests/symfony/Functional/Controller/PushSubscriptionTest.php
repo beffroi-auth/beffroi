@@ -9,6 +9,7 @@ use Beffroi\Core\Domain\Identity\PushSubscription;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\PushSubscriptionRepositoryInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use function strlen;
 use function strtr;
@@ -69,6 +70,40 @@ final class PushSubscriptionTest extends BrowserTestCase
             'This provider does not tell browsers.',
             $crawler->filter('p[data-push-unsupported]')->text(),
         );
+    }
+
+    /**
+     * Architecture §5.2: the page says why this browser was not added, one sentence per reason the script
+     * of the bundle can name, each hidden until it names that one. The reasons are somebody else's to act
+     * on: a permission to give back, a certificate to trust, a push service to reach.
+     */
+    #[Test]
+    #[DataProvider('provideFailures')]
+    public function thePageSaysWhyTheBrowserWasNotAdded(string $reason, string $sentence): void
+    {
+        // Given
+        $this->signIn(self::userWithPassword('alice', self::PASSWORD));
+        self::applicationServerKey();
+
+        // When
+        $crawler = $this->browser->request('GET', '/account/notifications');
+
+        // Then
+        $paragraph = $crawler->filter('p[data-push-error="' . $reason . '"]');
+        static::assertCount(1, $paragraph);
+        // hidden carries no value, so the attribute is there when it reads as the empty string and absent when it reads as null
+        static::assertSame('', $paragraph->attr('hidden'));
+        static::assertStringContainsString($sentence, $paragraph->text());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideFailures(): iterable
+    {
+        yield 'permission' => ['permission', 'it did not allow notifications'];
+        yield 'worker' => ['worker', 'could not be installed'];
+        yield 'subscription' => ['subscription', 'its push service refused the subscription'];
     }
 
     /**
