@@ -51,7 +51,7 @@ const KMS_FILE_DIRECTORY = '/app/var/kms';
 /**
  * The compose profiles a task that stops or reads the whole stack must name.
  */
-const COMPOSE_PROFILES = ['conformance', 'vault', 'aws'];
+const COMPOSE_PROFILES = ['conformance', 'vault', 'aws', 'rp'];
 
 /**
  * Where Caddy keeps the root of the authority it signs the certificates of the stack with, inside the op

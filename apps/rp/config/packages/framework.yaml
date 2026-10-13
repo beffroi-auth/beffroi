@@ -6,13 +6,11 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
-    http_client:
-        scoped_clients:
-            # Every call to the provider (discovery, JWKS, token, UserInfo), which is served by the internal
-            # CA of Caddy in the development stack: a CA PHP on the host does not read from the keychain.
-            op.client:
-                scope: '^https://op\.localhost/'
-                cafile: '%env(resolve:OIDC_PROVIDER_CA_FILE)%'
+    # The Caddy of op terminates TLS for rp.localhost and passes the request on over HTTP: without the scheme
+    # it forwards, the callback this application sends as "redirect_uri" would start with http://, and the
+    # provider compares a redirect URI byte for byte.
+    trusted_proxies: 'PRIVATE_SUBNETS'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-proto']
 
 when@test:
     framework:

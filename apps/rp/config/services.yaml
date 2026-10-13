@@ -21,3 +21,13 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # Every call to the provider (discovery, JWKS, token, UserInfo), verified against the root of the
+    # internal CA of Caddy. PHP streams and not curl: curl answers every *.localhost name with the loopback
+    # address itself (RFC 6761 §6.3) and never asks the network of the stack, where op.localhost is an alias
+    # of the op container.
+    op.client:
+        class: Symfony\Component\HttpClient\NativeHttpClient
+        arguments:
+            $defaultOptions:
+                cafile: '%env(resolve:OIDC_PROVIDER_CA_FILE)%'

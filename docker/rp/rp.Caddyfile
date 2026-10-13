@@ -1,0 +1,7 @@
+# The relying party of apps/rp, imported by the Caddy of the op container of compose.yaml and by no image:
+# a site of the development stack, served under the internal CA of Caddy like op.localhost, and passed to
+# the "rp" service, which "castor rp" starts. Caddy dials that service at each request, so nothing here
+# waits for it: rp.localhost answers 502 while it is not running.
+rp.localhost {
+	reverse_proxy rp:80
+}

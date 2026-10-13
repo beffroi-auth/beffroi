@@ -49,7 +49,6 @@ Every QA task runs in `ghcr.io/spomky-labs/phpqa` when Docker is available; [Mag
 ```bash
 composer install                  # monorepo (packages, tests)
 (cd apps/op && composer install)  # the application, path repositories to ../../src/*
-(cd apps/rp && composer install)  # the relying party, Symfony and nothing of this repository
 ```
 
 **The stack.**
@@ -80,7 +79,7 @@ castor demo [--check] [--rotate] [--passkey] [--form-post] [--logout-others] [--
 **The relying party.**
 
 ```bash
-castor rp [--stop]                # apps/rp on https://localhost:8003, the client "rp" of apps/op/config/packages/beffroi.yaml: its .env.local takes OIDC_RP_SECRET from apps/op/.env.local, the CA of Caddy is copied where its HTTP client reads it, and its server is started again so that it serves what was just written; /profile signs "alice" in and shows the claims of UserInfo and of the ID token
+castor rp [--stop]                # apps/rp on https://rp.localhost, the client "rp" of apps/op/config/packages/beffroi.yaml: its .env.local takes OIDC_RP_SECRET from apps/op/.env.local, then the "rp" service of compose.yaml (profile "rp") starts, served by the Caddy of op (docker/rp/rp.Caddyfile) and without worker mode, so an edit is served by the next request; /profile signs a user in and shows the claims of UserInfo and of the ID token
 ```
 
 **FIDO.**

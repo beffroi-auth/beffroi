@@ -5,6 +5,7 @@
 #   docker compose --profile conformance up -d    plus the OpenID conformance suite on https://localhost:8443
 #   docker compose --profile vault up -d          plus HashiCorp Vault (dev mode), whose Transit engine seals the signing keys
 #   docker compose --profile aws up -d            plus LocalStack (KMS only), an AWS KMS on the desk that seals them the same way
+#   docker compose --profile rp up -d             plus the relying party of apps/rp on https://rp.localhost (castor rp)
 #
 # The OP answers on op.localhost for the browser (every *.localhost name is loopback) and for the
 # conformance suite container (network alias). Caddy issues the certificate from its internal CA;
@@ -23,7 +24,11 @@ services:
       # the same listener, another name, and the site block of apps/op/frankenphp/mtls.Caddyfile, imported
       # the way worker.Caddyfile is. The host of SERVER_NAME above is untouched and keeps asking for nothing.
       MTLS_SERVER_NAME: ${MTLS_SERVER_NAME:-mtls.op.localhost}
-      CADDY_EXTRA_CONFIG: "import mtls.Caddyfile"
+      # The relying party of apps/rp, rp.localhost, is a site of this listener as well: docker/rp/rp.Caddyfile,
+      # mounted below rather than built into the image, being a site of the stack and not of the application.
+      CADDY_EXTRA_CONFIG: |-
+        import mtls.Caddyfile
+        import rp.Caddyfile
       DATABASE_URL: postgresql://${POSTGRES_USER:-beffroi}:${POSTGRES_PASSWORD:-beffroi}@database:5432/${POSTGRES_DB:-beffroi}?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: amqp://${RABBITMQ_USER:-beffroi}:${RABBITMQ_PASSWORD:-beffroi}@rabbitmq:5672/%2f/messages
       # https://xdebug.org/docs/all_settings#mode
@@ -68,6 +73,7 @@ services:
     volumes:
       - ./docker/op/entrypoint.sh:/entrypoint/entrypoint.sh:ro
       - ./docker/conformance/trust-nginx.sh:/entrypoint/trust-nginx.sh:ro
+      - ./docker/rp/rp.Caddyfile:/etc/frankenphp/rp.Caddyfile:ro
       - ./apps/op:/app
       - ./src:/src
       - /app/var/
@@ -171,6 +177,31 @@ services:
   # (docker/vault/beffroi-op.hcl); it is healthy once the key exists. The root token stays here, for the
   # script and for "castor provision --kms vault", which mints the token of the OP under that policy.
   # (A separate one-shot init service would make "docker compose up --wait" fail the moment it exits.)
+  # The relying party of apps/rp ("castor rp"), on https://rp.localhost through the Caddy of op
+  # (docker/rp/rp.Caddyfile). The image of op for its PHP and its Composer and nothing else of it: not its
+  # entrypoint, which builds the stylesheet of the OP, and not its worker mode, so that an edit is served by
+  # the next request and .env.local is read at each one. It calls https://op.localhost through the alias of
+  # op and verifies it against the root of the internal CA of Caddy, read from the volume of op.
+  rp:
+    build:
+      context: .
+      dockerfile: apps/op/Dockerfile
+      target: frankenphp_dev
+    profiles: [rp]
+    restart: unless-stopped
+    entrypoint: ["docker-php-entrypoint"]
+    command: ["sh", "-c", "[ -d vendor ] || composer install --prefer-dist --no-progress --no-interaction; exec frankenphp php-server --root /app/public --listen :80"]
+    working_dir: /app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost/ || exit 1"]
+      start_period: 120s
+    volumes:
+      - ./apps/rp:/app
+      - /app/var/
+      - caddy_data:/caddy:ro
+    depends_on:
+      - op
+
   vault:
     image: hashicorp/vault:${VAULT_VERSION:-2.1}
     profiles: [vault]
