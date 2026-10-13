@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../schema.json
+twig:
+    file_name_pattern: '*.twig'
+    globals:
+        oidc_provider_uri: '%env(OIDC_PROVIDER_URI)%'
+        oidc_client_id: '%env(OIDC_CLIENT_ID)%'
+
+when@test:
+    twig:
+        strict_variables: true

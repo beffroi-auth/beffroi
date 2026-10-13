@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Claims - rp{% endblock %}
+
+{% block body %}
+    {% set user = app.user %}
+    <h1>{{ user.name ?? user.userIdentifier }}</h1>
+    <h2>UserInfo</h2>
+    <table>
+        {% for label, value in {
+            'sub': user.sub,
+            'name': user.name,
+            'given_name': user.givenName,
+            'family_name': user.familyName,
+            'preferred_username': user.preferredUsername,
+            'email': user.email,
+            'email_verified': user.emailVerified is null ? null : (user.emailVerified ? 'true' : 'false'),
+            'locale': user.locale,
+            'roles': user.roles|join(', '),
+        } %}
+            {% if value is not null and value is not same as('') %}
+                <tr><th>{{ label }}</th><td><code>{{ value }}</code></td></tr>
+            {% endif %}
+        {% endfor %}
+    </table>
+    {% if id_token_claims %}
+        <h2>ID token</h2>
+        <pre>{{ id_token_claims|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) }}</pre>
+    {% endif %}
+{% endblock %}

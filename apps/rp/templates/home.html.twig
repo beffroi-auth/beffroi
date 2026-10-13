@@ -1,0 +1,13 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <h1>A relying party of the development OP</h1>
+    {% if error %}
+        <p class="error">{{ error.messageKey|replace(error.messageData) }}</p>
+    {% endif %}
+    {% if app.user %}
+        <p>Signed in as <code>{{ app.user.userIdentifier }}</code>. <a href="{{ path('app_profile') }}">See the claims</a>.</p>
+    {% else %}
+        <p>Signs a user in at <code>{{ oidc_provider_uri }}</code> with the <code>oidc_login</code> authenticator of Symfony, as the client <code>{{ oidc_client_id }}</code>.</p>
+    {% endif %}
+{% endblock %}

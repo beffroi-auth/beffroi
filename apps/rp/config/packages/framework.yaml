@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../schema.json
+# see https://symfony.com/doc/current/reference/configuration/framework.html
+framework:
+    secret: '%env(APP_SECRET)%'
+
+    # Note that the session will be started ONLY if you read or write from it.
+    session: true
+
+    http_client:
+        scoped_clients:
+            # Every call to the provider (discovery, JWKS, token, UserInfo), which is served by the internal
+            # CA of Caddy in the development stack: a CA PHP on the host does not read from the keychain.
+            op.client:
+                scope: '^https://op\.localhost/'
+                cafile: '%env(resolve:OIDC_PROVIDER_CA_FILE)%'
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file

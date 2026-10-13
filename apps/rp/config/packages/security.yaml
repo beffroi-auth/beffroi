@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../schema.json
+security:
+    # The "oidc" user provider builds the user from the claims collected at login: no database.
+    providers:
+        oidc:
+            oidc: ~
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        main:
+            lazy: true
+            provider: oidc
+            oidc_login:
+                provider_uri: '%env(OIDC_PROVIDER_URI)%'
+                http_client: op.client
+                client_id: '%env(OIDC_CLIENT_ID)%'
+                client_authentication:
+                    client_secret_basic: '%env(OIDC_CLIENT_SECRET)%'
+                scope: ['openid', 'profile', 'email']
+                pkce:
+                    enabled: true
+                    method: S256
+                failure_path: /
+                enable_end_session: true
+                post_logout_redirect_path: /
+            logout:
+                path: /logout
+                target: /
+
+    access_control:
+        - { path: ^/profile, roles: ROLE_USER }

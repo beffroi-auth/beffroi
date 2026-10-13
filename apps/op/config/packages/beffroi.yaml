@@ -469,6 +469,15 @@ when@dev:
                 # The scopes of the registration above, because one firewall of the demonstration drives
                 # both and asks for the same thing whichever it is signed in as (issue #556)
                 scope: 'openid profile email invoices.read invoices.pay invoices.write'
+            # The relying party of apps/rp: a Symfony application signing a user in with "oidc_login" and
+            # nothing else, served by the Symfony CLI on https://localhost:8003.
+            rp:
+                client_name: 'rp'
+                secret: '%env(OIDC_RP_SECRET)%'
+                redirect_uris: ['https://localhost:8003/oidc/callback']
+                post_logout_redirect_uris: ['https://localhost:8003/']
+                token_endpoint_auth_method: client_secret_basic
+                scope: 'openid profile email'
             # The clients of the forge of demonstration clients are not here, and that is the point of it
             # (issue #582): a visitor composes one on a page, it registers itself with an initial access
             # token the console issued (RFC 7591, decision 0009), it draws the keys its composition needs

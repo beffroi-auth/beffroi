@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../vendor/symfony/routing/Loader/schema/routing.schema.json
+# The routes the firewalls declare: the logout path, and the start and callback paths of "oidc_login".
+_security:
+    resource: security.route_loader
+    type: service
