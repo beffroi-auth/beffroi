@@ -1,0 +1,25 @@
+{# The form theme of the public pages: one row per field, the error under the field and tied to it, "optional" on the
+   label of a field that is not required. #}
+{% use 'form_div_layout.html.twig' with form_label_content as base_form_label_content %}
+
+{% block form_row %}
+    {%- set row_attr = row_attr|merge({class: ('field ' ~ row_attr.class|default('') ~ (errors|length > 0 ? ' has-error' : ''))|trim}) -%}
+    <div{% with {attr: row_attr} %}{{ block('attributes') }}{% endwith %}>
+        {{- form_label(form) -}}
+        {{- form_widget(form, {attr: errors|length > 0 ? attr|merge({'aria-invalid': 'true', 'aria-describedby': id ~ '_error'}) : attr}) -}}
+        {{- form_errors(form) -}}
+    </div>
+{% endblock %}
+
+{% block form_label_content %}
+    {{- block('base_form_label_content') -}}
+    {%- if not required and not compound %} <span class="optional">optional</span>{% endif -%}
+{% endblock %}
+
+{% block form_errors %}
+    {%- if errors|length > 0 -%}
+        <p class="field-error" id="{{ id }}_error">
+            {%- for error in errors %}{{ error.message }}{% if not loop.last %} {% endif %}{% endfor -%}
+        </p>
+    {%- endif -%}
+{% endblock %}

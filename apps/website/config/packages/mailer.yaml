@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../schema.json
+mailer:
+    dsn: '%env(MAILER_DSN)%'
+
+when@test:
+    mailer:
+        # The tests count the emails, they never send them, whatever MAILER_DSN the environment holds.
+        dsn: 'null://null'

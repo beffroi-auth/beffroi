@@ -1,0 +1,8 @@
+{
+  "jobs": [
+    {
+      "command": "15 3 * * * php bin/console app:leads:purge --no-interaction",
+      "size": "S"
+    }
+  ]
+}
