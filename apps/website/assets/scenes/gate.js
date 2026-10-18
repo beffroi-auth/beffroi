@@ -19,7 +19,8 @@ const roster = [
 
 const GREEN = '#c6f432'; // the signal green of the brand
 const RED = '#ff3d2e';
-const OUTLINED = { stroke: '#f2f4f6', 'stroke-width': 0.5, 'stroke-linejoin': 'miter', 'paint-order': 'stroke' };
+// The outline of a figure is the colour of the background, light or dark (app.css), so it stands clear of the tower.
+const OUTLINED = { style: 'stroke: var(--color-bg)', 'stroke-width': 0.5, 'stroke-linejoin': 'miter', 'paint-order': 'stroke' };
 const GATE_EDGE = 'M26.3 60V50.124L32 44.424L37.7 50.124V60'; // gate_edge of the template
 
 // Positions on the ground line, in units of the symbol. The opening of the gate spans 26 to 38, the plinth of the

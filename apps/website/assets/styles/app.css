@@ -1,4 +1,5 @@
-/* Beffroi, Watchtower HUD: the tokens of Home-2a and the logo kit v2.0. Light mode only. */
+/* Beffroi, Watchtower HUD: the tokens of Home-2a and the logo kit v2.0. Light or dark, as the device is set: the dark
+   tokens swap ink and paper, as the favicon does. */
 
 @font-face {
   font-family: 'Chakra Petch';
@@ -77,22 +78,52 @@
 
   --color-bg: #f2f4f6;
   --color-surface: #e6e9ee;
+  --color-field: #fff;
   --color-text: #0c1016;
+  --color-divider: color-mix(in srgb, var(--color-text) 36%, transparent);
+  --color-muted: color-mix(in srgb, var(--color-text) 72%, transparent);
+  --color-quiet: color-mix(in srgb, var(--color-text) 68%, transparent);
+  /* The accent of lines, markers and focus; the accent of text, which must read on the background; the button. */
   --color-accent: #2f45ff;
-  --color-accent-600: #2336e0;
-  --color-accent-700: #1b2bb8;
-  --color-accent-100: #e7eaff;
-  --color-accent-200: #cfd5ff;
-  --color-divider: color-mix(in srgb, #0c1016 36%, transparent);
-  --color-muted: color-mix(in srgb, #0c1016 72%, transparent);
-  --color-quiet: color-mix(in srgb, #0c1016 68%, transparent);
+  --color-accent-ink: #1b2bb8;
+  --color-accent-ink-hover: #2f45ff;
+  --color-button: #2f45ff;
+  --color-button-hover: #2336e0;
+  --color-button-active: #1b2bb8;
+  --color-on-button: #f2f4f6;
+  --color-grid: color-mix(in srgb, #2f45ff 9%, transparent);
   --color-error: #b3261e;
   --signal: #c6f432;
+  /* The glow of the grid around the window of the belfry, drawn over the ink of the tower. */
+  --gate-glow: #a9b3ff;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%230c1016' d='M0 0h12L6 8z'/%3E%3C/svg%3E");
 
   --max: 1296px;
   --gutter: clamp(16px, 4vw, 48px);
 
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Dark: ink and paper swap. The blue of lines and text lightens to read on the ink, the button keeps the blue of the
+   brand, and the belfry of the gate is drawn in paper over the dark, its grid glowing blue. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-bg: #0c1016;
+    --color-surface: #161b23;
+    --color-field: #11161e;
+    --color-text: #f2f4f6;
+    --color-accent: #5468ff;
+    --color-accent-ink: #9ba6ff;
+    --color-accent-ink-hover: #c4caff;
+    --color-button-hover: #4357ff;
+    --color-button-active: #2336e0;
+    --color-grid: color-mix(in srgb, #5468ff 14%, transparent);
+    --color-error: #ff7a6e;
+    --gate-glow: #2f45ff;
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23f2f4f6' d='M0 0h12L6 8z'/%3E%3C/svg%3E");
+  }
 }
 
 *,
@@ -141,13 +172,13 @@ figure {
 }
 
 a {
-  color: var(--color-accent-700);
+  color: var(--color-accent-ink);
   text-underline-offset: 3px;
   transition: color 0.15s ease;
 }
 
 a:hover {
-  color: var(--color-accent);
+  color: var(--color-accent-ink-hover);
 }
 
 :focus {
@@ -177,6 +208,11 @@ select {
 
 /* Layout and shared pieces */
 
+/* The ink of the logo follows the text, light or dark; its window stays blue. */
+.lockup {
+  color: var(--color-text);
+}
+
 .wrap {
   width: 100%;
   max-width: var(--max);
@@ -189,8 +225,8 @@ select {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(color-mix(in srgb, #2f45ff 9%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, #2f45ff 9%, transparent) 1px, transparent 1px);
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
   background-size: 24px 24px;
   background-position: -1px -1px;
 }
@@ -211,7 +247,7 @@ select {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-accent-700);
+  color: var(--color-accent-ink);
 }
 
 .label::before {
@@ -233,7 +269,7 @@ select {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-accent-700);
+  color: var(--color-accent-ink);
 }
 
 .badge::before {
@@ -287,16 +323,16 @@ select {
 }
 
 .btn-primary {
-  background: var(--color-accent);
-  color: var(--color-bg);
+  background: var(--color-button);
+  color: var(--color-on-button);
 }
 
 .btn-primary:hover {
-  background: var(--color-accent-600);
+  background: var(--color-button-hover);
 }
 
 .btn-primary:active {
-  background: var(--color-accent-700);
+  background: var(--color-button-active);
 }
 
 .arrow-link {
@@ -315,7 +351,7 @@ select {
 }
 
 .arrow-link:hover {
-  color: var(--color-accent-700);
+  color: var(--color-accent-ink);
 }
 
 .arrow-link:hover svg {
@@ -363,7 +399,7 @@ select {
 }
 
 .topbar-event {
-  color: var(--color-accent-700);
+  color: var(--color-accent-ink);
 }
 
 .footer {
@@ -468,7 +504,7 @@ select {
 
 .claim-index {
   flex: none;
-  color: var(--color-accent-700);
+  color: var(--color-accent-ink);
 }
 
 /* The scene of the gate, drawn small: same ratio as its viewBox, 92 by 86 u, so nothing is ever cropped. */
@@ -595,7 +631,7 @@ select {
   padding: 0 14px;
   border: 1px solid var(--color-text);
   border-radius: 0;
-  background: #fff;
+  background-color: var(--color-field);
   color: var(--color-text);
   font-size: 17px;
   -webkit-appearance: none;
@@ -605,7 +641,7 @@ select {
 
 .field select {
   padding-right: 40px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%230c1016' d='M0 0h12L6 8z'/%3E%3C/svg%3E");
+  background-image: var(--select-arrow);
   background-repeat: no-repeat;
   background-position: right 14px center;
   cursor: pointer;

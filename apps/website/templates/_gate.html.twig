@@ -4,6 +4,8 @@
     come out in the gate, where the provider checks each one. Let in, the outline of the gate lights green and the
     visitor walks on, in front of the left leg; turned away, it lights red and the visitor goes back behind the wall.
     The motion is assets/scenes/gate.js; this markup is the still frame, which is all there is under reduced motion.
+    Ink and paper are the colours of the text and of the background (app.css), so in dark mode the belfry is drawn in
+    paper over the dark.
 #}
 {% set outline = 'M32 4L37 9V13L41 17V38H43V28.5L46.5 25L50 28.5V56H52V60H38V50L32 44L26 50V60H12V56H14V28.5L17.5 25L21 28.5V38H23V17L27 13V9Z' %}
 {% set slits = ' M16.75 31H18.25V36H16.75Z M45.75 31H47.25V36H45.75Z' %}
@@ -16,7 +18,7 @@
         <svg class="gate-symbol" viewBox="-24 -12 92 86" preserveAspectRatio="xMidYMid slice" role="img" aria-label="The Beffroi belfry at the gate, letting some visitors in and turning others away">
             <defs>
                 <pattern id="bf-dots" width="4" height="4" patternUnits="userSpaceOnUse">
-                    <circle cx="2" cy="2" r=".26" fill="#0c1016" fill-opacity=".3"/>
+                    <circle cx="2" cy="2" r=".26" style="fill: var(--color-text)" fill-opacity=".3"/>
                 </pattern>
                 <radialGradient id="bf-fade" cx="32" cy="66" r="58" gradientUnits="userSpaceOnUse">
                     <stop offset="0" stop-color="#fff"/>
@@ -32,29 +34,29 @@
                     <stop offset="1" stop-color="#2f45ff" stop-opacity="0"/>
                 </radialGradient>
                 <linearGradient id="bf-ground" x1="-40" y1="0" x2="104" y2="0" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#0c1016" stop-opacity="0"/>
-                    <stop offset=".3" stop-color="#0c1016" stop-opacity=".3"/>
-                    <stop offset=".7" stop-color="#0c1016" stop-opacity=".3"/>
-                    <stop offset="1" stop-color="#0c1016" stop-opacity="0"/>
+                    <stop offset="0" style="stop-color: var(--color-text)" stop-opacity="0"/>
+                    <stop offset=".3" style="stop-color: var(--color-text)" stop-opacity=".3"/>
+                    <stop offset=".7" style="stop-color: var(--color-text)" stop-opacity=".3"/>
+                    <stop offset="1" style="stop-color: var(--color-text)" stop-opacity="0"/>
                 </linearGradient>
                 <linearGradient id="bf-lit" x1="0" y1="21" x2="0" y2="31" gradientUnits="userSpaceOnUse">
                     <stop offset="0" stop-color="#7d8bff"/>
                     <stop offset="1" stop-color="#2f45ff"/>
                 </linearGradient>
                 <radialGradient id="bf-grid-paper" cx="32" cy="26" r="32" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#f2f4f6" stop-opacity=".42"/>
-                    <stop offset=".3" stop-color="#f2f4f6" stop-opacity=".336"/>
-                    <stop offset=".65" stop-color="#f2f4f6" stop-opacity=".134"/>
-                    <stop offset="1" stop-color="#f2f4f6" stop-opacity=".042"/>
+                    <stop offset="0" style="stop-color: var(--color-bg)" stop-opacity=".42"/>
+                    <stop offset=".3" style="stop-color: var(--color-bg)" stop-opacity=".336"/>
+                    <stop offset=".65" style="stop-color: var(--color-bg)" stop-opacity=".134"/>
+                    <stop offset="1" style="stop-color: var(--color-bg)" stop-opacity=".042"/>
                 </radialGradient>
                 <radialGradient id="bf-grid-core" cx="32" cy="26" r="13" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#a9b3ff" stop-opacity=".8"/>
-                    <stop offset=".45" stop-color="#a9b3ff" stop-opacity=".44"/>
-                    <stop offset="1" stop-color="#a9b3ff" stop-opacity="0"/>
+                    <stop offset="0" style="stop-color: var(--gate-glow)" stop-opacity=".8"/>
+                    <stop offset=".45" style="stop-color: var(--gate-glow)" stop-opacity=".44"/>
+                    <stop offset="1" style="stop-color: var(--gate-glow)" stop-opacity="0"/>
                 </radialGradient>
             </defs>
 
-            <rect {{ full|raw }} fill="#f2f4f6"/>
+            <rect {{ full|raw }} style="fill: var(--color-bg)"/>
             <rect class="gate-halo" {{ full|raw }} fill="url(#bf-halo)"/>
             <rect {{ full|raw }} fill="url(#bf-dots)" mask="url(#bf-fade-mask)"/>
             <line x1="-40" y1="60" x2="104" y2="60" stroke="url(#bf-ground)" stroke-width=".25"/>
@@ -62,8 +64,8 @@
                 <circle cx="{{ point[0] }}" cy="{{ point[1] }}" r=".45" fill="#2f45ff" opacity=".25"/>
             {% endfor %}
 
-            <path fill="#0c1016" fill-rule="evenodd" d="{{ outline ~ slits }}"/>
-            <path fill="#0c1016" d="M31.25 0H32.75V5H31.25Z"/>
+            <path style="fill: var(--color-text)" fill-rule="evenodd" d="{{ outline ~ slits }}"/>
+            <path style="fill: var(--color-text)" d="M31.25 0H32.75V5H31.25Z"/>
             <path fill="#2f45ff" d="M32.75 0.5H36.5L38 2L36.5 3.5H32.75Z"/>
             <g class="gate-light">
                 <path fill="none" stroke="url(#bf-grid-paper)" stroke-width=".14" d="{{ grid }}"/>
@@ -93,14 +95,14 @@
                     <path clip-rule="evenodd" d="M-60 -30H130V110H-60Z {{ outline }}"/>
                 </clipPath>
             </defs>
-            <g data-cast fill="#0c1016">
+            <g data-cast style="fill: var(--color-text)">
                 <path d="{{ gate_edge }}" fill="none" stroke="#c6f432" stroke-width=".6" stroke-linejoin="miter"/>
-                <g transform="translate(32 60)" stroke="#f2f4f6" stroke-width=".5" stroke-linejoin="miter" paint-order="stroke">
+                <g transform="translate(32 60)" style="stroke: var(--color-bg)" stroke-width=".5" stroke-linejoin="miter" paint-order="stroke">
                     <use href="#gate-person"/>
                     <use href="#gate-mark-ok"/>
                 </g>
                 <g clip-path="url(#gate-clear)">
-                    <g transform="translate(56 60)" stroke="#f2f4f6" stroke-width=".5" stroke-linejoin="miter" paint-order="stroke">
+                    <g transform="translate(56 60)" style="stroke: var(--color-bg)" stroke-width=".5" stroke-linejoin="miter" paint-order="stroke">
                         <use href="#gate-service"/>
                     </g>
                 </g>
