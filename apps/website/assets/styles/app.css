@@ -452,13 +452,14 @@ select {
 .teaser-inner {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(260px, 36vw, 460px);
+  grid-template-columns: minmax(0, 1fr) clamp(240px, 30vw, 420px);
   gap: 48px 64px;
   align-items: center;
   padding-block: clamp(64px, 14vh, 160px);
 }
 
 .teaser-text {
+  container-type: inline-size;
   display: grid;
   justify-items: start;
   gap: 28px;
@@ -480,9 +481,9 @@ select {
   height: clamp(36px, 6vw, 56px);
 }
 
+/* Two lines, sized on the width of the text, as the title of the landing page. */
 .teaser-title {
-  max-width: 14em;
-  font-size: clamp(34px, 6vw, 64px);
+  font-size: clamp(24px, 100cqi / 13.4, 64px);
   line-height: 1.04;
   letter-spacing: -0.01em;
 }
@@ -531,31 +532,44 @@ select {
   padding-block: clamp(28px, min(6vw, 5vh), 72px);
 }
 
+/* The title runs the width of the pitch, the definition sits beside the tower it describes. */
+.pitch {
+  container-type: inline-size;
+}
+
 .pitch-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(104px, 22vw, 200px);
-  gap: 20px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) clamp(128px, 38cqi, 200px);
+  grid-template-areas:
+    'badge badge'
+    'title title'
+    'def gate';
+  gap: 0 20px;
+  align-items: center;
 }
 
 .pitch-head .badge {
+  grid-area: badge;
+  justify-self: start;
   margin-bottom: 18px;
 }
 
+/* Two lines, broken after the comma: the first, "An OpenID Connect provider,", is 13.11em wide, so the title is sized
+   on the width of its column. The same on the teaser. */
 .pitch h1 {
-  font-size: clamp(30px, 4.6vw, 52px);
+  grid-area: title;
+  font-size: clamp(24px, 100cqi / 13.4, 52px);
   line-height: 1.04;
   letter-spacing: -0.01em;
 }
 
-/* Beside the form, the column is narrow up to about 1200px: the title is sized on it, five lines down to four. */
-@media (min-width: 901px) {
-  .pitch h1 {
-    font-size: clamp(30px, 3.8vw, 52px);
-  }
+.pitch .definition {
+  grid-area: def;
+  margin-top: 16px;
 }
 
-.pitch .definition {
+.pitch-head .gate {
+  grid-area: gate;
   margin-top: 16px;
 }
 
@@ -897,40 +911,15 @@ select {
   }
 }
 
-/* Phone: the title runs the full width, the definition sits beside the tower it describes, which grows by half; the
-   year leaves the top bar so it holds on one line; the small mono text grows. */
+/* Phone: the definition and the tower closer together; the year leaves the top bar so it holds on one line; the small
+   mono text grows. */
 @media (max-width: 560px) {
-  .pitch-head > div {
-    display: contents;
-  }
-
   .pitch-head {
-    grid-template-columns: minmax(0, 1fr) clamp(128px, 38vw, 168px);
-    grid-template-areas:
-      'badge badge'
-      'title title'
-      'def gate';
-    gap: 0 16px;
-    align-items: center;
+    column-gap: 16px;
   }
 
-  .pitch-head .badge {
-    grid-area: badge;
-    justify-self: start;
-  }
-
-  .pitch h1 {
-    grid-area: title;
-    font-size: 34px;
-  }
-
-  .pitch .definition {
-    grid-area: def;
-    margin-top: 12px;
-  }
-
+  .pitch .definition,
   .pitch-head .gate {
-    grid-area: gate;
     margin-top: 12px;
   }
 
