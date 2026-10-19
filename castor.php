@@ -7,7 +7,7 @@ declare(strict_types=1);
  * global namespace, so a task keeps the name of its function. Three sides:
  *
  *   .castor/stack/   what builds and checks the stack and what the CI runs: the stack itself (stack.php), its
- *                    provisioning (provision.php) and the quality tools (qa.php);
+ *                    provisioning (provision.php), the quality tools (qa.php) and the website (website.php);
  *   .castor/lab/     the tests and the experiments played against the running stack: the OpenID conformance
  *                    suite (conformance.php), oidc-demo, Symfony's oidc_login (demo.php), the client
  *                    certificate at the edge (mtls.php), and what a login costs (cost.php);

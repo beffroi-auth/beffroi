@@ -1,0 +1,63 @@
+name: Website
+
+on:
+  push:
+    branches:
+      - '*.*.x'
+  pull_request:
+    paths:
+      - '.github/workflows/website.yml'
+      - '.castor/stack/website.php'
+      - '.castor/stack/qa.php'
+      - 'apps/website/**'
+  workflow_dispatch: ~
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# The website of beffroi.tech (apps/website), a Symfony application of its own that nothing of the identity
+# provider requires and that requires nothing of it: its own lock, its own vendor, its own kernel. What judges it
+# here is what can be judged without Scalingo: its templates and its configuration, PHPStan at level max with the
+# Symfony and Doctrine extensions it installs, and its suite on PostgreSQL. Its formatting, its linting and Rector
+# are the quality job of ci.yml, whose paths hold it. Nothing deploys from here: a deployment is an archive of
+# HEAD:apps/website handed to Scalingo by hand (apps/website/README.md).
+jobs:
+  website:
+    name: "The website lints, PHPStan finds nothing, and its suite is green"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/spomky-labs/phpqa:8.5
+    env:
+      DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
+    services:
+      database:
+        image: public.ecr.aws/docker/library/postgres:16-alpine
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        options: >-
+          --health-cmd "pg_isready -d app -U app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+      # --no-scripts: the scripts of the install clear a cache the steps below warm themselves, and the importmap
+      # names no package to download.
+      - uses: ramsey/composer-install@v4
+        with:
+          working-directory: apps/website
+          dependency-versions: locked
+          composer-options: --optimize-autoloader --no-scripts
+      - name: "Templates and configuration"
+        working-directory: apps/website
+        run: |
+          php bin/console lint:twig templates
+          php bin/console lint:yaml config
+          php bin/console lint:container
+      - name: "Static Analysis (PHPStan)"
+        run: castor website-phpstan
+      - name: "The suite of the website, on PostgreSQL"
+        run: castor website-phpunit
