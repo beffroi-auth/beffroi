@@ -12,6 +12,9 @@ The website of Beffroi, served at https://beffroi.tech. For now:
 Symfony 8.2, PHP 8.5, PostgreSQL, Twig and AssetMapper (no Node, no build step). The public pages set no cookie and
 load nothing from another site; their only script is the scene of the gate.
 
+It lives in `apps/website` of the monorepo, an application of its own beside `apps/op`: its own `composer.json`, its
+own lock and its own `vendor`, and nothing of the identity provider required. No mirror carries it.
+
 ## How a sign-up works
 
 The form posts to the page itself, without JavaScript. CSRF protection is stateless (the `Sec-Fetch-Site` and
@@ -27,7 +30,10 @@ A lead is kept twelve months after its last consent: `app:leads:purge`, run ever
 
 ## Run it
 
+From `apps/website`:
+
 ```bash
+composer install
 docker compose up -d --wait                               # PostgreSQL, and Mailpit for the emails
 symfony console doctrine:migrations:migrate --no-interaction
 symfony console app:admin:create you@example.com          # asks the password twice
@@ -39,14 +45,22 @@ console and the tests through it. The emails land in Mailpit (`docker compose po
 
 ## Check it
 
+From the root of the monorepo, as the Website workflow does (`.github/workflows/website.yml`):
+
 ```bash
-symfony console doctrine:database:create --env=test --if-not-exists
-symfony console doctrine:migrations:migrate --env=test --no-interaction
-symfony php bin/phpunit
-symfony console cache:warmup && vendor/bin/phpstan analyse   # level 8
+castor website-phpunit     # the suite, on the PostgreSQL of compose.yaml unless DATABASE_URL names one
+castor website-phpstan     # PHPStan at level max, with its Symfony and Doctrine extensions
+castor mago-format && castor mago-lint && castor rector   # the formatter, the linter and Rector of the monorepo
 ```
 
 ## Deploy it on Scalingo
+
+The Scalingo app `beffroi-tech` is deployed from an archive of this directory, from the root of the monorepo:
+
+```bash
+git archive --prefix=website/ HEAD:apps/website | gzip > website.tar.gz
+scalingo --app beffroi-tech deploy website.tar.gz
+```
 
 The PHP buildpack (Nginx and PHP-FPM) reads `composer.json`: PHP `~8.5`, the document root `public/`, the Nginx
 include of the login, the compilation of the assets (`asset-map:compile`) and the log file it streams
