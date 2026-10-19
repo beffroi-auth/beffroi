@@ -1,0 +1,959 @@
+/* Beffroi, Watchtower HUD: the tokens of Home-2a and the logo kit v2.0. Light or dark, as the device is set: the dark
+   tokens swap ink and paper, as the favicon does. */
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('../fonts/chakra-petch-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('../fonts/archivo-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Latin Extended: the names of the visitors, Polish ones first (ą, ć, ę, ł, ń, ś, ź, ż), typed into the form. */
+@font-face {
+  font-family: 'Archivo';
+  src: url('../fonts/archivo-latin-ext-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* The ɛ and ʁ of /bɛ.fʁwa/, which Archivo does not draw: Noto Sans (OFL), cut down to those two glyphs, its x-height
+   within a few units of Archivo's. Declared after the Latin Extended face, so it is the one tried first for them. */
+@font-face {
+  font-family: 'Archivo';
+  src: url('../fonts/noto-sans-ipa-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+025B, U+0281;
+}
+
+@font-face {
+  font-family: 'Martian Mono';
+  src: url('../fonts/martian-mono-latin-wdth-normal.woff2') format('woff2');
+  font-weight: 100 800;
+  font-stretch: 75% 112.5%;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Metric-matched fallbacks, so that the swap to the web fonts moves nothing. */
+@font-face {
+  font-family: 'Chakra Petch fallback';
+  src: local('Arial');
+  font-weight: 600;
+  size-adjust: 106.3255%;
+  ascent-override: 93.2984%;
+  descent-override: 28.9676%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Archivo fallback';
+  src: local('Arial');
+  font-weight: 100 900;
+  size-adjust: 102.2878%;
+  ascent-override: 85.8362%;
+  descent-override: 20.5303%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Martian Mono fallback';
+  src: local('Courier New');
+  font-weight: 100 800;
+  size-adjust: 124.9797%;
+  ascent-override: 80.013%;
+  descent-override: 16.0026%;
+}
+
+:root {
+  color-scheme: light;
+
+  --font-heading: 'Chakra Petch', 'Chakra Petch fallback', system-ui, sans-serif;
+  --font-body: 'Archivo', 'Archivo fallback', system-ui, sans-serif;
+  --font-mono: 'Martian Mono', 'Martian Mono fallback', ui-monospace, monospace;
+
+  --color-bg: #f2f4f6;
+  --color-surface: #e6e9ee;
+  --color-field: #fff;
+  --color-text: #0c1016;
+  --color-divider: color-mix(in srgb, var(--color-text) 36%, transparent);
+  --color-muted: color-mix(in srgb, var(--color-text) 72%, transparent);
+  --color-quiet: color-mix(in srgb, var(--color-text) 68%, transparent);
+  /* The accent of lines, markers and focus; the accent of text, which must read on the background; the button. */
+  --color-accent: #2f45ff;
+  --color-accent-ink: #1b2bb8;
+  --color-accent-ink-hover: #2f45ff;
+  --color-button: #2f45ff;
+  --color-button-hover: #2336e0;
+  --color-button-active: #1b2bb8;
+  --color-on-button: #f2f4f6;
+  --color-grid: color-mix(in srgb, #2f45ff 9%, transparent);
+  --color-error: #b3261e;
+  --signal: #c6f432;
+  /* The glow of the grid around the window of the belfry, drawn over the ink of the tower. */
+  --gate-glow: #a9b3ff;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%230c1016' d='M0 0h12L6 8z'/%3E%3C/svg%3E");
+
+  --max: 1296px;
+  --gutter: clamp(16px, 4vw, 48px);
+
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Dark: ink and paper swap. The blue of lines and text lightens to read on the ink, the button keeps the blue of the
+   brand, and the belfry of the gate is drawn in paper over the dark, its grid glowing blue. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-bg: #0c1016;
+    --color-surface: #161b23;
+    --color-field: #11161e;
+    --color-text: #f2f4f6;
+    --color-accent: #5468ff;
+    --color-accent-ink: #9ba6ff;
+    --color-accent-ink-hover: #c4caff;
+    --color-button-hover: #4357ff;
+    --color-button-active: #2336e0;
+    --color-grid: color-mix(in srgb, #5468ff 14%, transparent);
+    --color-error: #ff7a6e;
+    --gate-glow: #2f45ff;
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23f2f4f6' d='M0 0h12L6 8z'/%3E%3C/svg%3E");
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+  text-wrap: pretty;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main {
+  flex: 1;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+p,
+ul,
+figure {
+  margin: 0;
+}
+
+a {
+  color: var(--color-accent-ink);
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--color-accent-ink-hover);
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+/* Layout and shared pieces */
+
+/* The ink of the logo follows the text, light or dark; its window stays blue. */
+.lockup {
+  color: var(--color-text);
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.blueprint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
+}
+
+.label::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
+}
+
+.badge::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  background: var(--color-accent);
+}
+
+.badge-signal {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.badge-signal::before {
+  background: var(--signal);
+  outline: 1px solid var(--color-text);
+}
+
+.chamfer-12 {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 22px 0 18px;
+  border: 1px solid transparent;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn svg {
+  flex: none;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.btn:hover svg {
+  transform: translateX(3px);
+}
+
+.btn-primary {
+  background: var(--color-button);
+  color: var(--color-on-button);
+}
+
+.btn-primary:hover {
+  background: var(--color-button-hover);
+}
+
+.btn-primary:active {
+  background: var(--color-button-active);
+}
+
+/* The chamfer clips whatever is drawn outside the button: its ring of focus is drawn inside. */
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-on-button);
+  outline-offset: -6px;
+}
+
+.arrow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.arrow-link svg {
+  transition: transform 0.2s var(--ease-out);
+}
+
+.arrow-link:hover {
+  color: var(--color-accent-ink);
+}
+
+.arrow-link:hover svg {
+  transform: translateX(3px);
+}
+
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 10px 14px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transform: translateY(-160%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+  color: var(--color-bg);
+}
+
+/* Top bar and footer */
+
+.topbar {
+  border-bottom: 2px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.topbar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-block: 14px;
+}
+
+.topbar-home {
+  display: block;
+}
+
+.topbar-event {
+  color: var(--color-accent-ink);
+}
+
+.footer {
+  border-top: 2px solid var(--color-divider);
+}
+
+.footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-block: 20px;
+  color: var(--color-muted);
+}
+
+/* A taller target for a thumb, the line unmoved. */
+.footer-inner a {
+  padding-block: 10px;
+  margin-block: -10px;
+  color: var(--color-muted);
+}
+
+/* The teaser at the root */
+
+.teaser {
+  position: relative;
+  display: grid;
+  align-items: center;
+  overflow: clip;
+}
+
+/* The text, and the scene of the gate beside it; under it below 760px. */
+.teaser-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(240px, 30vw, 420px);
+  gap: 48px 64px;
+  align-items: center;
+  padding-block: clamp(64px, 14vh, 160px);
+}
+
+.teaser-text {
+  container-type: inline-size;
+  display: grid;
+  justify-items: start;
+  gap: 28px;
+}
+
+@media (max-width: 760px) {
+  .teaser-inner {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: clamp(40px, 10vh, 96px);
+  }
+
+  .teaser-inner .gate {
+    width: min(100%, 360px);
+  }
+}
+
+.teaser-lockup {
+  width: auto;
+  height: clamp(36px, 6vw, 56px);
+}
+
+/* Two lines, sized on the width of the text, as the title of the landing page. */
+.teaser-title {
+  font-size: clamp(24px, 100cqi / 13.4, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+}
+
+/* The name, as a dictionary gives it: the word, how it is said, what it is. Under the title of the teaser and of the
+   landing page. */
+
+.definition {
+  max-width: 34em;
+  font-size: clamp(17px, 1.7vw, 20px);
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.definition dfn {
+  font-family: var(--font-heading);
+  font-style: normal;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* A step back from the sense, still AA at 17px (4.8:1 light, 6.6:1 dark). Upright: Archivo has no italic to give. */
+.definition-ipa,
+.definition abbr {
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.definition abbr {
+  text-decoration: none;
+}
+
+/* The landing page of SymfonyCon: the pitch, and the form beside it or under it */
+
+.landing {
+  position: relative;
+  overflow: clip;
+}
+
+.landing-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: 40px 64px;
+  align-items: start;
+  /* Bounded by the height too, so the button of the form shows on a 1280 by 720 laptop. */
+  padding-block: clamp(28px, min(6vw, 5vh), 72px);
+}
+
+/* The title runs the width of the pitch, the definition sits beside the tower it describes. */
+.pitch {
+  container-type: inline-size;
+}
+
+.pitch-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(128px, 38cqi, 200px);
+  grid-template-areas:
+    'badge badge'
+    'title title'
+    'def gate';
+  gap: 0 20px;
+  align-items: center;
+}
+
+.pitch-head .badge {
+  grid-area: badge;
+  justify-self: start;
+  margin-bottom: 18px;
+}
+
+/* Two lines, broken after the comma: the first, "An OpenID Connect provider,", is 13.11em wide, so the title is sized
+   on the width of its column. The same on the teaser. */
+.pitch h1 {
+  grid-area: title;
+  font-size: clamp(24px, 100cqi / 13.4, 52px);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+}
+
+.pitch .definition {
+  grid-area: def;
+  margin-top: 16px;
+}
+
+.pitch-head .gate {
+  grid-area: gate;
+  margin-top: 16px;
+}
+
+.claims {
+  display: grid;
+  gap: 0;
+  margin-top: clamp(24px, 4vw, 40px);
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-divider);
+}
+
+.claims li {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-block: 10px;
+  border-bottom: 1px solid var(--color-divider);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: clamp(17px, 1.8vw, 20px);
+  line-height: 1.3;
+}
+
+.claim-index {
+  flex: none;
+  color: var(--color-accent-ink);
+}
+
+/* The scene of the gate, drawn small: same ratio as its viewBox, 92 by 86 u, so nothing is ever cropped. */
+
+.gate {
+  position: relative;
+  aspect-ratio: 92 / 86;
+}
+
+.gate-frame {
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface);
+}
+
+.gate-frame svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.gate-scene {
+  pointer-events: none;
+}
+
+.bracket {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.bracket.tl {
+  top: -6px;
+  left: -6px;
+  border-top: 2px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
+}
+
+.bracket.br {
+  bottom: -6px;
+  right: -6px;
+  border-bottom: 2px solid var(--color-accent);
+  border-right: 2px solid var(--color-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gate-light,
+  .gate-halo {
+    animation: bf-fade 0.3s var(--ease-out) both;
+  }
+}
+
+@keyframes bf-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The form */
+
+/* #signup: the page posts to itself with this fragment, so a phone shows the form and its errors, not the top again. */
+.signup {
+  scroll-margin-top: 16px;
+  padding: 2px;
+  background: var(--color-text);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+
+.signup-inner {
+  padding: clamp(20px, 3vw, 32px);
+  background: var(--color-bg);
+  clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px));
+}
+
+.signup h2 {
+  font-size: clamp(24px, 2.6vw, 30px);
+  line-height: 1.1;
+}
+
+.signup-lead {
+  margin-top: 8px;
+  color: var(--color-muted);
+}
+
+.signup-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field > label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.optional {
+  color: var(--color-quiet);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--color-text);
+  border-radius: 0;
+  background-color: var(--color-field);
+  color: var(--color-text);
+  font-size: 17px;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field select {
+  padding-right: 40px;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+/* The field to fix stands out: a red line two pixels thick, and its label in red. */
+.has-error input,
+.has-error select {
+  border-color: var(--color-error);
+  box-shadow: inset 0 0 0 1px var(--color-error);
+}
+
+.has-error > label {
+  color: var(--color-error);
+}
+
+.field-error {
+  color: var(--color-error);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* "Which one?" shows once "Other" is chosen; a browser without :has() shows it always, and it is optional anyway. */
+@supports selector(:has(*)) {
+  .signup-form:not(:has(select option[value='other']:checked)) .field-other:not(.has-error) {
+    display: none;
+  }
+
+  /* "Choose one" is a prompt, not an answer: quiet, and the options of the list keep the ink. */
+  .field select:has(option[value='']:checked) {
+    color: var(--color-quiet);
+  }
+
+  .field select option {
+    color: var(--color-text);
+  }
+}
+
+.consent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.consent input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.consent label {
+  cursor: pointer;
+}
+
+/* On its own line under the sentence, at every width; a taller target for a thumb, the line unmoved. */
+.consent-link {
+  display: block;
+  width: fit-content;
+  padding-block: 8px;
+  margin-block: -4px -8px;
+}
+
+.consent .field-error {
+  margin-top: 4px;
+}
+
+.submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* The thank-you page and the privacy notice */
+
+.thanks {
+  position: relative;
+  overflow: clip;
+}
+
+/* Both start on the left edge of the logo, as the landing page does; their text keeps a readable measure. The scene of
+   the gate, its still frame only, sits beside the thanks, under them below 760px. */
+.thanks-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(220px, 30vw, 380px);
+  gap: 48px 64px;
+  align-items: center;
+  padding-block: clamp(56px, 12vh, 128px);
+}
+
+.thanks-text {
+  display: grid;
+  justify-items: start;
+  gap: 20px;
+}
+
+.thanks-text > *,
+.prose > * {
+  max-width: 760px;
+}
+
+@media (max-width: 760px) {
+  .thanks-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .thanks-inner .gate {
+    width: min(100%, 320px);
+  }
+}
+
+.thanks h1 {
+  font-size: clamp(34px, 6vw, 60px);
+  line-height: 1.04;
+}
+
+.thanks-lead {
+  max-width: 34em;
+  font-size: clamp(17px, 1.8vw, 20px);
+}
+
+.prose {
+  padding-block: clamp(40px, 8vw, 80px);
+}
+
+.prose h1 {
+  font-size: clamp(30px, 4.6vw, 44px);
+  line-height: 1.08;
+}
+
+.prose h2 {
+  margin-top: 36px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.prose p,
+.prose ul {
+  margin-top: 12px;
+}
+
+.prose ul {
+  padding-left: 20px;
+}
+
+.prose-updated {
+  margin-top: 12px;
+  color: var(--color-muted);
+}
+
+/* Tablet and phone: one column, the pitch over the form */
+
+@media (max-width: 900px) {
+  .landing-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One measure for the pitch and the form, so the claims end where the form does. */
+  .pitch,
+  .signup {
+    max-width: 640px;
+  }
+}
+
+/* Phone: the definition and the tower closer together; the year leaves the top bar so it holds on one line; the small
+   mono text grows. */
+@media (max-width: 560px) {
+  .pitch-head {
+    column-gap: 16px;
+  }
+
+  .pitch .definition,
+  .pitch-head .gate {
+    margin-top: 12px;
+  }
+
+  .topbar-year {
+    display: none;
+  }
+
+  .mono {
+    font-size: 11.5px;
+  }
+
+  .field > label {
+    font-size: 12px;
+  }
+
+  /* The event keeps its size, the one that holds beside the logo on a 390px phone (99 + 16 + 231 px). */
+  .topbar-inner {
+    column-gap: 16px;
+  }
+
+  .topbar-event {
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .claims li {
+    padding-block: 8px;
+  }
+}
+
+/* Two fields side by side are too short below 380px for a long Polish surname. */
+@media (max-width: 380px) {
+  .field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,46 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Privacy notice · Beffroi{% endblock %}
+{% block description %}How Beffroi handles the details you give when you sign up to hear about its release.{% endblock %}
+
+{% block body %}
+    <header class="topbar">
+        <div class="wrap topbar-inner">
+            <a href="{{ path('app_home') }}" class="topbar-home">{{ include('_lockup.svg.twig', {height: 24}) }}</a>
+        </div>
+    </header>
+
+    <main id="main" class="prose-page">
+        <div class="wrap prose">
+            <p class="label">Privacy notice</p>
+            <h1>Your details, and what we do with them</h1>
+            <p class="prose-updated mono">Last updated 18 October 2026</p>
+
+            <h2>Who is responsible</h2>
+            <p>Beffroi is made by Florent Morselli and Mathieu Santostefano. Mathieu Santostefano is the controller of the data collected on this site. Write to <a href="mailto:bonjour@beffroi.tech">bonjour@beffroi.tech</a> for anything about your data.</p>
+
+            <h2>What we collect, and why</h2>
+            <p>When you sign up on the SymfonyCon Warsaw 2026 page, we keep your first name, last name, company (if you give one), email address, the OpenID Connect provider you use today, and the date you agreed to hear from us.</p>
+            <p>We use them for two things only: a confirmation email right after you sign up, and an email when Beffroi is released. The provider you use helps us understand who Beffroi is for. We do not send a newsletter, and we never sell or share your details.</p>
+            <p>The legal basis is your consent (Article 6(1)(a) of the GDPR), which you give by ticking the box of the form. You can withdraw it at any time by writing to <a href="mailto:bonjour@beffroi.tech">bonjour@beffroi.tech</a>, or by replying to any email we send you.</p>
+
+            <h2>Who handles them for us</h2>
+            <ul>
+                <li><strong>Scalingo</strong> hosts the site and its database, in France.</li>
+                <li><strong>Sweego</strong> sends the emails, from France.</li>
+                <li><strong>OVHcloud</strong> hosts our mailbox.</li>
+            </ul>
+            <p>Your details do not leave the European Union.</p>
+
+            <h2>How long we keep them</h2>
+            <p>Twelve months after you last signed up, then they are deleted automatically.</p>
+
+            <h2>Your rights</h2>
+            <p>You can ask to see your details, to correct them, to have them deleted, to limit what we do with them, or to receive them in a portable format. Write to <a href="mailto:bonjour@beffroi.tech">bonjour@beffroi.tech</a>, or simply reply to any email we send you; we answer within a month.</p>
+            <p>If you think we handle your data wrongly, you can complain to the data protection authority of your country.</p>
+
+            <h2>Cookies</h2>
+            <p>The public pages of this site set no cookie and load nothing from other sites. The only cookie is the session of the back office, for the people who sign in to it.</p>
+        </div>
+    </main>
+{% endblock %}

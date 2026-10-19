@@ -1,0 +1,66 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Beffroi at SymfonyCon Warsaw 2026{% endblock %}
+{% block description %}Beffroi is an OpenID Connect provider written in PHP, secure by design, fast and light on resources. Leave your email to hear when it is released.{% endblock %}
+
+{% block javascripts %}{{ importmap('gate') }}{% endblock %}
+
+{% block body %}
+    <header class="topbar">
+        <div class="wrap topbar-inner">
+            <a href="{{ path('app_home') }}" class="topbar-home">{{ include('_lockup.svg.twig', {height: 24}) }}</a>
+            <p class="mono topbar-event">SymfonyCon Warsaw · 26-27 Nov<span class="topbar-year"> 2026</span></p>
+        </div>
+    </header>
+
+    <main id="main" class="landing">
+        <div class="blueprint" aria-hidden="true"></div>
+        <div class="wrap landing-inner">
+            <section class="pitch" aria-labelledby="pitch-title">
+                <div class="pitch-head">
+                    <p class="badge">Coming soon</p>
+                    <h1 id="pitch-title">An OpenID Connect provider,<br>written in&nbsp;PHP.</h1>
+                    {{ include('_definition.html.twig') }}
+                    {{ include('_gate.html.twig') }}
+                </div>
+                <ul class="claims" role="list">
+                    <li><span class="claim-index mono" aria-hidden="true">01</span>Secure by design</li>
+                    <li><span class="claim-index mono" aria-hidden="true">02</span>Fast</li>
+                    <li><span class="claim-index mono" aria-hidden="true">03</span>Light on resources</li>
+                    <li><span class="claim-index mono" aria-hidden="true">04</span>Passes the OpenID Foundation conformance suites</li>
+                </ul>
+            </section>
+
+            <section class="signup" id="signup" aria-labelledby="signup-title">
+                <div class="signup-inner">
+                    <h2 id="signup-title">Get notified at release</h2>
+                    <p class="signup-lead">Leave your details, and we will email you the day Beffroi is released.</p>
+
+                    {{ form_start(form, {action: path('app_signup') ~ '#signup', attr: {class: 'signup-form'}}) }}
+                        {{ form_errors(form) }}
+                        <div class="field-row">
+                            {{ form_row(form.firstName) }}
+                            {{ form_row(form.lastName) }}
+                        </div>
+                        {{ form_row(form.company) }}
+                        {{ form_row(form.email) }}
+                        {{ form_row(form.provider) }}
+                        {{ form_row(form.providerOther, {row_attr: {class: 'field-other'}}) }}
+                        <div class="consent">
+                            {{ form_widget(form.consent, {attr: form.consent.vars.errors|length > 0 ? {'aria-invalid': 'true', 'aria-describedby': 'signup_consent_error'} : {}}) }}
+                            <div>
+                                {{ form_label(form.consent) }}
+                                <a class="consent-link" href="{{ path('app_privacy') }}">How we handle your data</a>
+                                {{ form_errors(form.consent) }}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary chamfer-12 submit">
+                            Notify me
+                            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M9 3l5 5-5 5-1.4-1.4L10.2 9H2V7h8.2L7.6 4.4z"/></svg>
+                        </button>
+                    {{ form_end(form) }}
+                </div>
+            </section>
+        </div>
+    </main>
+{% endblock %}

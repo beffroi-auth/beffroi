@@ -1,0 +1,114 @@
+{#
+    The hero of the home page, drawn small: the grid symbol of the logo kit v2.0 (presentation-light), and over it the
+    scene of the gate, where users and services queue on the ground to the right of the tower, walk behind its wall and
+    come out in the gate, where the provider checks each one. Let in, the outline of the gate lights green and the
+    visitor walks on, in front of the left leg; turned away, it lights red and the visitor goes back behind the wall.
+    The motion is assets/scenes/gate.js; this markup is the still frame, which is all there is under reduced motion.
+    Ink and paper are the colours of the text and of the background (app.css), so in dark mode the belfry is drawn in
+    paper over the dark.
+#}
+{% set outline = 'M32 4L37 9V13L41 17V38H43V28.5L46.5 25L50 28.5V56H52V60H38V50L32 44L26 50V60H12V56H14V28.5L17.5 25L21 28.5V38H23V17L27 13V9Z' %}
+{% set slits = ' M16.75 31H18.25V36H16.75Z M45.75 31H47.25V36H45.75Z' %}
+{% set grid = 'M28.86 8H35.14M27.6 12H36.4M24.86 16H39.14M16 27.36V59.4M23.6 20H27.32M34.18 20H40.4M20 28.36V59.4M23.6 24H26.78M37.2 24H40.4M24 16.86V59.4M15.36 28H19.64M23.6 28H26.78M37.2 28H40.4M44.36 28H48.64M28 8.86V19.78M28 30.2V47.14M14.62 32H16.14M18.86 32H20.38M23.6 32H29.82M36.68 32H40.4M43.6 32H45.14M47.86 32H49.4M32 4.86V19.78M32 32.2V43.4M14.62 36H16.14M18.86 36H20.38M23.6 36H40.4M43.6 36H45.14M47.86 36H49.4M36 8.86V21.8M36 32.2V47.14M14.62 40H49.4M40 16.86V59.4M14.62 44H31.14M32.86 44H49.4M44 28.36V59.4M14.62 48H27.14M36.86 48H49.4M48 27.36V59.4M14.62 52H25.38M38.6 52H49.4M14.62 56H25.38M38.6 56H49.4' %}
+{# The edge of the gate, 0.3 u inside the opening, so the light never covers the ink of the tower. #}
+{% set gate_edge = 'M26.3 60V50.124L32 44.424L37.7 50.124V60' %}
+{% set full = 'x="-56" y="-20" width="176" height="113.5"' %}
+<figure class="gate">
+    <div class="gate-frame">
+        <svg class="gate-symbol" viewBox="-24 -12 92 86" preserveAspectRatio="xMidYMid slice" role="img" aria-label="The Beffroi belfry at the gate, letting some visitors in and turning others away">
+            <defs>
+                <pattern id="bf-dots" width="4" height="4" patternUnits="userSpaceOnUse">
+                    <circle cx="2" cy="2" r=".26" style="fill: var(--color-text)" fill-opacity=".3"/>
+                </pattern>
+                <radialGradient id="bf-fade" cx="32" cy="66" r="58" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#fff"/>
+                    <stop offset=".5" stop-color="#fff" stop-opacity=".45"/>
+                    <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+                </radialGradient>
+                <mask id="bf-fade-mask" maskUnits="userSpaceOnUse" {{ full|raw }}>
+                    <rect {{ full|raw }} fill="url(#bf-fade)"/>
+                </mask>
+                <radialGradient id="bf-halo" cx="32" cy="26" r="44" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#2f45ff" stop-opacity=".18"/>
+                    <stop offset=".35" stop-color="#2f45ff" stop-opacity=".07"/>
+                    <stop offset="1" stop-color="#2f45ff" stop-opacity="0"/>
+                </radialGradient>
+                <linearGradient id="bf-ground" x1="-40" y1="0" x2="104" y2="0" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" style="stop-color: var(--color-text)" stop-opacity="0"/>
+                    <stop offset=".3" style="stop-color: var(--color-text)" stop-opacity=".3"/>
+                    <stop offset=".7" style="stop-color: var(--color-text)" stop-opacity=".3"/>
+                    <stop offset="1" style="stop-color: var(--color-text)" stop-opacity="0"/>
+                </linearGradient>
+                <linearGradient id="bf-lit" x1="0" y1="21" x2="0" y2="31" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#7d8bff"/>
+                    <stop offset="1" stop-color="#2f45ff"/>
+                </linearGradient>
+                <radialGradient id="bf-grid-paper" cx="32" cy="26" r="32" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" style="stop-color: var(--color-bg)" stop-opacity=".42"/>
+                    <stop offset=".3" style="stop-color: var(--color-bg)" stop-opacity=".336"/>
+                    <stop offset=".65" style="stop-color: var(--color-bg)" stop-opacity=".134"/>
+                    <stop offset="1" style="stop-color: var(--color-bg)" stop-opacity=".042"/>
+                </radialGradient>
+                <radialGradient id="bf-grid-core" cx="32" cy="26" r="13" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" style="stop-color: var(--gate-glow)" stop-opacity=".8"/>
+                    <stop offset=".45" style="stop-color: var(--gate-glow)" stop-opacity=".44"/>
+                    <stop offset="1" style="stop-color: var(--gate-glow)" stop-opacity="0"/>
+                </radialGradient>
+            </defs>
+
+            <rect {{ full|raw }} style="fill: var(--color-bg)"/>
+            <rect class="gate-halo" {{ full|raw }} fill="url(#bf-halo)"/>
+            <rect {{ full|raw }} fill="url(#bf-dots)" mask="url(#bf-fade-mask)"/>
+            <line x1="-40" y1="60" x2="104" y2="60" stroke="url(#bf-ground)" stroke-width=".25"/>
+            {% for point in [[6, 62], [-2, 66], [58, 62], [66, 66], [10, 70], [54, 70], [-6, 58], [70, 58], [30, 66], [34, 70]] %}
+                <circle cx="{{ point[0] }}" cy="{{ point[1] }}" r=".45" fill="#2f45ff" opacity=".25"/>
+            {% endfor %}
+
+            <path style="fill: var(--color-text)" fill-rule="evenodd" d="{{ outline ~ slits }}"/>
+            <path style="fill: var(--color-text)" d="M31.25 0H32.75V5H31.25Z"/>
+            <path fill="#2f45ff" d="M32.75 0.5H36.5L38 2L36.5 3.5H32.75Z"/>
+            <g class="gate-light">
+                <path fill="none" stroke="url(#bf-grid-paper)" stroke-width=".14" d="{{ grid }}"/>
+                <path fill="none" stroke="url(#bf-grid-core)" stroke-width=".14" d="{{ grid }}"/>
+                <path fill="url(#bf-lit)" fill-rule="evenodd" d="M28 21H33.5L36 23.5V24.75L35 25.75L36 26.75V31H30.5L28 28.5Z M30 23H33L34 24V24.75H30Z M30 26.75H34V29H31L30 28Z"/>
+            </g>
+        </svg>
+
+        {# The scene lies over the symbol in its own SVG, same viewBox and slice: moving its figures never repaints the
+           symbol. Figures are drawn on the 64 u grid, feet at (0, 0), facing left. #}
+        <svg class="gate-scene" data-scene="gate" viewBox="-24 -12 92 86" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+                <g id="gate-person">
+                    <path d="M-1 -8H0.5L1 -7.5V-6H-0.5L-1 -6.5Z"/>
+                    <path d="M-0.5 -5.5H0.5L1.5 -4.5V0H0.5V-2H-0.5V0H-1.5V-4.5Z"/>
+                    <path d="M-2.5 -4H-1.75V-2.5H-2.5Z"/>
+                </g>
+                <g id="gate-service">
+                    <path d="M-0.25 -6.5H0.25V-5H-0.25Z"/>
+                    <path fill-rule="evenodd" d="M-1.75 -5H1L1.75 -4.25V0H-1L-1.75 -0.75Z M-0.75 -3.5H0.75V-2.5H-0.75Z"/>
+                    <path d="M-2.75 -3.5H-2V-2H-2.75Z"/>
+                </g>
+                <path id="gate-mark-ok" fill="#c6f432" stroke="#0c1016" stroke-width=".2" paint-order="normal" d="M-0.75 -11H0.4L0.75 -10.65V-9.5H-0.4L-0.75 -9.85Z"/>
+                <path id="gate-mark-deny" fill="#ff3d2e" stroke="#0c1016" stroke-width=".2" paint-order="normal" d="M-0.75 -11H0.75V-9.5H-0.75Z"/>
+                {# A wide rectangle minus the outline of the tower, even-odd: the ground and the opening of the gate stay visible. #}
+                <clipPath id="gate-clear" clipPathUnits="userSpaceOnUse">
+                    <path clip-rule="evenodd" d="M-60 -30H130V110H-60Z {{ outline }}"/>
+                </clipPath>
+            </defs>
+            <g data-cast style="fill: var(--color-text)">
+                <path d="{{ gate_edge }}" fill="none" stroke="#c6f432" stroke-width=".6" stroke-linejoin="miter"/>
+                <g transform="translate(32 60)" style="stroke: var(--color-bg)" stroke-width=".5" stroke-linejoin="miter" paint-order="stroke">
+                    <use href="#gate-person"/>
+                    <use href="#gate-mark-ok"/>
+                </g>
+                <g clip-path="url(#gate-clear)">
+                    <g transform="translate(56 60)" style="stroke: var(--color-bg)" stroke-width=".5" stroke-linejoin="miter" paint-order="stroke">
+                        <use href="#gate-service"/>
+                    </g>
+                </g>
+            </g>
+        </svg>
+    </div>
+    <span class="bracket tl" aria-hidden="true"></span>
+    <span class="bracket br" aria-hidden="true"></span>
+</figure>

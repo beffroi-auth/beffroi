@@ -1,0 +1,28 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}You are on the Beffroi list{% endblock %}
+{% block description %}Thank you for signing up: we will email you when Beffroi is released.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+
+{% block body %}
+    <header class="topbar">
+        <div class="wrap topbar-inner">
+            <a href="{{ path('app_home') }}" class="topbar-home">{{ include('_lockup.svg.twig', {height: 24}) }}</a>
+            <p class="mono topbar-event">SymfonyCon Warsaw · 26-27 Nov<span class="topbar-year"> 2026</span></p>
+        </div>
+    </header>
+
+    <main id="main" class="thanks">
+        <div class="blueprint" aria-hidden="true"></div>
+        <div class="wrap thanks-inner">
+            <div class="thanks-text">
+                <p class="badge badge-signal">Signed up</p>
+                <h1>You are on the list.</h1>
+                <p class="thanks-lead">A confirmation is on its way from <strong>bonjour@beffroi.tech</strong>. We will write again the day Beffroi is released.</p>
+                <p class="thanks-lead">Enjoy SymfonyCon!</p>
+            </div>
+            {# The still frame only, no script: a user let in at the gate. #}
+            {{ include('_gate.html.twig') }}
+        </div>
+    </main>
+{% endblock %}

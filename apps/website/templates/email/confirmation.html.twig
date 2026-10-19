@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>You are on the Beffroi list</title>
+</head>
+<body style="margin:0;padding:0;background:#f2f4f6;color:#0c1016;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f6;">
+        <tr>
+            <td align="center" style="padding:32px 16px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #0c1016;">
+                    <tr>
+                        <td style="padding:24px 28px 0;">
+                            <p style="margin:0;font-family:'Courier New',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#1b2bb8;">&#9632;&nbsp;Beffroi</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 28px 28px;">
+                            <h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;color:#0c1016;">You are on the list.</h1>
+                            <p style="margin:0 0 16px;">Hello {{ firstName }},</p>
+                            <p style="margin:0 0 16px;">Thank you for stopping by at SymfonyCon Warsaw: you are on the Beffroi list.</p>
+                            <p style="margin:0 0 16px;">Beffroi is an OpenID Connect provider written in PHP. We will email you once more, the day it is released.</p>
+                            <p style="margin:0 0 24px;">Questions, or a word about your identity stack? Reply to this email, we read every one.</p>
+                            <p style="margin:0;">Mathieu, for Beffroi</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 28px;border-top:1px solid #c9ced6;font-size:13px;line-height:1.5;color:#3a4049;">
+                            You signed up on <a href="{{ url('app_signup') }}" style="color:#1b2bb8;">beffroi.tech/symfonycon</a>. To have your details deleted, reply with &ldquo;delete&rdquo;. <a href="{{ url('app_privacy') }}" style="color:#1b2bb8;">How we handle them</a>.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
