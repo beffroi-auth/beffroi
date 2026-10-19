@@ -2,7 +2,7 @@
     "name": "beffroi/website",
     "description": "The website of Beffroi: the teaser, the SymfonyCon Warsaw 2026 landing page and its sign-ups",
     "type": "project",
-    "license": "proprietary",
+    "license": "MIT",
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
