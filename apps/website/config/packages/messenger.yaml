@@ -1,0 +1,4 @@
+# yaml-language-server: $schema=../schema.json
+# The Webhook component hands each event to the bus. No transport and no routing: the event is handled in the request
+# that brings it, and nothing waits for a worker, which this application does not run.
+messenger: ~

@@ -53,6 +53,30 @@ class Lead
     #[ORM\Column(nullable: true)]
     public private(set) ?DateTimeImmutable $confirmationSentAt = null;
 
+    /** What Sweego reported of the confirmation, the last time it reported each: accepted by the mailbox. */
+    #[ORM\Column(nullable: true)]
+    public private(set) ?DateTimeImmutable $confirmationDeliveredAt = null;
+
+    /** Opened, as far as the pixel of Sweego can tell: a mail client that loads no image opens nothing. */
+    #[ORM\Column(nullable: true)]
+    public private(set) ?DateTimeImmutable $confirmationOpenedAt = null;
+
+    /** A link of it followed. */
+    #[ORM\Column(nullable: true)]
+    public private(set) ?DateTimeImmutable $confirmationClickedAt = null;
+
+    /** Refused by the mailbox, for a while or for good. */
+    #[ORM\Column(nullable: true)]
+    public private(set) ?DateTimeImmutable $confirmationBouncedAt = null;
+
+    /** Reported as spam by the visitor. */
+    #[ORM\Column(nullable: true)]
+    public private(set) ?DateTimeImmutable $markedAsSpamAt = null;
+
+    /** Unsubscribed by the visitor, from the link their mail client shows. */
+    #[ORM\Column(nullable: true)]
+    public private(set) ?DateTimeImmutable $unsubscribedAt = null;
+
     #[ORM\Column(length: 32, enumType: LeadStatus::class)]
     public LeadStatus $status = LeadStatus::New;
 
@@ -93,6 +117,36 @@ class Lead
     public function confirmationSent(DateTimeImmutable $at): void
     {
         $this->confirmationSentAt = $at;
+    }
+
+    public function confirmationDelivered(DateTimeImmutable $at): void
+    {
+        $this->confirmationDeliveredAt = $at;
+    }
+
+    public function confirmationOpened(DateTimeImmutable $at): void
+    {
+        $this->confirmationOpenedAt = $at;
+    }
+
+    public function confirmationClicked(DateTimeImmutable $at): void
+    {
+        $this->confirmationClickedAt = $at;
+    }
+
+    public function confirmationBounced(DateTimeImmutable $at): void
+    {
+        $this->confirmationBouncedAt = $at;
+    }
+
+    public function markedAsSpam(DateTimeImmutable $at): void
+    {
+        $this->markedAsSpamAt = $at;
+    }
+
+    public function unsubscribed(DateTimeImmutable $at): void
+    {
+        $this->unsubscribedAt = $at;
     }
 
     private function describe(

@@ -20,6 +20,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\EmailField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use EasyCorp\Bundle\EasyAdminBundle\Filter\NullFilter;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -42,6 +43,12 @@ final class LeadCrudController extends AbstractCrudController
         'source',
         'consented_at',
         'confirmation_sent_at',
+        'confirmation_delivered_at',
+        'confirmation_opened_at',
+        'confirmation_clicked_at',
+        'confirmation_bounced_at',
+        'marked_as_spam_at',
+        'unsubscribed_at',
         'status',
         'notes',
     ];
@@ -85,6 +92,12 @@ final class LeadCrudController extends AbstractCrudController
         yield TextField::new('source')->hideOnForm()->hideOnIndex();
         yield DateTimeField::new('consentedAt', 'Consent given')->hideOnForm()->hideOnIndex();
         yield DateTimeField::new('confirmationSentAt', 'Confirmation sent')->hideOnForm()->hideOnIndex();
+        yield DateTimeField::new('confirmationDeliveredAt', 'Confirmation delivered')->hideOnForm()->hideOnIndex();
+        yield DateTimeField::new('confirmationOpenedAt', 'Confirmation opened')->hideOnForm()->hideOnIndex();
+        yield DateTimeField::new('confirmationClickedAt', 'Confirmation clicked')->hideOnForm()->hideOnIndex();
+        yield DateTimeField::new('confirmationBouncedAt', 'Confirmation bounced')->hideOnForm()->hideOnIndex();
+        yield DateTimeField::new('markedAsSpamAt', 'Reported as spam')->hideOnForm()->hideOnIndex();
+        yield DateTimeField::new('unsubscribedAt', 'Unsubscribed')->hideOnForm()->hideOnIndex();
         yield ChoiceField::new('status')->setChoices(LeadStatus::cases())->renderAsBadges([
             LeadStatus::New->value => 'primary',
             LeadStatus::Contacted->value => 'info',
@@ -96,7 +109,16 @@ final class LeadCrudController extends AbstractCrudController
 
     public function configureFilters(Filters $filters): Filters
     {
-        return $filters->add('provider')->add('status')->add('createdAt');
+        return $filters
+            ->add('provider')
+            ->add('status')
+            ->add('createdAt')
+            ->add(NullFilter::new('confirmationDeliveredAt', 'Confirmation delivered')->setChoiceLabels('No', 'Yes'))
+            ->add(NullFilter::new('confirmationOpenedAt', 'Confirmation opened')->setChoiceLabels('No', 'Yes'))
+            ->add(NullFilter::new('confirmationClickedAt', 'Confirmation clicked')->setChoiceLabels('No', 'Yes'))
+            ->add(NullFilter::new('confirmationBouncedAt', 'Confirmation bounced')->setChoiceLabels('No', 'Yes'))
+            ->add(NullFilter::new('markedAsSpamAt', 'Reported as spam')->setChoiceLabels('No', 'Yes'))
+            ->add(NullFilter::new('unsubscribedAt', 'Unsubscribed')->setChoiceLabels('No', 'Yes'));
     }
 
     /**
@@ -127,6 +149,12 @@ final class LeadCrudController extends AbstractCrudController
                         $lead->source,
                         $lead->consentedAt->format(\DATE_ATOM),
                         $lead->confirmationSentAt?->format(\DATE_ATOM) ?? '',
+                        $lead->confirmationDeliveredAt?->format(\DATE_ATOM) ?? '',
+                        $lead->confirmationOpenedAt?->format(\DATE_ATOM) ?? '',
+                        $lead->confirmationClickedAt?->format(\DATE_ATOM) ?? '',
+                        $lead->confirmationBouncedAt?->format(\DATE_ATOM) ?? '',
+                        $lead->markedAsSpamAt?->format(\DATE_ATOM) ?? '',
+                        $lead->unsubscribedAt?->format(\DATE_ATOM) ?? '',
                         $lead->status->label(),
                         $lead->notes ?? '',
                     ],

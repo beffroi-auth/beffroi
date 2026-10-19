@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../vendor/symfony/routing/Loader/schema/routing.schema.json
+# POST /webhook/{type}, one type per entry of webhook.routing (config/packages/webhook.yaml). Nginx asks no login on
+# /webhook/sweego (config/nginx-basic-auth.conf): the signature is what authenticates the sender.
+webhook:
+    resource: '@FrameworkBundle/Resources/config/routing/webhook.php'
+    prefix: /webhook

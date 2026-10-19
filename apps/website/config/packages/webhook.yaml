@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../schema.json
+webhook:
+    routing:
+        # What Sweego reports of the emails it carried, POSTed to /webhook/sweego and signed with the secret of the
+        # webhook (src/Lead/SweegoEvents.php).
+        sweego:
+            service: mailer.webhook.request_parser.sweego
+            secret: '%env(SWEEGO_WEBHOOK_SECRET)%'

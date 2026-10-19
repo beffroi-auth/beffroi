@@ -25,6 +25,11 @@ One lead per email address: signing up again updates the lead and sends no secon
 same whether the address was known or not. A confirmation that failed to send is logged and tried again at the next
 sign-up of that address.
 
+Sweego reports what became of each confirmation on `POST /webhook/sweego`, signed with the secret of the webhook:
+delivered, opened, clicked, bounced, reported as spam, unsubscribed, each written on the lead with its date and shown
+in the back office (`src/Lead/SweegoEvents.php`). Opens and clicks need the tracking of Sweego, on in its settings, and
+the tracking domain `t.beffroi.tech`.
+
 A lead is kept twelve months after its last consent: `app:leads:purge`, run every day by the Scalingo scheduler
 (`cron.json`), deletes the older ones.
 
@@ -66,10 +71,10 @@ The PHP buildpack (Nginx and PHP-FPM) reads `composer.json`: PHP `~8.5`, the doc
 include of the login, the compilation of the assets (`asset-map:compile`) and the log file it streams
 (`var/log/prod.log`). `Procfile` plays the migrations after each deployment, `cron.json` schedules the purge.
 
-While the site is not public, Nginx asks for a login on every URL (`config/nginx-basic-auth.conf`). The build writes
-`config/htpasswd` from `HTPASSWD_CONTENT`, and fails without it. The file is written at build time only: a new login
-takes a new deployment. To open the site, remove the include from `extra.paas.nginx-includes` and the two lines of
-`extra.paas.compile` that read `HTPASSWD_CONTENT`.
+While the site is not public, Nginx asks for a login on every URL but `/webhook/sweego`
+(`config/nginx-basic-auth.conf`). The build writes `config/htpasswd` from `HTPASSWD_CONTENT`, and fails without it. The
+file is written at build time only: a new login takes a new deployment. To open the site, remove the include from
+`extra.paas.nginx-includes` and the two lines of `extra.paas.compile` that read `HTPASSWD_CONTENT`.
 
 Environment variables:
 
@@ -79,6 +84,7 @@ Environment variables:
 | `APP_SECRET` | 32 random bytes, hex encoded |
 | `DATABASE_URL` | `$SCALINGO_POSTGRESQL_URL`, if Scalingo does not set it already |
 | `MAILER_DSN` | `sweego+api://<API key>@default` |
+| `SWEEGO_WEBHOOK_SECRET` | the secret of the webhook, as the dashboard of Sweego gives it |
 | `DEFAULT_URI` | `https://beffroi.tech`, for the URLs of the console |
 | `HTPASSWD_CONTENT` | `htpasswd -n <user>`: the login of the private site, read at build time |
 

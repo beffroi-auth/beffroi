@@ -236,6 +236,80 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         domain?: string|Param,
  *     }>,
  * }
+ * @psalm-type MessengerConfig = bool|array{
+ *     enabled?: bool|Param, // Default: true
+ *     routing?: array<string, Param|string|list<scalar|Param|null>>,
+ *     serializer?: array{
+ *         default_serializer?: scalar|Param|null, // Service id to use as the default serializer for the transports. // Default: "messenger.transport.native_php_serializer"
+ *         signing_secret?: Param|string|list<scalar|Param|null>,
+ *         symfony_serializer?: array{
+ *             service?: scalar|Param|null, // Service id of the Symfony serializer behind the messenger.transport.symfony_serializer service, e.g. "serializer.api" for the named serializer "api". // Default: null
+ *             format?: scalar|Param|null, // Serialization format for the messenger.transport.symfony_serializer service (which is not the serializer used by default). // Default: "json"
+ *             context?: array<string, mixed>,
+ *         },
+ *     },
+ *     transports?: array<string, Param|string|array{ // Default: []
+ *         dsn?: scalar|Param|null,
+ *         serializer?: scalar|Param|null, // Service id of a custom serializer to use. // Default: null
+ *         sign?: bool|Param, // Whether to sign every message sent to this transport with its trust level, and to refuse any message received from it that is unsigned, or signed as unverified when this is not a failure transport. Handlers with the "sign" option require it on the transports their messages come from. // Default: false
+ *         claim_check?: array{
+ *             cache_pool?: scalar|Param|null, // Service id of the dedicated cache pool used to store claims. Pools declared under "framework.cache.pools" must define a "default_lifetime".
+ *             max_size?: int|Param, // Maximum encoded message size in bytes before using a claim check.
+ *         },
+ *         options?: array<string, mixed>,
+ *         failure_transport?: scalar|Param|null, // Transport name to send failed messages to (after all retries have failed). // Default: null
+ *         outbox?: scalar|Param|null, // Name or DSN of the transport that stores the messages inside the current database transaction; consume that transport to forward them to this one. A value that is not the name of a configured transport is a DSN, used to create the "orders.outbox" transport for an "orders" transport. // Default: null
+ *         inbox?: bool|array{ // Records the handled messages in a database table, in the transaction of their handlers, so that a redelivered message is not handled twice. Needs the "identity_stamps" option and a middleware that runs the handlers in a transaction.
+ *             enabled?: bool|Param, // Default: false
+ *             connection?: scalar|Param|null, // Name of the Doctrine DBAL connection of that transaction, the default connection when not set. // Default: null
+ *             table_name?: scalar|Param|null, // Default: "messenger_inbox"
+ *             retention?: int|Param, // Number of seconds a record is kept, which must exceed the time the transport can take to redeliver a message. // Default: 604800
+ *         },
+ *         retry_strategy?: Param|string|array{
+ *             service?: scalar|Param|null, // Service id to override the retry strategy entirely. // Default: null
+ *             max_retries?: int|Param, // Default: 3
+ *             delay?: int|Param, // Time in ms to delay (or the initial value when multiplier is used). // Default: 1000
+ *             multiplier?: float|Param, // If greater than 1, delay will grow exponentially for each retry: this delay = (delay * (multiple ^ retries)). // Default: 2
+ *             max_delay?: int|Param, // Max time in ms that a retry should ever be delayed (0 = infinite). // Default: 0
+ *             jitter?: float|Param, // Randomness to apply to the delay (between 0 and 1). // Default: 0.1
+ *         },
+ *         cooldown_strategy?: Param|bool|string|array{ // Stops consuming this transport for a while after its messages fail. With the default strategy, each worker counts its own failures.
+ *             enabled?: bool|Param, // Default: false
+ *             service?: scalar|Param|null, // Service id to override the cooldown strategy entirely. // Default: null
+ *             failure_threshold?: int|Param, // Number of failures in a row that start a cooldown. // Default: 5
+ *             delay?: int|Param, // Duration in ms of the first cooldown (or the initial value when multiplier is used). // Default: 1000
+ *             multiplier?: float|Param, // If greater than 1, the cooldown will grow exponentially for each further failure in a row: this delay = (delay * (multiplier ^ (failures - failure_threshold))). // Default: 2
+ *             max_delay?: int|Param, // Max duration in ms of a cooldown (0 = infinite). // Default: 60000
+ *             jitter?: float|Param, // Randomness to apply to the duration (between 0 and 1). // Default: 0.1
+ *         },
+ *         rate_limiter?: scalar|Param|null, // Rate limiter name to use when processing messages. // Default: null
+ *         priority?: int|Param, // Order in which "messenger:consume --all" consumes this transport, higher comes first. // Default: 0
+ *     }>,
+ *     failure_transport?: scalar|Param|null, // Transport name to send failed messages to (after all retries have failed). // Default: null
+ *     stop_worker_on_signals?: Param|int|string|list<scalar|Param|null>,
+ *     reject_redelivered_messages?: bool|Param, // Whether redeliveries should be rejected and retried through a new message instead of being handled directly. This mostly makes sense for AMQP, which redelivers messages that were neither acknowledged nor rejected. Disabling it avoids losing a message when the retry or the failure transport is unreachable, at the risk of a redelivery loop that blocks the queue. // Default: true
+ *     deduplication?: array{
+ *         lock_factory?: scalar|Param|null, // The service ID of the lock factory used to deduplicate messages, "lock.factory" when not set. // Default: null
+ *     },
+ *     identity_stamps?: bool|Param, // Adds a message id and a causation id to dispatched messages, and a correlation id at the start of each flow. // Default: false
+ *     default_bus?: scalar|Param|null, // Default: null
+ *     buses?: array<string, array{ // Default: {"messenger.bus.default":{"default_middleware":{"enabled":true,"allow_no_handlers":false,"allow_no_senders":true},"middleware":[],"messages":[],"unwrap_exceptions":false}}
+ *         default_middleware?: Param|bool|string|array{
+ *             enabled?: bool|Param, // Default: true
+ *             allow_no_handlers?: bool|Param, // Default: false
+ *             allow_no_senders?: bool|Param, // Default: true
+ *         },
+ *         middleware?: Param|string|list<Param|string|array{ // Default: []
+ *             id?: scalar|Param|null,
+ *             arguments?: list<mixed>,
+ *         }>,
+ *         messages?: Param|string|list<scalar|Param|null>,
+ *         unwrap_exceptions?: bool|Param, // Whether the application gets the exception of the failing handler instead of a HandlerFailedException when it dispatches a message. // Default: false
+ *     }>,
+ * }
+ * @psalm-type RemoteEventConfig = bool|array{
+ *     enabled?: bool|Param, // Default: true
+ * }
  * @psalm-type TypeInfoConfig = bool|array{
  *     enabled?: bool|Param, // Default: true
  *     aliases?: array<string, scalar|Param|null>,
@@ -307,6 +381,27 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             amount?: int|Param, // Amount of tokens to add each interval. // Default: 1
  *         },
  *         anchor_at?: scalar|Param|null, // Aligns the "fixed_window" policy to a calendar (e.g. "2024-01-05 00:00:00 UTC" combined with `interval: 1 month` resets the counter on the 5th of each month). UTC if not specified. // Default: null
+ *     }>,
+ * }
+ * @psalm-type WebhookConfig = bool|array{
+ *     enabled?: bool|Param, // Default: true
+ *     message_bus?: scalar|Param|null, // The message bus to use. // Default: "messenger.default_bus"
+ *     http_client?: scalar|Param|null, // The HTTP client to use to send webhooks. // Default: "http_client"
+ *     no_private_network?: bool|array{ // Refuse to send webhooks to URLs that resolve to a private network.
+ *         enabled?: bool|Param, // Default: false
+ *         subnets?: Param|null|string|list<scalar|Param|null>,
+ *         allow_list?: Param|string|list<scalar|Param|null>,
+ *     },
+ *     event_header_name?: scalar|Param|null, // Default: "Webhook-Event"
+ *     id_header_name?: scalar|Param|null, // Default: "Webhook-Id"
+ *     timestamp_header_name?: scalar|Param|null, // Default: "Webhook-Timestamp"
+ *     signature_header_name?: scalar|Param|null, // Default: "Webhook-Signature"
+ *     signing_algorithm?: scalar|Param|null, // Default: "sha256"
+ *     signature_format?: "legacy"|"standard"|"transitional"|Param, // The signature scheme to emit and to require: "legacy" (default) for Symfony's historical "<algo>=<hex>" over the event name, the id and the body; "standard" for the Standard Webhooks "v1,<base64>" over the id, the timestamp and the body, which moves the event name from the "Webhook-Event" header to the payload's "type" key; "transitional" for both at once, during a migration. // Default: "legacy"
+ *     timestamp_tolerance?: int|Param, // How far, in seconds, an incoming Standard Webhooks timestamp may be from the current time before the request is rejected as a replay. Set to 0 to accept any timestamp. Legacy signatures carry no timestamp and are never bounded. // Default: 300
+ *     routing?: array<string, array{ // Default: []
+ *         service?: scalar|Param|null, // The id of the request parser service for this type of webhook; defaults to the generic parser of the component, which checks the signature scheme set in "signature_format". // Default: "webhook.request_parser"
+ *         secret?: scalar|Param|null, // The secret used to verify incoming request signatures. It must be set in production: with an empty value, depending on the parser, requests from any sender are accepted or every request is rejected. // Default: ""
  *     }>,
  * }
  * @psalm-type HttpClientConfig = bool|array{
@@ -574,7 +669,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     web_link?: mixed,
  *     lock?: mixed,
  *     semaphore?: mixed,
- *     messenger?: mixed,
+ *     messenger?: MessengerConfig,
  *     scheduler?: mixed,
  *     http_client?: HttpClientConfig,
  *     mailer?: MailerConfig,
@@ -582,8 +677,8 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     rate_limiter?: RateLimiterConfig,
  *     uid?: UidConfig,
  *     html_sanitizer?: mixed,
- *     webhook?: mixed,
- *     remote_event?: mixed,
+ *     webhook?: WebhookConfig,
+ *     remote_event?: RemoteEventConfig,
  *     json_streamer?: mixed,
  *     session?: bool|array{ // Session configuration
  *         enabled?: bool|Param, // Default: false
@@ -1538,12 +1633,15 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     asset?: AssetConfig,
  *     validation?: ValidationConfig,
  *     translation?: TranslationConfig,
+ *     messenger?: MessengerConfig,
+ *     remote_event?: RemoteEventConfig,
  *     type_info?: TypeInfoConfig,
  *     property_access?: PropertyAccessConfig,
  *     property_info?: PropertyInfoConfig,
  *     uid?: UidConfig,
  *     asset_mapper?: AssetMapperConfig,
  *     rate_limiter?: RateLimiterConfig,
+ *     webhook?: WebhookConfig,
  *     http_client?: HttpClientConfig,
  *     mailer?: MailerConfig,
  *     framework?: FrameworkConfig,
@@ -1563,12 +1661,15 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         asset?: AssetConfig,
  *         validation?: ValidationConfig,
  *         translation?: TranslationConfig,
+ *         messenger?: MessengerConfig,
+ *         remote_event?: RemoteEventConfig,
  *         type_info?: TypeInfoConfig,
  *         property_access?: PropertyAccessConfig,
  *         property_info?: PropertyInfoConfig,
  *         uid?: UidConfig,
  *         asset_mapper?: AssetMapperConfig,
  *         rate_limiter?: RateLimiterConfig,
+ *         webhook?: WebhookConfig,
  *         http_client?: HttpClientConfig,
  *         mailer?: MailerConfig,
  *         framework?: FrameworkConfig,
@@ -1589,12 +1690,15 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         asset?: AssetConfig,
  *         validation?: ValidationConfig,
  *         translation?: TranslationConfig,
+ *         messenger?: MessengerConfig,
+ *         remote_event?: RemoteEventConfig,
  *         type_info?: TypeInfoConfig,
  *         property_access?: PropertyAccessConfig,
  *         property_info?: PropertyInfoConfig,
  *         uid?: UidConfig,
  *         asset_mapper?: AssetMapperConfig,
  *         rate_limiter?: RateLimiterConfig,
+ *         webhook?: WebhookConfig,
  *         http_client?: HttpClientConfig,
  *         mailer?: MailerConfig,
  *         framework?: FrameworkConfig,
@@ -1615,12 +1719,15 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         asset?: AssetConfig,
  *         validation?: ValidationConfig,
  *         translation?: TranslationConfig,
+ *         messenger?: MessengerConfig,
+ *         remote_event?: RemoteEventConfig,
  *         type_info?: TypeInfoConfig,
  *         property_access?: PropertyAccessConfig,
  *         property_info?: PropertyInfoConfig,
  *         uid?: UidConfig,
  *         asset_mapper?: AssetMapperConfig,
  *         rate_limiter?: RateLimiterConfig,
+ *         webhook?: WebhookConfig,
  *         http_client?: HttpClientConfig,
  *         mailer?: MailerConfig,
  *         framework?: FrameworkConfig,
