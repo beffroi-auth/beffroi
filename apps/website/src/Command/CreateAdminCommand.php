@@ -38,13 +38,13 @@ final readonly class CreateAdminCommand
             return Command::INVALID;
         }
 
-        $password = (string) $io->askHidden('Password (12 characters at least)');
+        $password = $this->askHidden($io, 'Password (12 characters at least)');
         if (mb_strlen($password) < self::MIN_LENGTH) {
             $io->error(\sprintf('A password has %d characters at least.', self::MIN_LENGTH));
 
             return Command::INVALID;
         }
-        if ($password !== (string) $io->askHidden('The same password again')) {
+        if ($password !== $this->askHidden($io, 'The same password again')) {
             $io->error('The two passwords differ.');
 
             return Command::INVALID;
@@ -66,5 +66,15 @@ final readonly class CreateAdminCommand
         $io->success(\sprintf('The password of %s has changed.', $email));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * What was typed at a hidden question. Nothing typed is the empty password, which the length refuses.
+     */
+    private function askHidden(SymfonyStyle $io, string $question): string
+    {
+        $answer = $io->askHidden($question);
+
+        return \is_string($answer) ? $answer : '';
     }
 }
