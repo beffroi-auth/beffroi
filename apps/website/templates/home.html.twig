@@ -3,18 +3,23 @@
 {% block title %}Beffroi, an OpenID Connect provider written in PHP{% endblock %}
 {% block description %}Beffroi is an OpenID Connect provider written in PHP. Coming soon.{% endblock %}
 
+{% block javascripts %}{{ importmap('gate') }}{% endblock %}
+
 {% block body %}
     <main id="main" class="teaser">
         <div class="blueprint" aria-hidden="true"></div>
         <div class="wrap teaser-inner">
-            {{ include('_lockup.svg.twig', {height: 44, class: 'teaser-lockup'}) }}
-            <h1 class="teaser-title">An OpenID Connect provider, written in&nbsp;PHP.</h1>
-            {{ include('_definition.html.twig') }}
-            <p class="badge">Coming soon</p>
-            <a class="arrow-link" href="{{ path('app_signup') }}">
-                Meet us at SymfonyCon Warsaw 2026
-                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M9 3l5 5-5 5-1.4-1.4L10.2 9H2V7h8.2L7.6 4.4z"/></svg>
-            </a>
+            <div class="teaser-text">
+                {{ include('_lockup.svg.twig', {height: 44, class: 'teaser-lockup'}) }}
+                <h1 class="teaser-title">An OpenID Connect provider, written in&nbsp;PHP.</h1>
+                {{ include('_definition.html.twig') }}
+                <p class="badge">Coming soon</p>
+                <a class="arrow-link" href="{{ path('app_signup') }}">
+                    Meet us at SymfonyCon Warsaw 2026
+                    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M9 3l5 5-5 5-1.4-1.4L10.2 9H2V7h8.2L7.6 4.4z"/></svg>
+                </a>
+            </div>
+            {{ include('_gate.html.twig') }}
         </div>
     </main>
 {% endblock %}

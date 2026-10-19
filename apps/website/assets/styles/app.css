@@ -439,12 +439,31 @@ select {
   overflow: clip;
 }
 
+/* The text, and the scene of the gate beside it; under it below 760px. */
 .teaser-inner {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 36vw, 460px);
+  gap: 48px 64px;
+  align-items: center;
+  padding-block: clamp(64px, 14vh, 160px);
+}
+
+.teaser-text {
+  display: grid;
   justify-items: start;
   gap: 28px;
-  padding-block: clamp(64px, 14vh, 160px);
+}
+
+@media (max-width: 760px) {
+  .teaser-inner {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: clamp(40px, 10vh, 96px);
+  }
+
+  .teaser-inner .gate {
+    width: min(100%, 360px);
+  }
 }
 
 .teaser-lockup {
