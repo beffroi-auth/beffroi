@@ -29,6 +29,17 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/* The ɛ and ʁ of /bɛ.fʁwa/, which Archivo does not draw: Noto Sans (OFL), cut down to those two glyphs, its x-height
+   within a few units of Archivo's. Declared after the Latin Extended face, so it is the one tried first for them. */
+@font-face {
+  font-family: 'Archivo';
+  src: url('../fonts/noto-sans-ipa-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+025B, U+0281;
+}
+
 @font-face {
   font-family: 'Martian Mono';
   src: url('../fonts/martian-mono-latin-wdth-normal.woff2') format('woff2');
@@ -448,6 +459,33 @@ select {
   letter-spacing: -0.01em;
 }
 
+/* The name, as a dictionary gives it: the word, how it is said, what it is. Under the title of the teaser and of the
+   landing page. */
+
+.definition {
+  max-width: 34em;
+  font-size: clamp(17px, 1.7vw, 20px);
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.definition dfn {
+  font-family: var(--font-heading);
+  font-style: normal;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.definition-ipa {
+  color: var(--color-quiet);
+}
+
+.definition abbr {
+  font-style: italic;
+  text-decoration: none;
+  color: var(--color-quiet);
+}
+
 /* The landing page of SymfonyCon: the pitch, and the form beside it or under it */
 
 .landing {
@@ -479,6 +517,10 @@ select {
   font-size: clamp(30px, 4.6vw, 52px);
   line-height: 1.04;
   letter-spacing: -0.01em;
+}
+
+.pitch .definition {
+  margin-top: 16px;
 }
 
 .claims {
