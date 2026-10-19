@@ -346,6 +346,12 @@ select {
   background: var(--color-button-active);
 }
 
+/* The chamfer clips whatever is drawn outside the button: its ring of focus is drawn inside. */
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-on-button);
+  outline-offset: -6px;
+}
+
 .arrow-link {
   display: inline-flex;
   align-items: center;
@@ -426,7 +432,10 @@ select {
   color: var(--color-muted);
 }
 
+/* A taller target for a thumb, the line unmoved. */
 .footer-inner a {
+  padding-block: 10px;
+  margin-block: -10px;
   color: var(--color-muted);
 }
 
@@ -495,14 +504,14 @@ select {
   color: var(--color-text);
 }
 
-.definition-ipa {
-  color: var(--color-quiet);
+/* A step back from the sense, still AA at 17px (4.8:1 light, 6.6:1 dark). Upright: Archivo has no italic to give. */
+.definition-ipa,
+.definition abbr {
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
 .definition abbr {
-  font-style: italic;
   text-decoration: none;
-  color: var(--color-quiet);
 }
 
 /* The landing page of SymfonyCon: the pitch, and the form beside it or under it */
@@ -518,7 +527,8 @@ select {
   grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
   gap: 40px 64px;
   align-items: start;
-  padding-block: clamp(28px, 6vw, 72px);
+  /* Bounded by the height too, so the button of the form shows on a 1280 by 720 laptop. */
+  padding-block: clamp(28px, min(6vw, 5vh), 72px);
 }
 
 .pitch-head {
@@ -536,6 +546,13 @@ select {
   font-size: clamp(30px, 4.6vw, 52px);
   line-height: 1.04;
   letter-spacing: -0.01em;
+}
+
+/* Beside the form, the column is narrow up to about 1200px: the title is sized on it, five lines down to four. */
+@media (min-width: 901px) {
+  .pitch h1 {
+    font-size: clamp(30px, 3.8vw, 52px);
+  }
 }
 
 .pitch .definition {
@@ -631,7 +648,9 @@ select {
 
 /* The form */
 
+/* #signup: the page posts to itself with this fragment, so a phone shows the form and its errors, not the top again. */
 .signup {
+  scroll-margin-top: 16px;
   padding: 2px;
   background: var(--color-text);
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
@@ -715,9 +734,15 @@ select {
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
+/* The field to fix stands out: a red line two pixels thick, and its label in red. */
 .has-error input,
 .has-error select {
   border-color: var(--color-error);
+  box-shadow: inset 0 0 0 1px var(--color-error);
+}
+
+.has-error > label {
+  color: var(--color-error);
 }
 
 .field-error {
@@ -731,6 +756,15 @@ select {
   .signup-form:not(:has(select option[value='other']:checked)) .field-other:not(.has-error) {
     display: none;
   }
+
+  /* "Choose one" is a prompt, not an answer: quiet, and the options of the list keep the ink. */
+  .field select:has(option[value='']:checked) {
+    color: var(--color-quiet);
+  }
+
+  .field select option {
+    color: var(--color-text);
+  }
 }
 
 .consent {
@@ -743,8 +777,8 @@ select {
 }
 
 .consent input {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   margin: 0;
   accent-color: var(--color-accent);
   cursor: pointer;
@@ -754,9 +788,12 @@ select {
   cursor: pointer;
 }
 
+/* On its own line under the sentence, at every width; a taller target for a thumb, the line unmoved. */
 .consent-link {
-  display: inline-block;
-  margin-left: 4px;
+  display: block;
+  width: fit-content;
+  padding-block: 8px;
+  margin-block: -4px -8px;
 }
 
 .consent .field-error {
@@ -775,13 +812,36 @@ select {
   overflow: clip;
 }
 
+/* Both start on the left edge of the logo, as the landing page does; their text keeps a readable measure. The scene of
+   the gate, its still frame only, sits beside the thanks, under them below 760px. */
 .thanks-inner {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(220px, 30vw, 380px);
+  gap: 48px 64px;
+  align-items: center;
+  padding-block: clamp(56px, 12vh, 128px);
+}
+
+.thanks-text {
+  display: grid;
   justify-items: start;
   gap: 20px;
+}
+
+.thanks-text > *,
+.prose > * {
   max-width: 760px;
-  padding-block: clamp(56px, 12vh, 128px);
+}
+
+@media (max-width: 760px) {
+  .thanks-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .thanks-inner .gate {
+    width: min(100%, 320px);
+  }
 }
 
 .thanks h1 {
@@ -795,7 +855,6 @@ select {
 }
 
 .prose {
-  max-width: 760px;
   padding-block: clamp(40px, 8vw, 80px);
 }
 
@@ -831,21 +890,81 @@ select {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* One measure for the pitch and the form, so the claims end where the form does. */
+  .pitch,
   .signup {
     max-width: 640px;
   }
 }
 
-@media (max-width: 420px) {
-  .field-row {
-    grid-template-columns: minmax(0, 1fr);
+/* Phone: the title runs the full width, the definition sits beside the tower it describes, which grows by half; the
+   year leaves the top bar so it holds on one line; the small mono text grows. */
+@media (max-width: 560px) {
+  .pitch-head > div {
+    display: contents;
   }
 
   .pitch-head {
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) clamp(128px, 38vw, 168px);
+    grid-template-areas:
+      'badge badge'
+      'title title'
+      'def gate';
+    gap: 0 16px;
+    align-items: center;
   }
 
+  .pitch-head .badge {
+    grid-area: badge;
+    justify-self: start;
+  }
+
+  .pitch h1 {
+    grid-area: title;
+    font-size: 34px;
+  }
+
+  .pitch .definition {
+    grid-area: def;
+    margin-top: 12px;
+  }
+
+  .pitch-head .gate {
+    grid-area: gate;
+    margin-top: 12px;
+  }
+
+  .topbar-year {
+    display: none;
+  }
+
+  .mono {
+    font-size: 11.5px;
+  }
+
+  .field > label {
+    font-size: 12px;
+  }
+
+  /* The event keeps its size, the one that holds beside the logo on a 390px phone (99 + 16 + 231 px). */
+  .topbar-inner {
+    column-gap: 16px;
+  }
+
+  .topbar-event {
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 420px) {
   .claims li {
     padding-block: 8px;
+  }
+}
+
+/* Two fields side by side are too short below 380px for a long Polish surname. */
+@media (max-width: 380px) {
+  .field-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

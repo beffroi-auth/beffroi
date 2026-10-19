@@ -9,7 +9,7 @@
     <header class="topbar">
         <div class="wrap topbar-inner">
             <a href="{{ path('app_home') }}" class="topbar-home">{{ include('_lockup.svg.twig', {height: 24}) }}</a>
-            <p class="mono topbar-event">SymfonyCon Warsaw · 26-27 Nov 2026</p>
+            <p class="mono topbar-event">SymfonyCon Warsaw · 26-27 Nov<span class="topbar-year"> 2026</span></p>
         </div>
     </header>
 
@@ -33,12 +33,12 @@
                 </ul>
             </section>
 
-            <section class="signup" aria-labelledby="signup-title">
+            <section class="signup" id="signup" aria-labelledby="signup-title">
                 <div class="signup-inner">
                     <h2 id="signup-title">Get notified at release</h2>
                     <p class="signup-lead">Leave your details, and we will email you the day Beffroi is released.</p>
 
-                    {{ form_start(form, {attr: {class: 'signup-form'}}) }}
+                    {{ form_start(form, {action: path('app_signup') ~ '#signup', attr: {class: 'signup-form'}}) }}
                         {{ form_errors(form) }}
                         <div class="field-row">
                             {{ form_row(form.firstName) }}

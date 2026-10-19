@@ -41,7 +41,7 @@ final class LeadType extends AbstractType
             ])
             ->add('provider', EnumType::class, [
                 'class' => OidcProvider::class,
-                'label' => 'Which OpenID Connect provider do you use today?',
+                'label' => 'Your OpenID Connect provider today',
                 'placeholder' => 'Choose one',
             ])
             ->add('providerOther', TextType::class, [
