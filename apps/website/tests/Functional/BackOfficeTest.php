@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional;
 
+use DateTimeImmutable;
 use App\Entity\Admin;
 use App\Entity\Lead;
 use App\Lead\LeadStatus;
@@ -63,7 +64,7 @@ final class BackOfficeTest extends WebTestCase
 
         // Then
         static::assertResponseHeaderSame('Content-Type', 'text/csv; charset=utf-8');
-        $csv = (string) $this->client->getInternalResponse()->getContent();
+        $csv = $this->client->getInternalResponse()->getContent();
         static::assertStringStartsWith("\u{FEFF}created_at,first_name,last_name,company,email,", $csv);
         static::assertStringContainsString(',Ada,Lovelace,,ada@example.com,"Microsoft Entra ID",', $csv);
     }
@@ -74,7 +75,7 @@ final class BackOfficeTest extends WebTestCase
         // Given
         $id = $this->givenALead('ada@example.com');
         $this->client->loginUser($this->givenAnAdmin());
-        $crawler = $this->client->request('GET', '/admin/lead/'.$id.'/edit');
+        $crawler = $this->client->request('GET', '/admin/lead/' . $id . '/edit');
         $form = $crawler->filter('form[name="Lead"]')->form();
 
         // When
@@ -101,7 +102,7 @@ final class BackOfficeTest extends WebTestCase
         $token = $crawler->filter('#action-confirmation-form input[name="token"]')->attr('value');
 
         // When
-        $this->client->request('POST', '/admin/lead/'.$id.'/delete', ['token' => $token]);
+        $this->client->request('POST', '/admin/lead/' . $id . '/delete', ['token' => $token]);
 
         // Then
         static::assertSame(0, self::entityManager()->getRepository(Lead::class)->count());
@@ -115,10 +116,15 @@ final class BackOfficeTest extends WebTestCase
         $crawler = $this->client->request('GET', '/admin/login');
 
         // When
-        $this->client->submit($crawler->selectButton('Sign in')->form([
-            '_username' => 'admin@beffroi.tech',
-            '_password' => 'a long enough password',
-        ]), serverParameters: ['HTTP_SEC_FETCH_SITE' => 'same-origin']);
+        $this->client->submit(
+            $crawler
+                ->selectButton('Sign in')
+                ->form([
+                    '_username' => 'admin@beffroi.tech',
+                    '_password' => 'a long enough password',
+                ]),
+            serverParameters: ['HTTP_SEC_FETCH_SITE' => 'same-origin'],
+        );
 
         // Then
         static::assertResponseRedirects('/admin');
@@ -137,7 +143,7 @@ final class BackOfficeTest extends WebTestCase
 
     private function givenALead(string $email): string
     {
-        $lead = new Lead($email, 'Ada', 'Lovelace', null, OidcProvider::EntraId, null, 'test', new \DateTimeImmutable());
+        $lead = new Lead($email, 'Ada', 'Lovelace', null, OidcProvider::EntraId, null, 'test', new DateTimeImmutable());
         self::entityManager()->persist($lead);
         self::entityManager()->flush();
 

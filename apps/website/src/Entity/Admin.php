@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use LogicException;
 use App\Repository\AdminRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -22,16 +23,12 @@ class Admin implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     public private(set) ?int $id = null;
 
-    #[ORM\Column(length: 180)]
-    public private(set) string $email;
-
-    #[ORM\Column]
-    private string $password;
-
-    public function __construct(string $email, string $passwordHash)
-    {
-        $this->email = $email;
-        $this->password = $passwordHash;
+    public function __construct(
+        #[ORM\Column(length: 180)]
+        public private(set) string $email,
+        #[ORM\Column]
+        private string $password,
+    ) {
     }
 
     public function changePassword(string $passwordHash): void
@@ -42,7 +39,7 @@ class Admin implements UserInterface, PasswordAuthenticatedUserInterface
     public function getUserIdentifier(): string
     {
         if ('' === $this->email) {
-            throw new \LogicException('An admin has an email address.');
+            throw new LogicException('An admin has an email address.');
         }
 
         return $this->email;

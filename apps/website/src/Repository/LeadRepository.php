@@ -42,9 +42,6 @@ final class LeadRepository extends ServiceEntityRepository
      */
     public function streamNewestFirst(): iterable
     {
-        return $this->createQueryBuilder('lead')
-            ->orderBy('lead.createdAt', 'DESC')
-            ->getQuery()
-            ->toIterable();
+        return $this->createQueryBuilder('lead')->orderBy('lead.createdAt', 'DESC')->getQuery()->toIterable();
     }
 }

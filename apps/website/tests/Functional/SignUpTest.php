@@ -222,7 +222,7 @@ final class SignUpTest extends WebTestCase
         $submitted = [];
         foreach ($values as $name => $value) {
             // A checkbox ticks on true and unticks on false.
-            $submitted['signup['.$name.']'] = 'consent' === $name ? null !== $value : $value;
+            $submitted['signup[' . $name . ']'] = 'consent' === $name ? null !== $value : $value;
         }
 
         $this->client->submit($form, $submitted);

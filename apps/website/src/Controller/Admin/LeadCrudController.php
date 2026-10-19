@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\Admin;
 
+use RuntimeException;
 use App\Entity\Lead;
 use App\Lead\LeadStatus;
 use App\Lead\OidcProvider;
@@ -31,12 +32,23 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 final class LeadCrudController extends AbstractCrudController
 {
     private const array CSV_COLUMNS = [
-        'created_at', 'first_name', 'last_name', 'company', 'email', 'provider', 'provider_other', 'source',
-        'consented_at', 'confirmation_sent_at', 'status', 'notes',
+        'created_at',
+        'first_name',
+        'last_name',
+        'company',
+        'email',
+        'provider',
+        'provider_other',
+        'source',
+        'consented_at',
+        'confirmation_sent_at',
+        'status',
+        'notes',
     ];
 
-    public function __construct(private readonly LeadRepository $leads)
-    {
+    public function __construct(
+        private readonly LeadRepository $leads,
+    ) {
     }
 
     public static function getEntityFqcn(): string
@@ -56,14 +68,9 @@ final class LeadCrudController extends AbstractCrudController
 
     public function configureActions(Actions $actions): Actions
     {
-        $export = Action::new('export', 'Export CSV', 'fa fa-file-csv')
-            ->linkToCrudAction('export')
-            ->createAsGlobalAction();
+        $export = Action::new('export', 'Export CSV', 'fa fa-file-csv')->linkToCrudAction('export')->createAsGlobalAction();
 
-        return $actions
-            ->disable(Action::NEW)
-            ->add(Crud::PAGE_INDEX, Action::DETAIL)
-            ->add(Crud::PAGE_INDEX, $export);
+        return $actions->disable(Action::NEW)->add(Crud::PAGE_INDEX, Action::DETAIL)->add(Crud::PAGE_INDEX, $export);
     }
 
     public function configureFields(string $pageName): iterable
@@ -78,14 +85,12 @@ final class LeadCrudController extends AbstractCrudController
         yield TextField::new('source')->hideOnForm()->hideOnIndex();
         yield DateTimeField::new('consentedAt', 'Consent given')->hideOnForm()->hideOnIndex();
         yield DateTimeField::new('confirmationSentAt', 'Confirmation sent')->hideOnForm()->hideOnIndex();
-        yield ChoiceField::new('status')
-            ->setChoices(LeadStatus::cases())
-            ->renderAsBadges([
-                LeadStatus::New->value => 'primary',
-                LeadStatus::Contacted->value => 'info',
-                LeadStatus::Interested->value => 'success',
-                LeadStatus::NotInterested->value => 'secondary',
-            ]);
+        yield ChoiceField::new('status')->setChoices(LeadStatus::cases())->renderAsBadges([
+            LeadStatus::New->value => 'primary',
+            LeadStatus::Contacted->value => 'info',
+            LeadStatus::Interested->value => 'success',
+            LeadStatus::NotInterested->value => 'secondary',
+        ]);
         yield TextareaField::new('notes')->hideOnIndex()->setNumOfRows(8);
     }
 
@@ -103,26 +108,30 @@ final class LeadCrudController extends AbstractCrudController
         $response = new StreamedResponse(function (): void {
             $output = fopen('php://output', 'w');
             if (false === $output) {
-                throw new \RuntimeException('The output stream could not be opened.');
+                throw new RuntimeException('The output stream could not be opened.');
             }
 
             fwrite($output, "\u{FEFF}");
             fputcsv($output, self::CSV_COLUMNS, escape: '');
             foreach ($this->leads->streamNewestFirst() as $lead) {
-                fputcsv($output, [
-                    $lead->createdAt->format(\DATE_ATOM),
-                    $lead->firstName,
-                    $lead->lastName,
-                    $lead->company ?? '',
-                    $lead->email,
-                    $lead->provider->label(),
-                    $lead->providerOther ?? '',
-                    $lead->source,
-                    $lead->consentedAt->format(\DATE_ATOM),
-                    $lead->confirmationSentAt?->format(\DATE_ATOM) ?? '',
-                    $lead->status->label(),
-                    $lead->notes ?? '',
-                ], escape: '');
+                fputcsv(
+                    $output,
+                    [
+                        $lead->createdAt->format(\DATE_ATOM),
+                        $lead->firstName,
+                        $lead->lastName,
+                        $lead->company ?? '',
+                        $lead->email,
+                        $lead->provider->label(),
+                        $lead->providerOther ?? '',
+                        $lead->source,
+                        $lead->consentedAt->format(\DATE_ATOM),
+                        $lead->confirmationSentAt?->format(\DATE_ATOM) ?? '',
+                        $lead->status->label(),
+                        $lead->notes ?? '',
+                    ],
+                    escape: '',
+                );
             }
             fclose($output);
         });

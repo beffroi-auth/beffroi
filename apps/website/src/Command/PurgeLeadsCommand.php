@@ -27,7 +27,7 @@ final readonly class PurgeLeadsCommand
 
     public function __invoke(SymfonyStyle $io): int
     {
-        $limit = $this->clock->now()->modify('-'.self::RETENTION);
+        $limit = $this->clock->now()->modify('-' . self::RETENTION);
         $deleted = $this->leads->deleteConsentedBefore($limit);
 
         $io->success(\sprintf('%d lead(s) consented before %s and were deleted.', $deleted, $limit->format(\DATE_ATOM)));

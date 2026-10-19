@@ -26,9 +26,6 @@ class Lead
     #[ORM\Column(type: UuidType::NAME)]
     public private(set) Uuid $id;
 
-    #[ORM\Column(length: 180)]
-    public private(set) string $email;
-
     #[ORM\Column(length: 100)]
     public private(set) string $firstName;
 
@@ -49,9 +46,6 @@ class Lead
     #[ORM\Column(length: 64)]
     public private(set) string $source;
 
-    #[ORM\Column]
-    public private(set) DateTimeImmutable $createdAt;
-
     /** The last time the visitor agreed to the emails: the retention period runs from it. */
     #[ORM\Column]
     public private(set) DateTimeImmutable $consentedAt;
@@ -66,19 +60,19 @@ class Lead
     public ?string $notes = null;
 
     public function __construct(
-        string $email,
+        #[ORM\Column(length: 180)]
+        public private(set) string $email,
         string $firstName,
         string $lastName,
         ?string $company,
         OidcProvider $provider,
         ?string $providerOther,
         string $source,
-        DateTimeImmutable $now,
+        #[ORM\Column]
+        public private(set) DateTimeImmutable $createdAt,
     ) {
         $this->id = Uuid::v7();
-        $this->email = $email;
-        $this->createdAt = $now;
-        $this->describe($firstName, $lastName, $company, $provider, $providerOther, $source, $now);
+        $this->describe($firstName, $lastName, $company, $provider, $providerOther, $source, $this->createdAt);
     }
 
     /**

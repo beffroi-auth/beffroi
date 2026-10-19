@@ -15,8 +15,9 @@ version = "1.50"
 php-version = "8.4"
 
 [source]
-# The paths ECS covered, the configurations of the other tools included.
-paths = ["src", "tests", "castor.php", ".castor", ".ci-tools/rector.php"]
+# The paths ECS covered, the configurations of the other tools included, and the code of the website
+# (apps/website), which the application apps/op is not: its PHP is what its kernel and its suite judge.
+paths = ["src", "tests", "castor.php", ".castor", ".ci-tools/rector.php", "apps/website/src", "apps/website/tests", "apps/website/migrations"]
 # The fixtures of the SAML packages are data, byte-exact, and their interoperability projects are
 # throwaway Composer projects run in their own containers against libraries that are not dependencies
 # here (tests/xml-security/*/Fixture/real, tests/saml2-model/Interop, tests/saml2-bindings/Interop).
@@ -164,4 +165,5 @@ no-insecure-comparison = { enabled = false }
 # Neither castor nor its tasks are in vendor: the analyzer cannot resolve a single one of their calls.
 # tests/symfony/config holds the bundle declarations of the test kernel, which phpstan.neon excludes
 # too; the formatter and the linter still read them, as ECS did.
-excludes = ["castor.php", ".castor", ".ci-tools/rector.php", "tests/symfony/config"]
+# The website resolves its symbols in its own vendor, which is not the one of the root.
+excludes = ["castor.php", ".castor", ".ci-tools/rector.php", "tests/symfony/config", "apps/website"]

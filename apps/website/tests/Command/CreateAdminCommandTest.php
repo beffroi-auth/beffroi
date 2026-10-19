@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Command;
 
+use LogicException;
 use App\Entity\Admin;
 use App\Tests\DatabaseReset;
 use PHPUnit\Framework\Attributes\Test;
@@ -74,7 +75,7 @@ final class CreateAdminCommandTest extends KernelTestCase
      */
     private function createAdmin(string $email, array $inputs): int
     {
-        $kernel = self::$kernel ?? throw new \LogicException('The kernel is booted in setUp().');
+        $kernel = self::$kernel ?? throw new LogicException('The kernel is booted in setUp().');
         $tester = new CommandTester(new Application($kernel)->find('app:admin:create'));
         $tester->setInputs($inputs);
 

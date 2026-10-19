@@ -30,6 +30,9 @@ $builder->withPaths([
     __DIR__ . '/../castor.php',
     __DIR__ . '/../.castor',
     __DIR__ . '/rector.php',
+    __DIR__ . '/../apps/website/src',
+    __DIR__ . '/../apps/website/tests',
+    __DIR__ . '/../apps/website/migrations',
 ]);
 $builder->withSkip([
     PreferPHPUnitThisCallRector::class,

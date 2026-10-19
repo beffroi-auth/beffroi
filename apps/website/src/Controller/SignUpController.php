@@ -20,8 +20,9 @@ final class SignUpController extends AbstractController
 {
     public const string SOURCE = 'symfonycon-warsaw-2026';
 
-    public function __construct(private readonly Registration $registration)
-    {
+    public function __construct(
+        private readonly Registration $registration,
+    ) {
     }
 
     #[Route('/symfonycon', name: 'app_signup', methods: ['GET', 'POST'])]

@@ -23,10 +23,7 @@ final class DashboardController extends AbstractDashboardController
 
     public function configureDashboard(): Dashboard
     {
-        return Dashboard::new()
-            ->setTitle('Beffroi leads')
-            ->setFaviconPath('/favicon.svg')
-            ->disableDarkMode();
+        return Dashboard::new()->setTitle('Beffroi leads')->setFaviconPath('/favicon.svg')->disableDarkMode();
     }
 
     public function configureMenuItems(): iterable

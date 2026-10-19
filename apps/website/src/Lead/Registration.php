@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Lead;
 
+use LogicException;
 use App\Entity\Lead;
 use App\Repository\LeadRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,7 +31,7 @@ final readonly class Registration
         private MailerInterface $mailer,
         private ClockInterface $clock,
         private LoggerInterface $logger,
-        #[Autowire('%app.mail_from%')]
+        #[Autowire(param: 'app.mail_from')]
         private string $mailFrom,
     ) {
     }
@@ -41,7 +42,7 @@ final readonly class Registration
         $firstName = trim((string) $request->firstName);
         $lastName = trim((string) $request->lastName);
         $company = self::optional($request->company);
-        $provider = $request->provider ?? throw new \LogicException('A validated sign-up names a provider.');
+        $provider = $request->provider ?? throw new LogicException('A validated sign-up names a provider.');
         $providerOther = self::optional($request->providerOther);
         $now = $this->clock->now();
 
@@ -65,7 +66,7 @@ final readonly class Registration
     {
         $email = new TemplatedEmail()
             ->from(new Address($this->mailFrom, 'Beffroi'))
-            ->to(new Address($lead->email, trim($lead->firstName.' '.$lead->lastName)))
+            ->to(new Address($lead->email, trim($lead->firstName . ' ' . $lead->lastName)))
             ->subject('You are on the Beffroi list')
             ->htmlTemplate('email/confirmation.html.twig')
             ->textTemplate('email/confirmation.txt.twig')

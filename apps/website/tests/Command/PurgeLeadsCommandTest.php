@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Command;
 
+use DateTimeImmutable;
+use LogicException;
 use App\Entity\Lead;
 use App\Lead\OidcProvider;
 use App\Tests\DatabaseReset;
@@ -53,14 +55,14 @@ final class PurgeLeadsCommandTest extends KernelTestCase
 
     private function givenALeadConsentedAt(string $email, string $date): void
     {
-        self::entityManager()->persist(new Lead($email, 'Ada', 'Lovelace', null, OidcProvider::None, null, 'test', new \DateTimeImmutable($date)));
+        self::entityManager()->persist(new Lead($email, 'Ada', 'Lovelace', null, OidcProvider::None, null, 'test', new DateTimeImmutable($date)));
         self::entityManager()->flush();
         self::entityManager()->clear();
     }
 
     private function purge(): void
     {
-        $kernel = self::$kernel ?? throw new \LogicException('The kernel is booted in setUp().');
+        $kernel = self::$kernel ?? throw new LogicException('The kernel is booted in setUp().');
         $tester = new CommandTester(new Application($kernel)->find('app:leads:purge'));
         $tester->execute([]);
         $tester->assertCommandIsSuccessful();
