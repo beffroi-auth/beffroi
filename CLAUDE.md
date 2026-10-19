@@ -15,8 +15,9 @@ Work is organised in spikes, each one a question with a success criterion, a fai
 | `src/saml2-model` | `beffroi/saml2-model` | `Beffroi\Saml2\Model` | The SAML 2.0 messages, assertions and metadata, read strictly, validated and written. No HTTP. Depends on `beffroi/xml-security` only. |
 | `src/saml2-bindings` | `beffroi/saml2-bindings` | `Beffroi\Saml2\Bindings` | HTTP-Redirect and HTTP-POST: a query string or a form decoded into the document the model reads, the detached signature verified over the octets the sender signed, a message the model writes turned into a URL or a form. Strings and arrays, no HTTP object. Depends on `beffroi/saml2-model` and `beffroi/xml-security` only. |
 | `apps/op` | `beffroi/op` | `App` | Standalone application, FrankenPHP. |
+| `apps/website` | `beffroi/website` | `App` | The website of beffroi.tech, on Scalingo. An application of its own: nothing of the identity provider requires it, it requires nothing of it, and it is installed and analysed apart from `apps/op`. |
 
-Inside each pure-PHP package of the identity provider: `Domain`, `Port`, `Application`, `Bridge`. Deptrac enforces both the package graph and the layers (`.ci-tools/deptrac.yaml`), the namespaces of the SAML packages included. Each SAML package carries its specification in `spec/`, the law of its code: the code conforms to it, or the document changes first, in its own commit, with its reason. Every package is mirrored read only into a repository of its own (`.gitsplit.yml`); the work happens here.
+Inside each pure-PHP package of the identity provider: `Domain`, `Port`, `Application`, `Bridge`. Deptrac enforces both the package graph and the layers (`.ci-tools/deptrac.yaml`), the namespaces of the SAML packages included. Each SAML package carries its specification in `spec/`, the law of its code: the code conforms to it, or the document changes first, in its own commit, with its reason. Every package is mirrored read only into a repository of its own (`.gitsplit.yml`); the work happens here. The website is not mirrored: nobody installs it.
 
 ## Working on an issue
 
@@ -24,7 +25,7 @@ One issue, one worktree, one branch, one pull request here, one documentation pu
 
 - **Worktree.** `git worktree add` under the session scratchpad, branched from `origin/HEAD`, the maintenance branch the clone points at. The shared checkout at `~/Projects/idp/code` belongs to whoever is using it; never move its branch.
 - **Branch.** `feat|fix|test|refactor|ci|chore/<issue>-<slug>`, for instance `feat/162-dpop`.
-- **Commit.** `type(scope): what it does, lowercase, no final period (issue #N)`. Scopes: `core`, `oidc`, `symfony`, `xml-security`, `saml2-model`, `saml2-bindings`, `app`, `conformance`. English, here as everywhere in the code.
+- **Commit.** `type(scope): what it does, lowercase, no final period (issue #N)`. Scopes: `core`, `oidc`, `symfony`, `xml-security`, `saml2-model`, `saml2-bindings`, `app`, `conformance`, `website`. English, here as everywhere in the code.
 - **Before the pull request.** `castor prepare-pr`, then `castor phpunit`, `castor phpstan`, `castor deptrac`, and `castor app-phpunit` when the change touches the application or anything its kernel wires. Infection runs on the diff in CI; run `castor infect --diff` yourself when the change is a rule rather than plumbing.
 - **Opening it.** `gh pr create --head <branch>` always: another session can move the current branch of a shared checkout under you.
 - **Status.** A long-running issue keeps **one** status comment, edited in place. Never a new comment per update.
@@ -109,6 +110,14 @@ castor console beffroi:geoip:refresh [--url U]  # the GeoLite2 city and ASN data
 ```
 
 What says where a provenance came from (`../docs/11-architecture/coeur.md` §3.5). The weekly step of the schedule runs the same object, so the command is for installing the databases the day a deployment subscribes and for reading why a refresh was refused; a deployment that names no licence key downloads nothing and serves every flow with a provenance that says an address and no place.
+
+**The website.** `apps/website`, installed by `(cd apps/website && composer install)`. The formatter, the linter and Rector of the root hold its `src/`, `tests/` and `migrations/`, the quality job of the CI with them; the rest is its own, which the Website workflow runs (`.github/workflows/website.yml`).
+
+```bash
+castor website-phpunit    # its suite, on the PostgreSQL of apps/website/compose.yaml, started for the run and left up, unless DATABASE_URL names one (the service of the workflow)
+castor website-phpstan    # PHPStan at level max from apps/website, with its own vendor and its Symfony and Doctrine extensions, on the container its dev kernel compiles
+git archive --prefix=website/ HEAD:apps/website | gzip > website.tar.gz && scalingo --app beffroi-tech deploy website.tar.gz   # a deployment, by hand (apps/website/README.md)
+```
 
 **Quality.**
 
