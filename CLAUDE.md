@@ -116,7 +116,8 @@ What says where a provenance came from (`../docs/11-architecture/coeur.md` §3.5
 ```bash
 castor website-phpunit    # its suite, on the PostgreSQL of apps/website/compose.yaml, started for the run and left up, unless DATABASE_URL names one (the service of the workflow)
 castor website-phpstan    # PHPStan at level max from apps/website, with its own vendor and its Symfony and Doctrine extensions, on the container its dev kernel compiles
-git archive --prefix=website/ HEAD:apps/website | gzip > website.tar.gz && scalingo --app beffroi-tech deploy website.tar.gz   # a deployment, by hand (apps/website/README.md)
+gh workflow run website-deploy.yml [--ref <branch>]   # a deployment from GitHub, the checks of the Website workflow first; what Mathieu runs, from the Actions tab
+git archive --prefix=website/ HEAD:apps/website | gzip > website.tar.gz && scalingo --app beffroi-tech deploy website.tar.gz   # the same deployment, by hand (apps/website/README.md)
 ```
 
 **Quality.**

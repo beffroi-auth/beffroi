@@ -1,0 +1,55 @@
+name: Website deployment
+
+# The website of beffroi.tech deployed to Scalingo when somebody asks for it: "Run workflow" in the Actions tab, on the
+# branch to deploy. Nothing deploys on its own, neither a push nor a merge. The checks of the Website workflow run
+# first, on the same commit, and a red one deploys nothing.
+#
+# What leaves is what "git archive" makes of HEAD:apps/website, as a deployment by hand does (apps/website/README.md),
+# with the commit as its reference in the deployments of Scalingo. The CLI of Scalingo is pinned, its archive checked
+# against the checksum of its release, and it reads SCALINGO_API_TOKEN, a secret of the "beffroi-tech" environment of
+# this repository, whose protection rules say who may deploy and from which branches. The CLI follows the deployment
+# to its end, the migrations of the postdeploy hook included, and fails the job when the deployment fails.
+
+on:
+  workflow_dispatch: ~
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: "The website is judged before it leaves"
+    uses: ./.github/workflows/website.yml
+
+  deploy:
+    name: "The website is deployed to Scalingo"
+    needs: checks
+    runs-on: ubuntu-latest
+    # One deployment at a time, and a second one waits for the first rather than cancelling it halfway.
+    concurrency:
+      group: website-deployment
+      cancel-in-progress: false
+    environment:
+      name: beffroi-tech
+      url: https://beffroi.tech
+    env:
+      SCALINGO_CLI_VERSION: '1.50.0'
+      SCALINGO_CLI_SHA256: '8a912cd7ab17c41dbd0646be1477bb7b3b48d9251f490a703d472fa11da3aafd'
+    steps:
+      - uses: actions/checkout@v7
+      - name: "The CLI of Scalingo, pinned and checked"
+        run: |
+          archive="scalingo_${SCALINGO_CLI_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/$archive" \
+            "https://github.com/Scalingo/cli/releases/download/${SCALINGO_CLI_VERSION}/${archive}"
+          echo "${SCALINGO_CLI_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar --extract --gzip --file "$RUNNER_TEMP/$archive" --directory "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/bin"
+          install "$RUNNER_TEMP/scalingo_${SCALINGO_CLI_VERSION}_linux_amd64/scalingo" "$RUNNER_TEMP/bin/scalingo"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: "The archive of apps/website"
+        run: git archive --prefix=website/ HEAD:apps/website | gzip > "$RUNNER_TEMP/website.tar.gz"
+      - name: "The deployment, followed to its end"
+        env:
+          SCALINGO_API_TOKEN: ${{ secrets.SCALINGO_API_TOKEN }}
+        run: scalingo --region osc-fr1 --app beffroi-tech deploy "$RUNNER_TEMP/website.tar.gz" "$GITHUB_SHA"

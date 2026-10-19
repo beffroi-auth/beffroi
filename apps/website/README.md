@@ -67,6 +67,12 @@ git archive --prefix=website/ HEAD:apps/website | gzip > website.tar.gz
 scalingo --app beffroi-tech deploy website.tar.gz
 ```
 
+From GitHub, the same archive is deployed by the Website deployment workflow (`.github/workflows/website-deploy.yml`),
+run by hand: "Run workflow" in the Actions tab of the monorepo, on the branch to deploy, or
+`gh workflow run website-deploy.yml --ref <branch>`. The checks of the Website workflow run first, and a red one
+deploys nothing. The workflow reads `SCALINGO_API_TOKEN`, an API token of Scalingo kept as a secret of the
+`beffroi-tech` environment of the repository.
+
 The PHP buildpack (Nginx and PHP-FPM) reads `composer.json`: PHP `~8.5`, the document root `public/`, the Nginx
 include of the login, the compilation of the assets (`asset-map:compile`) and the log file it streams
 (`var/log/prod.log`). `Procfile` plays the migrations after each deployment, `cron.json` schedules the purge.

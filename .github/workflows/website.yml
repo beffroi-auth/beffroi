@@ -11,6 +11,8 @@ on:
       - '.castor/stack/qa.php'
       - 'apps/website/**'
   workflow_dispatch: ~
+  # The checks a deployment runs first (website-deploy.yml).
+  workflow_call: ~
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -20,8 +22,8 @@ concurrency:
 # provider requires and that requires nothing of it: its own lock, its own vendor, its own kernel. What judges it
 # here is what can be judged without Scalingo: its templates and its configuration, PHPStan at level max with the
 # Symfony and Doctrine extensions it installs, and its suite on PostgreSQL. Its formatting, its linting and Rector
-# are the quality job of ci.yml, whose paths hold it. Nothing deploys from here: a deployment is an archive of
-# HEAD:apps/website handed to Scalingo by hand (apps/website/README.md).
+# are the quality job of ci.yml, whose paths hold it. Nothing deploys from here: a deployment is website-deploy.yml,
+# run by hand from the Actions tab, which calls this workflow first.
 jobs:
   website:
     name: "The website lints, PHPStan finds nothing, and its suite is green"
