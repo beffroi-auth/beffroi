@@ -54,7 +54,7 @@ concurrency:
 # A workflow of its own rather than a job of ci.yml, and the reason is the lean CI rule: this is the only
 # check of a pull request that needs the Composer install of apps/op and a database service beside it, and
 # no job of ci.yml needs either. "paths" is what keeps a pull request that touches neither the packages nor
-# the application from paying the half minute this costs, and it names every package rather than the
+# the application from paying the nearly nine minutes this takes, and it names every package rather than the
 # configuration trees alone, because a commit that breaks the pair is not only a commit that moves a tree.
 #
 # It runs in the phpqa image, as every job of ci.yml does and as every task of .castor/stack/qa.php does on
@@ -64,7 +64,14 @@ concurrency:
 jobs:
   application:
     name: "The application boots, what its kernel writes is what is committed, and its suite is green"
-    runs-on: [self-hosted, kloude-light]
+    # On the runner labelled "swarm" rather than on "kloude-light" with the light jobs of ci.yml (issue #857): this
+    # job is the longest of them, 526 s on average over its last eight green runs on "kloude-light" against 211 s for
+    # the four of ci.yml together, and a pull request that touches a package or the application runs both workflows,
+    # so those four waited behind it. That runner is a container of ghcr.io/spomky-labs/gh-runner on a node of a
+    # Docker Swarm, Linux and ARM64, for which the phpqa image and postgres:16-alpine are published. It holds the
+    # Docker socket of its host and runs from a host directory mounted at the same path, so the daemon of the host
+    # creates the container of this job and its database, and finds the workspace it mounts into them.
+    runs-on: [self-hosted, swarm]
     container:
       image: ghcr.io/spomky-labs/phpqa:8.5
     env:
