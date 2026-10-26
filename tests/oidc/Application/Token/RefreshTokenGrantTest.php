@@ -22,6 +22,7 @@ use Beffroi\Oidc\Application\Token\TokenIssuer;
 use Beffroi\Oidc\Application\Request\RequestParameters;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryRefreshTokenRepository;
 use Beffroi\Oidc\Domain\Client\Client;
+use Beffroi\Oidc\Domain\Event\RefreshTokenOutlivedItsSession;
 use Beffroi\Oidc\Domain\Event\RefreshTokenReuseDetected;
 use Beffroi\Oidc\Domain\Event\RefreshTokenRotated;
 use Beffroi\Oidc\Domain\Event\TokensIssued;
@@ -629,6 +630,38 @@ final class RefreshTokenGrantTest extends TestCase
 
         // When
         $this->grant->grant(new AuthenticatedClient($this->client), $this->request('ended'), $this->context);
+    }
+
+    /**
+     * Architecture §4.9, issue #741: a token of a session that has ended, which a refresh in flight when the session
+     * ended saved after the tokens of the session were revoked, is announced as it is refused, the end of the session
+     * dating the revocation that event asks for.
+     */
+    #[Test]
+    public function aTokenWhoseSessionHasEndedIsAnnounced(): void
+    {
+        // Given
+        $ended = Fixtures::session($this->alice, $this->clock->now()->modify('-1 hour'));
+        $this->token('ended', session: $ended);
+        $endedAt = $this->clock->now()->modify('-1 minute');
+        $ended->end(SessionEnd::User, $endedAt);
+
+        // When
+        $this->failToGrant($this->request('ended'));
+
+        // Then
+        static::assertEquals(
+            [new RefreshTokenOutlivedItsSession(
+                $this->clock->now(),
+                $this->tenant,
+                $this->client->registration->clientId,
+                $this->alice->subject,
+                $ended->id,
+                $endedAt,
+                $this->context,
+            )],
+            $this->events->events,
+        );
     }
 
     /**

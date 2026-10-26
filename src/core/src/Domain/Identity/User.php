@@ -19,7 +19,8 @@ use Symfony\Component\Uid\Uuid;
 use function trim;
 
 /**
- * An identity of a tenant; credentials, linked identities and group memberships hang off it (decision 0002).
+ * An identity of a tenant, which names the source that created it; credentials, linked identities and group
+ * memberships hang off it (decision 0002).
  */
 final class User implements ClassifiedFieldsInterface
 {
@@ -44,10 +45,10 @@ final class User implements ClassifiedFieldsInterface
     /**
      * The blind index of the email address, filled the same way, and null for a user who gave none.
      *
-     * Nothing looks an address up today: the repository has no such lookup and no unique constraint says
-     * two users of a tenant may not share one. The column is here because the table is empty today, and a
-     * blind index added later is a reindex, which means reading and unsealing every row of every tenant;
-     * added now it is a column of a migration. Decision 0011 names it for the console of a tenant.
+     * What looks an address up is the first sign-in through an upstream provider, which refuses to create a
+     * person whose address another person of the tenant holds (`JustInTimeProvisioning`). No unique
+     * constraint says two users of a tenant may not share one: two local persons may, and nothing links
+     * either of them to a provider on its own. Decision 0011 names it for the console of a tenant too.
      */
     public private(set) ?string $emailIndex = null;
 
@@ -64,6 +65,7 @@ final class User implements ClassifiedFieldsInterface
         public private(set) ?Address $address,
         public readonly DateTimeImmutable $createdAt,
         public private(set) DateTimeImmutable $updatedAt,
+        public private(set) UserSource $source,
     ) {
         $this->username = self::normalizeUsername($username);
         self::assertVerifiable($email, $emailVerified, 'email address');
@@ -78,8 +80,23 @@ final class User implements ClassifiedFieldsInterface
         DateTimeImmutable $now,
         ?EmailAddress $email = null,
         bool $emailVerified = false,
+        ?UserSource $source = null,
     ): self {
-        return new self($id, $tenant, $subject, $username, $email, $emailVerified, Profile::empty(), null, false, null, $now, $now);
+        return new self(
+            $id,
+            $tenant,
+            $subject,
+            $username,
+            $email,
+            $emailVerified,
+            Profile::empty(),
+            null,
+            false,
+            null,
+            $now,
+            $now,
+            $source ?? UserSource::local(),
+        );
     }
 
     public function rename(string $username, DateTimeImmutable $now): void
@@ -119,6 +136,23 @@ final class User implements ClassifiedFieldsInterface
         $this->updatedAt = $now;
     }
 
+    /**
+     * What the source that created the person holds now, which its provider says again at every sign-in
+     * through it (issue #781): a claim it no longer fills or no longer sends is released, and a manual
+     * description may say it again, no source holding a claim for ever. The provider is not what changes:
+     * the person stays the one it created.
+     *
+     * @throws InvalidArgumentException when the source names another provider than the one that created the person
+     */
+    public function heldBy(UserSource $source, DateTimeImmutable $now): void
+    {
+        if ($source->provider !== $this->source->provider) {
+            throw new InvalidArgumentException('What a source holds of a person changes, and the provider that created the person does not.');
+        }
+        $this->source = $source;
+        $this->updatedAt = $now;
+    }
+
     public function disable(DateTimeImmutable $now): void
     {
         if ($this->disabledAt !== null) {
@@ -148,6 +182,16 @@ final class User implements ClassifiedFieldsInterface
     }
 
     /**
+     * Whether this person may say this claim of themselves: their tenant opens it (issue #452), and the
+     * source that created them does not hold it (decision 0002). What a page offers and what the use case
+     * that writes it accepts are read here, so that the two cannot disagree.
+     */
+    public function maySayOfThemselves(string $claim): bool
+    {
+        return $this->tenant->selfServedClaims->opens($claim) && ! $this->source->holds($claim);
+    }
+
+    /**
      * A contact detail nobody gave cannot have been verified; the same rule when the user is created and
      * when it changes, for the address as for the number.
      *
@@ -172,8 +216,10 @@ final class User implements ClassifiedFieldsInterface
 
     /**
      * What this provider holds of a person, sealed under the data key of its tenant: the username, the two
-     * verifiable contacts, the postal address and the thirteen claims of the profile. Beside two of them are the
-     * tags a search matches on, the values themselves being sealed, and the subject stays in the clear.
+     * verifiable contacts, the postal address, the thirteen claims of the profile, and the source that created
+     * the person, whose provider says which organisation that person is of, as the column of a linked identity
+     * that names it does. Beside two of them are the tags a search matches on, the values themselves being
+     * sealed, and the subject stays in the clear.
      *
      * @return array<string, FieldClassificationInterface>
      */
@@ -190,6 +236,7 @@ final class User implements ClassifiedFieldsInterface
             'phoneNumber' => new Sealed('user'),
             'phoneNumberVerified' => new NoPersonalDatum('whether an address or a number was verified, which says nothing of either'),
             'address' => new Sealed('user'),
+            'source' => new Sealed('user'),
             'createdAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'updatedAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'disabledAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),

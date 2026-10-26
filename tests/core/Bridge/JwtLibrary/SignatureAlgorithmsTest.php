@@ -7,7 +7,6 @@ namespace Beffroi\Core\Tests\Bridge\JwtLibrary;
 use function array_map;
 use Beffroi\Core\Bridge\InMemory\InMemoryTenantKeyRepository;
 use Beffroi\Core\Bridge\JwtLibrary\Algorithm\RsaKeyBits;
-use Beffroi\Core\Bridge\JwtLibrary\JoseKeyAlgorithms;
 use Beffroi\Core\Bridge\JwtLibrary\JoseSignatureAlgorithms;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryJwsSigner;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryJwsVerifier;
@@ -239,7 +238,7 @@ final class SignatureAlgorithmsTest extends TestCase
     public function aNameNoRegistryCarriesIsRefusedWithWhatEachOfThemHoldsNothingOf(): void
     {
         // Given
-        $algorithms = new JoseKeyAlgorithms([
+        $algorithms = Algorithms::readAsOne([
             Algorithms::all(),
             Algorithms::noKeyEncryption(),
             Algorithms::noApplicationServer(),
@@ -289,7 +288,7 @@ final class SignatureAlgorithmsTest extends TestCase
         $algorithms = new JoseSignatureAlgorithms([$unwired]);
         $repository = new InMemoryTenantKeyRepository();
         $pair = new JwtLibraryKeyPairGenerator(
-            new JoseKeyAlgorithms([
+            Algorithms::readAsOne([
                 $algorithms,
                 Algorithms::noKeyEncryption(),
                 Algorithms::noApplicationServer(),

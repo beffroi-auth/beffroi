@@ -37,6 +37,8 @@ final class ClientUriTest extends TestCase
         yield 'http under localhost' => ['http://rp.localhost/login/check'];
         yield 'http on IPv4 loopback' => ['http://127.0.0.1:8000/cb'];
         yield 'http on IPv6 loopback' => ['http://[::1]:8000/cb'];
+        yield 'the A-label of a name outside ASCII (RFC 5890 §2.3.2.1)' => ['https://xn--bcher-kva.example/cb'];
+        yield 'an IPv6 literal' => ['https://[2001:db8::1]:8443/cb'];
     }
 
     #[Test]
@@ -66,6 +68,41 @@ final class ClientUriTest extends TestCase
         yield 'plain http on a public host' => ['http://rp.example/cb', 'HTTPS'];
         yield 'plain http on a host that only starts with localhost' => ['http://localhost.evil.example/cb', 'HTTPS'];
         yield 'custom scheme of a native app (RFC 8252 §7.1, out of scope)' => ['com.example.app:/oauth2redirect', 'absolute URI'];
+    }
+
+    /**
+     * RFC 7591 §2, RFC 3986 §3.2.2, the security review of 20 October 2026: the host of a URI a client registers is a
+     * name of letters, digits, hyphens and dots or an IP address. Its origin is named in the Content-Security-Policy
+     * of the pages that send a browser to it, frame it or show its logo, where a ";" would end a directive and start
+     * one of its own ("sandbox" freezing the front-channel logout page of every session the client is part of) and a
+     * "," a policy of its own; a name outside ASCII is registered by its A-label.
+     */
+    #[Test]
+    #[DataProvider('provideUrisWhoseHostIsNoHost')]
+    public function itRejectsAUriWhoseHostIsNoNameNorAddress(string $uri): void
+    {
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs(\sprintf(
+            'The URI "%s" registered for a client must name a host of letters, digits, hyphens and dots, or an IP address (RFC 3986 §3.2.2).',
+            $uri,
+        ));
+
+        // When
+        new ClientUri($uri);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideUrisWhoseHostIsNoHost(): iterable
+    {
+        yield 'a host that carries a directive' => ['https://rp.example;sandbox/frontchannel-logout'];
+        yield 'a host that carries a second policy' => ['https://rp.example,sandbox/cb'];
+        yield 'a host that carries a quote' => ["https://rp.example'/cb"];
+        yield 'a host that carries a percent-encoded octet' => ['https://rp.example%3Bsandbox/cb'];
+        yield 'a name outside ASCII' => ['https://bücher.example/logo.png'];
+        yield 'a loopback name that carries a directive' => ['http://localhost;sandbox/cb'];
     }
 
     #[Test]

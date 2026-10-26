@@ -197,6 +197,7 @@ trait ReceptionFixtures
         return new LogoutRequestValidator(
             SamlLoader::create(),
             new FrozenClock(new DateTimeImmutable('2026-09-30T12:00:00Z')),
+            new InMemoryReplayGuard(),
         );
     }
 
@@ -208,6 +209,7 @@ trait ReceptionFixtures
         return new LogoutResponseValidator(
             SamlLoader::create(),
             new FrozenClock(new DateTimeImmutable('2026-09-30T12:00:00Z')),
+            new InMemoryReplayGuard(),
         );
     }
 

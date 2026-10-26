@@ -7,10 +7,16 @@ namespace Beffroi\Bundle\Tests\Functional\Controller;
 use Beffroi\Bundle\Http\InteractionPages;
 use Beffroi\Core\Domain\Credential\TotpCredential;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
 use Beffroi\Core\Port\SecretSealerInterface;
 use Beffroi\Core\Tests\Fixture\FakePasswordHasher;
 use Beffroi\Core\Tests\Fixture\Totps;
+use Beffroi\Saml\Domain\ServiceProvider\AcceptedServiceProviderMetadata;
+use Beffroi\Saml\Domain\SingleLogout\SessionParticipation;
+use Beffroi\Saml\Port\AcceptedMetadataRepositoryInterface;
+use Beffroi\Saml\Port\SessionParticipationRepositoryInterface;
+use Beffroi\Saml\Tests\Fixture\ServiceProviderDocuments;
 use Closure;
 use DateTimeImmutable;
 use function intdiv;
@@ -67,6 +73,11 @@ final class FormTargetTest extends PasskeyTestCase
     private const string CONSENT_CLIENT_ORIGIN = 'https://consent.test';
 
     private const string CONSENT_LOGO_ORIGIN = 'https://cdn.consent.test';
+
+    /**
+     * The origin of the single logout service of the SAML service provider of the suite (beffroi/saml S-36).
+     */
+    private const string SERVICE_PROVIDER_ORIGIN = 'https://sp.example.org';
 
     protected function configureContainer(): Closure
     {
@@ -191,6 +202,45 @@ final class FormTargetTest extends PasskeyTestCase
     }
 
     /**
+     * beffroi/saml S-36: a confirmed logout goes through the single logout service of each SAML service
+     * provider of the session before the client that asked, redirections of the same submission, so the
+     * page that asks for the confirmation names them after the client.
+     */
+    #[Test]
+    public function theLogoutConfirmationNamesTheSingleLogoutServicesOfTheSession(): void
+    {
+        // Given
+        $this->signedInAtTheServiceProvider();
+
+        // When
+        $this->browser->request('GET', '/logout', [
+            'client_id' => self::CLIENT_ID,
+            'post_logout_redirect_uri' => 'https://demo.test/',
+            'state' => 'after-logout',
+        ]);
+
+        // Then
+        static::assertSame(self::policyNaming(self::CLIENT_ORIGIN . ' ' . self::SERVICE_PROVIDER_ORIGIN), $this->policyOfTheAnswer());
+    }
+
+    /**
+     * beffroi/saml S-36: the button of the sessions page that ends the session of the browser is answered
+     * with the same chain, so that page names the single logout services of that session.
+     */
+    #[Test]
+    public function theSessionsPageNamesTheSingleLogoutServicesOfTheSessionOfTheBrowser(): void
+    {
+        // Given
+        $this->signedInAtTheServiceProvider();
+
+        // When
+        $this->browser->request('GET', '/account/sessions');
+
+        // Then
+        static::assertSame(self::policyNaming(self::SERVICE_PROVIDER_ORIGIN), $this->policyOfTheAnswer());
+    }
+
+    /**
      * A page of the account answers no client and sends the browser nowhere: what a deployment wrote is
      * what it carries.
      */
@@ -205,6 +255,32 @@ final class FormTargetTest extends PasskeyTestCase
 
         // Then
         static::assertSame(self::DEPLOYMENT_POLICY, $this->policyOfTheAnswer());
+    }
+
+    /**
+     * Alice signed in, her session signed in at the SAML service provider of the configuration of the
+     * suite too, whose accepted metadata list a single logout service (beffroi/saml S-26, S-30).
+     */
+    private function signedInAtTheServiceProvider(): AuthenticationSession
+    {
+        $session = $this->signIn(self::user('alice'));
+        self::service('test.beffroi.saml_accepted_metadata', AcceptedMetadataRepositoryInterface::class)
+            ->save(new AcceptedServiceProviderMetadata(
+                Uuid::v7(),
+                self::tenant(),
+                ServiceProviderDocuments::SIGNED,
+                ServiceProviderDocuments::exampleOrgWithSingleLogout([[
+                    'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
+                    ServiceProviderDocuments::SIGNED . '/slo',
+                    null,
+                ]]),
+                null,
+                self::currentSecond(),
+            ));
+        self::service('test.beffroi.saml_session_participants', SessionParticipationRepositoryInterface::class)
+            ->record(new SessionParticipation(Uuid::v7(), self::tenant(), $session, ServiceProviderDocuments::SIGNED, self::currentSecond()));
+
+        return $session;
     }
 
     private function authorizeTheClient(): string

@@ -39,6 +39,13 @@ parses on its own (E-9). The same assertion without its own declaration, nested 
 | `response-encrypted-assertion-rsa-oaep-sha256.xml` | the same data, `encrypted-data-rsa-oaep-sha256.template.xml` | `rsa-oaep` of XML Encryption 1.1 with a `DigestMethod` of `sha256` and an `MGF` of `mgf1sha256` |
 | `response-encrypted-signed-assertion.xml` | `response-signed-assertion.data.xml`, the `aes256-gcm` template | the signed assertion of `../../Dsig/Fixture/vectors/response-assertion-rsa-sha256.xml`, wrapped in an `EncryptedAssertion` with `xmlns:saml` declared on it, which leaves its exclusive canonical form and so its signature unchanged: xmlsec1 verifies the data file and the decrypted output alike |
 | `response-encrypted-assertion-with-comment.xml` | `response-assertion-with-comment.data.xml`, the `aes256-gcm` template | a comment inside the `NameID`, kept in the plaintext |
+| `response-encrypted-assertion-aes128-cbc.xml` | `response-assertion.data.xml`, `encrypted-data-aes128-cbc.template.xml`, `--session-key aes-128-cbc` | `aes128-cbc`, the session key under `rsa-oaep-mgf1p`, the shape SimpleSAMLphp's library writes; opened under a signature that covers it only (E-15) |
+| `response-encrypted-assertion-aes256-cbc-mgf1p-digest-sha1.xml` | `response-assertion.data.xml`, `encrypted-data-aes256-cbc-mgf1p-digest-sha1.template.xml`, `--session-key aes-256-cbc` | `aes256-cbc`, the session key under `rsa-oaep-mgf1p` with the `DigestMethod` of SHA-1, the shape Entra and ADFS write |
+
+The two AES-CBC vectors were made on 22 October 2026 by the same xmlsec1, the same command with the session key and
+the template their row names, and checked to decrypt back to the data file. xmlsec1 pads the plaintext with random
+octets ended by their count (XML Encryption 1.1 §5.2), which OpenSSL's PKCS#7 check would refuse (spec/enc.md
+section 13, E-16).
 
 `../hostile/encrypted-under-the-stranger-certificate-refused.xml` is the first data file encrypted the same way to
 `keys/stranger-certificate.pem`: the test key cannot unwrap its session key, and the decryptor refuses it with the one

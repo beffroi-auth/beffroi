@@ -126,7 +126,7 @@ const DEV_CONFORMANCE_DIRECTORY = 'var/conformance';
  * client authenticated, and the suite refusing to configure a static client of that plan without one.
  *
  * The Security Profile and Message Signing runs do not share their clients. Message Signing holds a
- * client to signing every authorization request it starts (OIDC Registration,
+ * client to signing every authorization request it starts (RFC 9101 §10.5,
  * require_signed_request_object), which is a registration and not a mode: the same client cannot both
  * require an object and start the unsigned requests the Security Profile plan sends. The FAPI-CIBA runs
  * do not share theirs either: a client registers one backchannel token delivery mode (CIBA Core §4), and
@@ -197,10 +197,13 @@ const DEV_MESSAGE_KEY_ALGORITHM = 'MESSAGE-SEAL';
  * the profile refuses RS256, the key a client encrypts a request object to, same custody, same four states,
  * published with "use": "enc" (issue #164), and the application server key of Web Push, same custody again
  * and the other key the tenant keeps rather than publishing (RFC 8292 §2, issue #265): a browser subscribes
- * under it, so it exists before anybody opens the page of their notifications. A key that is there already
- * is kept and rotated by hand; nothing here generates a second one.
+ * under it, so it exists before anybody opens the page of their notifications; and the SAML signing key of
+ * the identity provider of the tenant, same custody, published as a certificate in its metadata and never in
+ * its JWK Set (beffroi/saml, issue #728), so that a service provider can be configured from that metadata
+ * once the stack is up. A key that is there already is kept and rotated by hand; nothing here generates a
+ * second one.
  */
-const DEV_KEY_ALGORITHMS = ['ES256', 'ECDH-ES+A256KW', 'VAPID'];
+const DEV_KEY_ALGORITHMS = ['ES256', 'ECDH-ES+A256KW', 'VAPID', 'SAML-SIGNING'];
 
 /**
  * Where the key material of the lab that is nobody's client lives, beside the one of the conformance
@@ -362,6 +365,10 @@ function provision(
     // The migrations above may have changed the type of a column, and what was serving while they ran holds
     // the mapping it booted with (compose_restart_after_migration).
     compose_restart_after_migration();
+
+    // Last, once everything it reads is written: a provision that ends is a worker that consumes.
+    io()->section('Worker');
+    provision_start_worker();
 
     io()->success('The OP is provisioned.');
     io()->definitionList(
@@ -580,6 +587,36 @@ function provision_restart_consumers(): void
     }
 
     compose_recreate_redirectors(['worker']);
+}
+
+/**
+ * Starts the worker and waits until it consumes, then brings up the sidecar that joins its network namespace.
+ *
+ * "castor start" creates the worker without starting it on a stack that names no KMS yet, the worker refusing
+ * to boot without one (issue #773), so a first provision is what starts it; a worker that runs already was
+ * restarted by the steps above and is only waited for. It is never created here: it carries the environment
+ * "castor start" gave it (the host of the suite whose certificate it trusts, the access token format of the
+ * clients of the suite), which this task does not know, and an "up" would create it again without them.
+ */
+function provision_start_worker(): void
+{
+    $state = trim(
+        run(
+            ['docker', 'compose', ...compose_profiles(), 'ps', '--all', '--format', '{{.State}}', 'worker'],
+            context: context()->withQuiet(),
+        )->getOutput(),
+    );
+    if ($state === '') {
+        return;
+    }
+    if ($state === 'restarting') {
+        run(['docker', 'compose', ...compose_profiles(), 'restart', 'worker']);
+    }
+    // The window of the healthcheck of compose.yaml and the time the entrypoint takes to trust the suite.
+    run(['docker', 'compose', ...compose_profiles(), 'start', '--wait', '--wait-timeout', '180', 'worker']);
+    if ($state !== 'running') {
+        compose_recreate_redirectors(['worker']);
+    }
 }
 
 /**

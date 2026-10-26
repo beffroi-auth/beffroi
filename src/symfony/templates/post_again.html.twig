@@ -1,0 +1,30 @@
+{# The page that posts again, from the origin of this provider, a form a browser posted from another site without the
+   session cookie (Beffroi\Bundle\Http\CrossSitePost, beffroi/saml spec/saml.md S-28): the pairs of the body as they
+   came, in their order, whose names and values Twig escapes for an HTML attribute, submitted by the one script below,
+   which the Content-Security-Policy of the page names by its hash, never by "unsafe-inline"; a browser without
+   scripting is shown the sentence and the button. This page does not extend the layout of the interaction plane, on
+   purpose, as the pages that post a response do not: its policy is "default-src 'none'". Overridable by an
+   application under templates/bundles/BeffroiBundle/, the script kept exactly as it is given: its hash is the policy. #}
+{% trans_default_domain 'beffroi' %}
+<!DOCTYPE html>
+<html lang="{{ app.request.locale|replace({'_': '-'}) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ 'post_again.title'|trans }}</title>
+</head>
+<body>
+    <main>
+        <form method="post" action="{{ action }}">
+            {% for field in fields %}
+                <input type="hidden" name="{{ field[0] }}" value="{{ field[1] }}">
+            {% endfor %}
+            <noscript>
+                <p>{{ 'post_again.explanation'|trans }}</p>
+                <button type="submit">{{ 'post_again.continue'|trans }}</button>
+            </noscript>
+        </form>
+    </main>
+    <script>{{ script|raw }}</script>
+</body>
+</html>

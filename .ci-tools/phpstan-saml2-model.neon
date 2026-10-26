@@ -116,7 +116,15 @@ parameters:
 		- relaxNgValidate
 		- relaxNgValidateSource
 		- createEntityReference
+	# The methods called in the files named only, whatever their receiver (section 8): the proof of a covering signature
+	# is taken by the model's reader alone, which builds it from the response's verification (enc.md E-15).
+	confinedMethods:
+		-
+			method: decryptCovered
+			allowedIn: [src/saml2-model/src/Internal/Response/PlaintextReader.php]
 	bannedFunctions:
+		# section 8: a banned name given another under which it passes unread
+		- class_alias
 		# core.md section 8: no entity loader, no second parser (I-2, I-4)
 		- libxml_set_external_entity_loader
 		- libxml_disable_entity_loader
@@ -163,6 +171,7 @@ parametersSchema:
 	bannedNames: listOf(string())
 	bannedMethods: listOf(string())
 	bannedFunctions: listOf(string())
+	confinedMethods: listOf(structure([method: string(), allowedIn: listOf(string())]))
 
 services:
 	-
@@ -176,6 +185,8 @@ services:
 		arguments:
 			methods: %bannedMethods%
 			functions: %bannedFunctions%
+			confined: %confinedMethods%
+			workingDirectory: %currentWorkingDirectory%
 		tags:
 			- phpstan.rules.rule
 	-

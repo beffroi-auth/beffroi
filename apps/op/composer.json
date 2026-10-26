@@ -103,6 +103,22 @@
         "name": "beffroi-core",
         "type": "path",
         "url": "../../src/core"
+    },{
+        "name": "beffroi-saml",
+        "type": "path",
+        "url": "../../src/saml"
+    },{
+        "name": "beffroi-saml2-bindings",
+        "type": "path",
+        "url": "../../src/saml2-bindings"
+    },{
+        "name": "beffroi-saml2-model",
+        "type": "path",
+        "url": "../../src/saml2-model"
+    },{
+        "name": "beffroi-xml-security",
+        "type": "path",
+        "url": "../../src/xml-security"
     }],
     "require-dev": {
         "symfony/browser-kit": "8.2.*",

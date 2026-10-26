@@ -64,7 +64,7 @@ concurrency:
 jobs:
   application:
     name: "The application boots, what its kernel writes is what is committed, and its suite is green"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     container:
       image: ghcr.io/spomky-labs/phpqa:8.5
     env:
@@ -78,13 +78,18 @@ jobs:
     # The database the suite of the application needs. The version is the one compose.yaml serves the
     # development stack with.
     #
-    # From Docker Hub, pulled anonymously by the runner before the first step, out of reach of the cache
-    # that holds the image of the split. An anonymous pull is counted per address of the runner pool, which
-    # this repository shares: an address already spent answers "toomanyrequests", and the account the split
-    # logs in with (DOCKERHUB_USERNAME, DOCKERHUB_TOKEN) is then the credential to give this pull too.
+    # From Docker Hub, pulled by the runner before the first step, out of reach of the cache that holds the
+    # image of the split, under the account the secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN of this
+    # repository name: an anonymous pull is counted per address of the runner pool, which this repository
+    # shares, and an address already spent answers "toomanyrequests". Both are required: GitHub refuses, before
+    # the job starts, a service whose credentials are empty, so they are secrets of Dependabot as well, for its
+    # pull requests. An organisation on the free plan hands its own secrets to its public repositories only. Docker Hub, GitHub's registry and GitLab's (the images of the conformance suite) are the only registries this repository reads.
     services:
       database:
         image: postgres:16-alpine
+        credentials:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
         env:
           POSTGRES_DB: beffroi
           POSTGRES_USER: beffroi

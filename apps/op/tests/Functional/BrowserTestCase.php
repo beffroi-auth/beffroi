@@ -30,7 +30,7 @@ use Symfony\Component\Uid\Uuid;
 use function time;
 
 /**
- * A browser on the kernel of this application (issue beffroi-php/beffroi#521), which is the kernel a
+ * A browser on the kernel of this application (issue beffroi-auth/beffroi#521), which is the kernel a
  * deployment boots: its own configuration, its own routes, its own templates, PostgreSQL and the KMS that
  * seals the personal columns. What is judged here is what this application adds to the bundle; every rule
  * of the provider is judged by the three suites of the monorepo, on a kernel of their own.
@@ -53,7 +53,7 @@ abstract class BrowserTestCase extends WebTestCase
         $this->browser = static::createClient([], ['HTTPS' => 'on']);
         // One kernel for the whole test, where a KernelBrowser reboots one per request by default: a
         // service then keeps what it holds from one request to the next, which is what the provider does
-        // in production (the same reason as the suite of the bundle, issue beffroi-php/beffroi#510).
+        // in production (the same reason as the suite of the bundle, issue beffroi-auth/beffroi#510).
         $this->browser->disableReboot();
         self::emptyTheDatabase();
     }
@@ -117,7 +117,7 @@ abstract class BrowserTestCase extends WebTestCase
     }
 
     /**
-     * The page a form of these pages comes back to (issue beffroi-php/beffroi#522): every one of them
+     * The page a form of these pages comes back to (issue beffroi-auth/beffroi#522): every one of them
      * answers with a redirection a browser re-issues as a GET, so what a test reads after submitting is
      * the page that redirection names, and what was refused is on it.
      */

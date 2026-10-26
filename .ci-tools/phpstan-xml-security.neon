@@ -100,7 +100,12 @@ parameters:
 		- OPENSSL_PKCS1_PADDING
 		- OPENSSL_NO_PADDING
 		- OPENSSL_SSLV23_PADDING
-		- OPENSSL_ZERO_PADDING
+	# spec/enc.md section 8 and E-16: AES-CBC decrypted without OpenSSL's padding check, in the decryptor and nowhere
+	# else
+	confinedNames:
+		-
+			name: OPENSSL_ZERO_PADDING
+			allowedIn: [src/xml-security/src/Enc/Decryptor.php]
 	bannedCalls:
 		-
 			method: getElementById
@@ -239,9 +244,14 @@ parameters:
 		-
 			function: hash_hmac
 			allowedIn: []
+		# enc.md section 8: a name the rules confine or ban, given another under which it passes unread
+		-
+			function: class_alias
+			allowedIn: []
 
 parametersSchema:
 	bannedNames: listOf(string())
+	confinedNames: listOf(structure([name: string(), allowedIn: listOf(string())]))
 	bannedCalls: listOf(anyOf(
 		structure([method: string(), allowedIn: listOf(string())]),
 		structure([function: string(), allowedIn: listOf(string())])
@@ -252,6 +262,8 @@ services:
 		class: Beffroi\Xml\Tests\PhpStan\BannedNamesRule
 		arguments:
 			names: %bannedNames%
+			confined: %confinedNames%
+			workingDirectory: %currentWorkingDirectory%
 		tags:
 			- phpstan.rules.rule
 	-

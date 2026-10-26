@@ -7,6 +7,7 @@ namespace Beffroi\Bundle\Security;
 use Beffroi\Bundle\Controller\PasskeyLoginController;
 use Beffroi\Bundle\Doctrine\TenantProvider;
 use Beffroi\Bundle\Http\PasskeyOptionsStore;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Exception\PasskeyCeremonyFailedException;
 use Beffroi\Core\Port\PasskeyAuthenticatorInterface;
@@ -26,9 +27,9 @@ use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
  * the assertion the browser signed, posted by the login page as a form with the same CSRF token, verified
  * by the ceremony of the core against the options this browser was given, the passport carrying what was
  * proven (PasskeyCredentials) for the one LoginSuccessListener that sees both logins. A passkey of another
- * tenant, a revoked one and an assertion whose backup eligibility is not the one of the enrolment are
- * refused after the signature, so that a refusal costs the same; a disabled user is refused by the
- * UserChecker after, as with a password.
+ * tenant, a revoked one, an assertion whose backup eligibility is not the one of the enrolment and the
+ * passkey of a person of a federated domain (decision 0029) are refused after the signature, so that a
+ * refusal costs the same; a disabled user is refused by the UserChecker after, as with a password.
  */
 final readonly class PasskeyLoginAuthenticator implements AuthenticatorInterface, InteractiveAuthenticatorInterface
 {
@@ -43,6 +44,7 @@ final readonly class PasskeyLoginAuthenticator implements AuthenticatorInterface
         private PasskeyOptionsStore $options,
         private PasskeyAuthenticatorInterface $ceremony,
         private InteractionLoginHandler $handler,
+        private FederatedDomains $federated,
     ) {
     }
 
@@ -75,6 +77,11 @@ final readonly class PasskeyLoginAuthenticator implements AuthenticatorInterface
         }
         if ($credential->isRevoked()) {
             throw new PasskeyLoginException(AuthenticationFailureReason::RevokedCredential, $method, $credential->user);
+        }
+        // decision 0029, beffroi/saml S-63: a person of a federated domain signs in through their provider and
+        // through nothing else, whatever the page offered them
+        if (! $this->federated->admitsLocalCredentials($credential->user)) {
+            throw new PasskeyLoginException(AuthenticationFailureReason::FederatedDomain, $method, $credential->user);
         }
 
         return new Passport(

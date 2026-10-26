@@ -351,7 +351,7 @@ final class DecryptorTest extends TestCase
     public function itReadsTheStructureBeforeTouchingTheKey(): void
     {
         // Given
-        $document = Loaded::fixture('hostile/content-aes128-cbc-refused.xml');
+        $document = Loaded::fixture('hostile/content-tripledes-cbc-refused.xml');
         $element = Encrypted::dataOf($document);
         $port = new UnwrappingKey(str_repeat("\x00", 32));
 
@@ -365,7 +365,7 @@ final class DecryptorTest extends TestCase
             return;
         }
 
-        static::fail('The decryptor accepted a CBC method.');
+        static::fail('The decryptor accepted 3DES.');
     }
 
     /**

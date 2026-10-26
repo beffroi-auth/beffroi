@@ -43,7 +43,7 @@ final class FrontChannelLogoutTest extends TestCase
         $this->signedIn(Clients::withFrontChannelLogout($this->session->tenant, 'second', 'https://second.example/logout'));
 
         // When
-        $page = $this->logout->pageFor($this->session, null);
+        $page = $this->logout->pageFor([$this->session], null);
 
         // Then
         static::assertSame(['https://first.example/logout', 'https://second.example/logout'], $page?->frames);
@@ -60,7 +60,7 @@ final class FrontChannelLogoutTest extends TestCase
         $this->signedIn(Clients::withFrontChannelLogout($this->session->tenant, 'loaded', 'https://loaded.example/logout'));
 
         // When
-        $page = $this->logout->pageFor($this->session, null);
+        $page = $this->logout->pageFor([$this->session], null);
 
         // Then
         static::assertSame(['https://loaded.example/logout'], $page?->frames);
@@ -77,7 +77,7 @@ final class FrontChannelLogoutTest extends TestCase
         $this->signedIn(Clients::public($this->session->tenant, 'silent'));
 
         // When / Then
-        static::assertNull($this->logout->pageFor($this->session, null));
+        static::assertNull($this->logout->pageFor([$this->session], null));
     }
 
     /**
@@ -90,18 +90,37 @@ final class FrontChannelLogoutTest extends TestCase
         $this->signedIn(Clients::withFrontChannelLogout($this->session->tenant, 'first', 'https://first.example/logout'));
 
         // When
-        $page = $this->logout->pageFor($this->session, 'https://demo.example/?state=x');
+        $page = $this->logout->pageFor([$this->session], 'https://demo.example/?state=x');
 
         // Then
         static::assertSame('https://demo.example/?state=x', $page?->continueTo);
     }
 
     /**
+     * §2, beffroi/saml S-35: a logout that ended several sessions loads the clients of each, session by
+     * session.
+     */
+    #[Test]
+    public function theClientsOfEverySessionEndedGetTheirFrames(): void
+    {
+        // Given
+        $second = Fixtures::session($this->session->user);
+        $this->signedIn(Clients::withFrontChannelLogout($this->session->tenant, 'first', 'https://first.example/logout'));
+        $this->signedIn(Clients::withFrontChannelLogout($this->session->tenant, 'second', 'https://second.example/logout'), $second);
+
+        // When
+        $page = $this->logout->pageFor([$this->session, $second], null);
+
+        // Then
+        static::assertSame(['https://first.example/logout', 'https://second.example/logout'], $page?->frames);
+    }
+
+    /**
      * A client that obtained a token in the session: a grant of the session, exchanged.
      */
-    private function signedIn(Client $client): void
+    private function signedIn(Client $client, ?AuthenticationSession $session = null): void
     {
-        $grant = Tokens::code('code-of-' . $client->registration->clientId, $client, $this->session, Fixtures::now());
+        $grant = Tokens::code('code-of-' . $client->registration->clientId, $client, $session ?? $this->session, Fixtures::now());
         $grant->consume(Fixtures::now());
         $this->grants->save($grant);
     }

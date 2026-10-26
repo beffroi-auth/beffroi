@@ -1508,6 +1508,51 @@ final class AuthorizationRequestParserTest extends TestCase
     }
 
     /**
+     * RFC 9101 §10.5, FAPI 2.0 Message Signing §5.3.1: a client whose requests are only read from a
+     * request object it signed cannot start one any other way, and is told so on a page.
+     */
+    #[Test]
+    public function itRefusesARequestNoSignedObjectCarriedFromAClientThatMustSignIt(): void
+    {
+        // Given
+        $this->signingClient();
+
+        // Then
+        $this->expectException(InvalidRequestException::class);
+        $this->expectExceptionMessageIs('invalid_request: The client only starts an authorization request with a request object it signed (RFC 9101 section 10.5, require_signed_request_object).');
+
+        // When
+        $this->parser->redirectTarget($this->tenant, self::parameters([
+            'client_id' => 'jar-client',
+            'redirect_uri' => 'https://jar.example/callback',
+        ]));
+    }
+
+    /**
+     * RFC 9101 §10.5: the very same request, carried by an object that client signed, is read like any
+     * other.
+     */
+    #[Test]
+    public function itReadsTheRequestOfThatClientFromAnObjectItSigned(): void
+    {
+        // Given
+        $this->signingClient();
+
+        // When
+        $target = $this->parser->redirectTarget(
+            $this->tenant,
+            self::parameters([
+                'client_id' => 'jar-client',
+                'redirect_uri' => 'https://jar.example/callback',
+            ]),
+            signed: true,
+        );
+
+        // Then
+        static::assertSame('jar-client', $target->client->registration->clientId);
+    }
+
+    /**
      * A refusal for a redirect URI that is not registered still comes first for every other client: the
      * requirement of RFC 9126 §6 is carried by the client and by nothing global.
      */
@@ -1527,6 +1572,14 @@ final class AuthorizationRequestParserTest extends TestCase
     private function pushingClient(): void
     {
         $this->clients->save(Clients::pushingOnly($this->tenant, new FakePasswordHasher()->hash(Clients::SECRET)));
+    }
+
+    /**
+     * A client whose requests are only read from a request object it signed (RFC 9101 §10.5).
+     */
+    private function signingClient(): void
+    {
+        $this->clients->save(Clients::sendingRequestObjects($this->tenant, requiresSignedRequestObject: true));
     }
 
     /**

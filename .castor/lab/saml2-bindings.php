@@ -58,14 +58,22 @@ function saml2_bindings_oracle(): void
         ],
         ['REDIRECT_ORACLE' => SAML2_BINDINGS_ORACLE],
     );
-    // The repository mounted read-only: the oracle reads what the sender wrote and writes nothing back.
-    in_alpine('apk add -q openssl python3 >/dev/null 2>&1 && openssl version && python3 --version'
-    . ' && sh tests/saml2-bindings/Fixture/oracle/verify-redirect.sh tests/saml2-bindings/Fixture/keys/sp-signing-certificate.pem '
-    . SAML2_BINDINGS_ORACLE
-    . '/sp-*.url'
-    . ' && sh tests/saml2-bindings/Fixture/oracle/verify-redirect.sh tests/saml2-bindings/Fixture/keys/idp-signing-certificate.pem '
-    . SAML2_BINDINGS_ORACLE
-    . '/idp-*.url');
+    // What the oracle reads, mounted read-only: the script, the two certificates and what the sender wrote.
+    in_alpine(
+        'apk add -q openssl python3 >/dev/null 2>&1 && openssl version && python3 --version'
+        . ' && sh tests/saml2-bindings/Fixture/oracle/verify-redirect.sh tests/saml2-bindings/Fixture/keys/sp-signing-certificate.pem '
+        . SAML2_BINDINGS_ORACLE
+        . '/sp-*.url'
+        . ' && sh tests/saml2-bindings/Fixture/oracle/verify-redirect.sh tests/saml2-bindings/Fixture/keys/idp-signing-certificate.pem '
+        . SAML2_BINDINGS_ORACLE
+        . '/idp-*.url',
+        [
+            'tests/saml2-bindings/Fixture/oracle',
+            'tests/saml2-bindings/Fixture/keys/sp-signing-certificate.pem',
+            'tests/saml2-bindings/Fixture/keys/idp-signing-certificate.pem',
+            SAML2_BINDINGS_ORACLE,
+        ],
+    );
 }
 
 #[AsTask(

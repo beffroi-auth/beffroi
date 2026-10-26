@@ -34,15 +34,15 @@ final class EncryptedColumnTypesTest extends DatabaseTestCase
     private const string TABLE = 'test_sealed_column';
 
     /**
-     * Fourteen families of columns, one data key per tenant each (decision 0018), and twenty-five types
+     * Sixteen families of columns, one data key per tenant each (decision 0018), and twenty-eight types
      * because a type seals one type: the count of keys is the count of families and not of types.
      */
     #[Test]
     public function theBundleDeclaresOneTypePerFamilyAndPerTypeThatFamilySeals(): void
     {
         // When / Then
-        static::assertCount(14, EncryptedColumnTypes::FAMILIES);
-        static::assertCount(25, EncryptedColumnTypes::declarations());
+        static::assertCount(16, EncryptedColumnTypes::FAMILIES);
+        static::assertCount(28, EncryptedColumnTypes::declarations());
     }
 
     /**
@@ -177,7 +177,7 @@ final class EncryptedColumnTypesTest extends DatabaseTestCase
     {
         // Then
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('The family "interaction" seals no column of type "beffroi_address". The families are user, linked_identity, passkey_credential, push_subscription, authentication_session, interaction, pushed_authorization_request, device_authorization_request, backchannel_authentication_request, client, journal, personal_archive, claim_change, disclosure.');
+        $this->expectExceptionMessageIs('The family "interaction" seals no column of type "beffroi_address". The families are user, linked_identity, passkey_credential, push_subscription, authentication_session, interaction, pushed_authorization_request, device_authorization_request, backchannel_authentication_request, client, journal, personal_archive, claim_change, disclosure, saml_service_provider, saml_upstream_identity_provider.');
 
         // When
         EncryptedColumnTypes::name('interaction', 'beffroi_address');

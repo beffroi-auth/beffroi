@@ -10,6 +10,7 @@ use Beffroi\Core\Domain\Identity\Address;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Profile;
 use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Oidc\Domain\Scope\Scopes;
@@ -306,6 +307,7 @@ final class StandardClaimsProviderTest extends TestCase
             new Address("1 rue de la Paix\n75002 Paris", '1 rue de la Paix', 'Paris', null, '75002', 'FR'),
             Fixtures::now(),
             Fixtures::now()->modify('+1 day'),
+            UserSource::local(),
         );
     }
 }

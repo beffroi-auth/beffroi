@@ -30,6 +30,7 @@ use Beffroi\Core\Tests\Fixture\FakePasswordHasher;
 use Beffroi\Core\Tests\Fixture\Totps;
 use function intdiv;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\Clock\Clock;
 use function sprintf;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
@@ -598,16 +599,19 @@ final class LoginCodeTest extends PasskeyTestCase
      * OIDC Core §3.1.2.1 (prompt=login), architecture §3.2: a fresh login asked of a user who holds a
      * TOTP goes through the code again, and records both proofs on the session the browser has. The
      * first code spent its step (RFC 6238 §5.2); the second is the one of the next step, which the drift
-     * of one step accepts now rather than in thirty seconds.
+     * of one step accepts now rather than in thirty seconds. Both logins are played on the clock of the test, the first
+     * at a second it pins and the second a second later, so that the proofs they date never depend on the wall clock
+     * of the machine, which a runner may step back between two readings.
      */
     #[Test]
     public function aFreshLoginOfATotpUserGoesThroughTheCodeAgain(): void
     {
         // Given
+        self::mockTime(self::currentSecond());
         $this->userWithTotp('alice', self::PASSWORD);
         $first = $this->authorize();
         $this->submitLogin($first, 'alice', self::PASSWORD);
-        $this->submitCode($first, $this->codeAt(new DateTimeImmutable()));
+        $this->submitCode($first, $this->codeAt(Clock::get()->now()));
         $session = $this->boundSession();
         self::aSecondLater();
         $interaction = $this->authorize([
@@ -618,7 +622,7 @@ final class LoginCodeTest extends PasskeyTestCase
         self::forgetEvents();
 
         // When
-        $this->submitCode($interaction, $this->codeAt(new DateTimeImmutable()->modify(sprintf('+%d seconds', TotpCredential::PERIOD))));
+        $this->submitCode($interaction, $this->codeAt(Clock::get()->now()->modify(sprintf('+%d seconds', TotpCredential::PERIOD))));
 
         // Then
         static::assertCount(1, self::sessionsOf('alice'));

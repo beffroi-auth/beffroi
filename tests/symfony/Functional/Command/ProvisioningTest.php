@@ -10,7 +10,10 @@ use Beffroi\Core\Bridge\Password\Algorithm\Argon2id;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Event\TenantKeyRotated;
 use Beffroi\Core\Domain\Event\TenantKeyStaged;
+use Beffroi\Core\Domain\Identity\Profile;
 use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Key\KeyStatus;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
 use Beffroi\Core\Port\PasswordHasherInterface;
@@ -418,6 +421,57 @@ final class ProvisioningTest extends ConsoleTestCase
         $user = self::service('test.beffroi.users', UserRepositoryInterface::class)
             ->findByUsername(self::tenant(), 'bob') ?? static::fail('The user is not stored.');
         static::assertSame([], self::service('test.beffroi.credentials', CredentialRepositoryInterface::class)->findByUser($user));
+    }
+
+    /**
+     * Decision 0002: a person the console creates is local, its source holding nothing of it.
+     */
+    #[Test]
+    public function aUserOfTheConsoleIsLocal(): void
+    {
+        // When
+        self::console('beffroi:user:create', [
+            'username' => 'bob',
+        ]);
+
+        // Then
+        self::reload();
+        $user = self::service('test.beffroi.users', UserRepositoryInterface::class)
+            ->findByUsername(self::tenant(), 'bob') ?? static::fail('The user is not stored.');
+        static::assertTrue($user->source->isLocal());
+    }
+
+    /**
+     * Decision 0002: what the upstream provider that created a person holds, the console does not change,
+     * and it says which provider holds it.
+     */
+    #[Test]
+    public function aDescriptionOfAClaimAnUpstreamProviderHoldsIsRefusedNamingIt(): void
+    {
+        // Given
+        $user = User::create(
+            Uuid::v7(),
+            self::tenant(),
+            new Subject('alice-subject'),
+            'alice',
+            self::now(),
+            source: UserSource::upstream('https://idp.acme.example/saml', ['given_name']),
+        );
+        $user->updateProfile(new Profile(givenName: 'Alice'), self::now());
+        self::service('test.beffroi.users', UserRepositoryInterface::class)->save($user);
+
+        // When
+        $tester = self::console('beffroi:user:profile', [
+            'username' => 'alice',
+            '--given-name' => 'Alicia',
+        ]);
+
+        // Then
+        static::assertSame(Command::INVALID, $tester->getStatusCode(), $tester->getDisplay());
+        static::assertStringContainsString(
+            'The upstream provider "https://idp.acme.example/saml" created this person and holds "given_name"',
+            self::flattened($tester),
+        );
     }
 
     /**

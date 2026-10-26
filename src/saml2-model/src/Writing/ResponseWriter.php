@@ -7,15 +7,19 @@ namespace Beffroi\Saml2\Model\Writing;
 use Beffroi\Saml2\Model\Assertion\Assertion;
 use Beffroi\Saml2\Model\Exception\MalformedMessage;
 use Beffroi\Saml2\Model\Internal\Writing\ResponseBuilder;
+use Beffroi\Saml2\Model\Internal\Writing\Tree;
 use Beffroi\Saml2\Model\Protocol\Response;
 use Beffroi\Saml2\Model\Saml;
 use Beffroi\Saml2\Model\SamlLoader;
 use Beffroi\Saml2\Model\Value\Time;
+use Beffroi\Xml\Core\Children;
 use Beffroi\Xml\Core\Document;
 use Beffroi\Xml\Core\Exception\RefusedXml;
 use Beffroi\Xml\Core\Name;
 use Beffroi\Xml\Dsig\Exception\SigningFailed;
 use Beffroi\Xml\Dsig\Signer;
+use Beffroi\Xml\Enc\Encryptor;
+use Beffroi\Xml\Enc\Exception\EncryptionFailed;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use SensitiveParameter;
@@ -26,30 +30,39 @@ use SensitiveParameter;
  * together, each object having checked its own values: a window that ends before it starts and Conditions without
  * AudienceRestriction are the refusals of Conditions itself, with the exception of their rule (section 5.8); what
  * only the writer sees is a programming error of the caller, \InvalidArgumentException, before anything is built.
+ * An assertion whose window ends when it is issued, its Conditions, its bearer confirmation or its session, is one of
+ * them; what depends on the service provider that reads it, the audience and the bearer window, is its consumer's,
+ * which names that reader (section 6.9).
  * Then built with DocumentFactory and one prefix per namespace, samlp and saml, its Issuer and its Destination always
  * written (E17, SAML Bindings §3.5.5.2), times in UTC to the second, IDs the objects carry, drawn by SamlId::generate();
  * then signed through Dsig's Signer with SamlLoader::create(), the Signature after the saml:Issuer (SAML Core §2.3.3,
  * §3.2.1, §5.4.1) and no InclusiveNamespaces prefix list (dsig.md section 6.2): the assertion first, then, for
  * SignedParts::AssertionAndResponse, the response over the document the first call returned, so that the response's
- * digest covers the assertion's Signature (dsig.md section 5.5).
+ * digest covers the assertion's Signature (dsig.md section 5.5). Given an Encryption, the signed assertion is
+ * encrypted between the two signatures (section 6.7): Enc's Encryptor with SamlLoader::create() for the key of the
+ * service provider, the saml:Assertion replaced by a saml:EncryptedAssertion holding the xenc:EncryptedData, so that
+ * the response's signature covers the ciphertext and the assertion's travels inside it (SAML Core §6.2).
  */
 final readonly class ResponseWriter
 {
     /**
-     * The response with its assertion, the assertion signed, the response signed over it on request.
+     * The response with its assertion, the assertion signed, encrypted for the service provider when $encryption is
+     * given, the response signed over it on request.
      *
      * @throws InvalidArgumentException when the response carries no assertion, a failure being writeFailure()'s, or the
      *                                   response and its assertion would be refused together (section 6.6 step 1): a
      *                                   programming error of the caller (section 5.8)
      * @throws MalformedMessage when a time is not of a four-digit year (M-15)
-     * @throws RefusedXml what Core's serializer and loader and Dsig refuse while signing
+     * @throws RefusedXml what Core's serializer and loader and Dsig refuse while signing, and Enc while encrypting
      * @throws SigningFailed when the signing key fails
+     * @throws EncryptionFailed when a primitive of Enc fails with a key its constructor accepted: never input
      */
     public function write(
         Response $response,
         #[SensitiveParameter]
         Signing $signing,
         SignedParts $parts = SignedParts::Assertion,
+        ?Encryption $encryption = null,
     ): Document {
         $assertion =
             $response->assertion ?? throw new InvalidArgumentException('The response carries no assertion: a failure is written by writeFailure() (section 6.6).');
@@ -57,6 +70,9 @@ final readonly class ResponseWriter
         $this->check($response, $assertion);
         $signer = new Signer(SamlLoader::create());
         $signed = $this->sign($signer, ResponseBuilder::build($response), $assertion->id, $signing);
+        if ($encryption instanceof Encryption) {
+            $this->encrypt($signed, $encryption);
+        }
         if ($parts === SignedParts::Assertion) {
             return $signed;
         }
@@ -136,6 +152,17 @@ final readonly class ResponseWriter
         ) {
             throw new InvalidArgumentException('The NotBefore of the Conditions is not earlier than their NotOnOrAfter, to the second, which the service provider refuses (section 6.6).');
         }
+        $issued = $this->written($assertion->issueInstant);
+        if ($conditions->notOnOrAfter instanceof DateTimeImmutable && $this->written($conditions->notOnOrAfter) <= $issued) {
+            throw new InvalidArgumentException('The NotOnOrAfter of the Conditions is not later than the IssueInstant of the assertion, to the second, which ends it when it is issued (section 6.6).');
+        }
+        if ($this->written($assertion->confirmation->notOnOrAfter) <= $issued) {
+            throw new InvalidArgumentException('The NotOnOrAfter of the bearer confirmation is not later than the IssueInstant of the assertion, to the second, which ends it when it is issued (section 6.6).');
+        }
+        $sessionNotOnOrAfter = $assertion->authnStatement->sessionNotOnOrAfter;
+        if ($sessionNotOnOrAfter instanceof DateTimeImmutable && $this->written($sessionNotOnOrAfter) <= $issued) {
+            throw new InvalidArgumentException('The SessionNotOnOrAfter of the authentication statement is not later than the IssueInstant of the assertion, to the second, which ends it when it is issued (section 6.6).');
+        }
     }
 
     /**
@@ -147,6 +174,27 @@ final readonly class ResponseWriter
     private function written(DateTimeImmutable $time): DateTimeImmutable
     {
         return Time::read(Time::write($time));
+    }
+
+    /**
+     * Section 6.7: the signed saml:Assertion, the last child of the response, encrypted for the service provider and
+     * replaced by a saml:EncryptedAssertion holding the xenc:EncryptedData, its saml prefix declared on it.
+     *
+     * @throws RefusedXml
+     * @throws EncryptionFailed
+     */
+    private function encrypt(Document $document, Encryption $encryption): void
+    {
+        $response = $document->root();
+        $assertion = Children::one($response, new Name(Saml::ASSERTION, 'Assertion'));
+        $encrypted = new Encryptor(SamlLoader::create())->encrypt(
+            $assertion,
+            $encryption->peer,
+            $encryption->algorithm,
+            $encryption->transport,
+        );
+        $assertion->remove();
+        Tree::of($document)->introduceSaml($response, 'EncryptedAssertion')->appendChild($encrypted);
     }
 
     /**

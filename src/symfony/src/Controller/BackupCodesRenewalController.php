@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Controller;
 
+use Beffroi\Core\Exception\CredentialEnrolmentFailedException;
+use Beffroi\Bundle\Http\WhatWasRefused;
 use Beffroi\Bundle\Http\Account\AsksForARecentProofInterface;
 use Beffroi\Bundle\Http\AccountAccess;
 use Beffroi\Bundle\Http\InteractionPages;
@@ -24,7 +26,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * it has to give is the codes themselves, and codes kept to be shown after a redirection would be codes
  * written to a session. It is the same answer the last step of an enrolment gives, for the same reason.
  *
- * A person who holds no second factor has none to renew and is not found.
+ * A person who holds no second factor has none to renew and is not found; a person of a federated domain is
+ * drawn none (decision 0029), and comes back to the page saying so.
  *
  * **A session alone does not post it** (AsksForARecentProofInterface): it invalidates the codes somebody
  * wrote down, which is as many ways in taken away.
@@ -36,12 +39,18 @@ final readonly class BackupCodesRenewalController implements AsksForARecentProof
 
     public const string CSRF_TOKEN_ID = 'beffroi_backup_codes_renew';
 
+    /**
+     * A person of a federated domain, for whom no backup code is drawn (decision 0029, beffroi/saml S-63).
+     */
+    public const string FEDERATED_DOMAIN = 'federated_domain';
+
     public function __construct(
         private AccountAccess $account,
         private ActiveTotp $totp,
         private BackupCodesRenewal $renewal,
         private RequestContextFactory $contexts,
         private InteractionPages $pages,
+        private WhatWasRefused $refusals,
     ) {
     }
 
@@ -65,9 +74,18 @@ final readonly class BackupCodesRenewalController implements AsksForARecentProof
             throw new NotFoundHttpException('No second factor to renew the backup codes of.');
         }
 
+        try {
+            $codes = $this->renewal->renew($totp, $this->contexts->fromRequest($request));
+        } catch (CredentialEnrolmentFailedException) {
+            // what the page offers nobody of a federated domain, refused to a post written by hand
+            $this->refusals->keep($request, self::FEDERATED_DOMAIN);
+
+            return $this->pages->afterTheForm(AccountTwoFactorController::ROUTE);
+        }
+
         return $this->pages->render('account/backup_codes.html.twig', [
             'user' => $session->user,
-            'backup_codes' => $this->renewal->renew($totp, $this->contexts->fromRequest($request)),
+            'backup_codes' => $codes,
         ]);
     }
 }

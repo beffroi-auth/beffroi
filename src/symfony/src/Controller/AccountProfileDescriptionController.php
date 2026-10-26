@@ -71,12 +71,13 @@ final readonly class AccountProfileDescriptionController implements ReachedOnThe
         try {
             $this->description->describe($session->user, $claim, $said, $this->contexts->fromRequest($request));
         } catch (InvalidArgumentException) {
-            // the tenant does not open it, or the value is not one the claim holds; which of the two is
-            // what the page says, and neither is a reason to say more than that. It crosses the
-            // redirection in the session and never the value that was refused (issue #481).
+            // the claim is not this person's to change, the tenant not opening it or the source that
+            // created them holding it, or the value is not one the claim holds; which of the two is what
+            // the page says, and neither is a reason to say more than that. It crosses the redirection in
+            // the session and never the value that was refused (issue #481).
             $this->refusals->keep(
                 $request,
-                $session->user->tenant->selfServedClaims->opens($claim->name()) ? ProfilePage::REFUSED : ProfilePage::NOT_OPEN,
+                $session->user->maySayOfThemselves($claim->name()) ? ProfilePage::REFUSED : ProfilePage::NOT_OPEN,
                 $claim->name(),
             );
         }

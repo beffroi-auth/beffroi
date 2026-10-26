@@ -32,3 +32,10 @@ whitespace inside an `EncryptionMethod`; the `EncryptedData` under another prefi
 `MimeType`, `Encoding` and `xml:space` attributes the model does not read; and an assertion holding the vector's own
 `EncryptedData`, encrypted again under a fresh key, whose inner element stays encrypted until the consumer decrypts
 it. `AdversarialTest` decrypts each to the assertion of the vector.
+
+## The padding of AES-CBC
+
+`cbc-padding-count-one-decrypts.xml` and `cbc-padding-of-a-whole-block-decrypts.xml` are the plaintext of
+`../vectors/response-encrypted-assertion-aes128-cbc.xml` encrypted again by `../hostile/derive-cbc.php`, spaces added
+before the closing tag of the assertion so that the count of the padding is 1, then 16, a whole block (spec/enc.md
+section 9.3 row 21, E-16). `DecryptorCoveredTest` decrypts each under a signature that covers it.

@@ -6,6 +6,7 @@ namespace Beffroi\Core\Tests\Domain\Identity;
 
 use Beffroi\Core\Domain\Identity\Profile;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use function array_keys;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -173,5 +174,56 @@ final class ProfileTest extends TestCase
             ],
             'The birthdate "21/05/1990" must be "YYYY-MM-DD" or "YYYY"',
         ];
+    }
+
+    /**
+     * The names of OIDC Core §5.1 and not the fields: three of them differ (issue #626).
+     */
+    #[Test]
+    public function itSaysEachClaimUnderItsNameInTheSpecification(): void
+    {
+        // Given
+        $profile = new Profile(givenName: 'Ada', profileUrl: 'https://ada.example/about');
+
+        // When
+        $claims = $profile->claims();
+
+        // Then
+        static::assertSame('Ada', $claims['given_name']);
+        static::assertSame('https://ada.example/about', $claims['profile']);
+        static::assertNull($claims['nickname']);
+    }
+
+    /**
+     * The two directions of one match, held together: a claim written by its name is read back under it.
+     */
+    #[Test]
+    #[DataProvider('provideClaimNames')]
+    public function aClaimSaidByItsNameIsReadBackUnderIt(string $claim): void
+    {
+        // When
+        $said = Profile::empty()->describedWith([
+            $claim => '2001',
+        ]);
+
+        // Then
+        static::assertSame('2001', $said->claims()[$claim]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideClaimNames(): iterable
+    {
+        foreach (array_keys(Profile::empty()->claims()) as $claim) {
+            yield $claim => [$claim];
+        }
+    }
+
+    #[Test]
+    public function itSaysThirteenClaims(): void
+    {
+        // When / Then
+        static::assertCount(13, Profile::empty()->claims());
     }
 }

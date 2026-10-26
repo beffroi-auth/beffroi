@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Tests\Functional\Doctrine;
 
+use Beffroi\Core\Application\Identity\IdentityAlreadyLinkedException;
 use function array_keys;
 use function array_map;
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Schema\Index\IndexedColumn;
 use Doctrine\DBAL\Schema\Index\IndexType;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -176,7 +176,8 @@ final class LinkedIdentityColumnsTest extends DatabaseTestCase
 
     /**
      * The unicity of the pair within a tenant, held on the two index columns: a constraint on the pair in
-     * the clear would refuse nothing, every write of one subject giving another ciphertext.
+     * the clear would refuse nothing, every write of one subject giving another ciphertext. Its violation is the
+     * exception of the core, naming nothing (beffroi/saml S-56).
      */
     #[Test]
     public function aSecondRowWithTheSamePairUnderOneTenantIsRefused(): void
@@ -186,7 +187,8 @@ final class LinkedIdentityColumnsTest extends DatabaseTestCase
         self::reload();
 
         // Then
-        $this->expectException(UniqueConstraintViolationException::class);
+        $this->expectException(IdentityAlreadyLinkedException::class);
+        $this->expectExceptionMessageIs('The identity was linked meanwhile in this tenant.');
 
         // When
         self::identity('someone-else-subject');

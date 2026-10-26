@@ -152,16 +152,17 @@ trait SendingFixtures
             $destination,
             self::AUTHN_REQUEST_ID,
             new Status(StatusCode::Success),
-            self::assertion(),
+            self::assertion($destination ?? self::ACS),
         );
     }
 
     /**
      * The assertion of the response: an unspecified NameID, a bearer confirmation to the assertion consumer service
      * answering the AuthnRequest, Conditions without window holding the service provider as audience, an
-     * authentication statement with its SessionIndex.
+     * authentication statement with its SessionIndex. The bearer confirmation is to $recipient, which the model's writer
+     * requires to be the Destination of the response.
      */
-    private static function assertion(): Assertion
+    private static function assertion(string $recipient = self::ACS): Assertion
     {
         return new Assertion(
             self::ASSERTION_ID,
@@ -169,7 +170,7 @@ trait SendingFixtures
             new Issuer('https://idp.example.com/saml'),
             new NameId('alice'),
             new SubjectConfirmation(
-                self::ACS,
+                $recipient,
                 new DateTimeImmutable('2026-10-01T12:05:00Z'),
                 self::AUTHN_REQUEST_ID,
                 null,
@@ -288,7 +289,8 @@ trait SendingFixtures
      * The form the post sender writes for $message: the AuthnRequest unsigned or signed by the service provider, the
      * LogoutRequest signed by the identity provider, the LogoutResponse signed by the service provider, the response
      * signed by the identity provider, its assertion or the whole, its failure unsigned or signed, each under
-     * $algorithm, or by the key of $signing when one is given; with $relayState, under $limits or the default bounds.
+     * $algorithm, or by the key of $signing when one is given; with $relayState, to $destination or to the message's own,
+     * under $limits or the default bounds.
      *
      * @param PostMessage $message
      */
@@ -298,40 +300,41 @@ trait SendingFixtures
         SignatureAlgorithm $algorithm = SignatureAlgorithm::RsaSha256,
         ?BindingLimits $limits = null,
         ?Signing $signing = null,
+        ?string $destination = null,
     ): PostForm {
         $sender = self::postSender($limits);
 
         return match ($message) {
-            'an unsigned AuthnRequest' => $sender->authnRequest(self::authnRequest(), null, $relayState),
+            'an unsigned AuthnRequest' => $sender->authnRequest(self::authnRequest($destination ?? self::SSO), null, $relayState),
             'an AuthnRequest' => $sender->authnRequest(
-                self::authnRequest(),
+                self::authnRequest($destination ?? self::SSO),
                 $signing ?? self::signing('sp', $algorithm),
                 $relayState,
             ),
             'a LogoutRequest' => $sender->logoutRequest(
-                self::logoutRequest(),
+                self::logoutRequest($destination ?? self::SP_SLO),
                 $signing ?? self::signing('idp', $algorithm),
                 $relayState,
             ),
             'a LogoutResponse' => $sender->logoutResponse(
-                self::logoutResponse(),
+                self::logoutResponse($destination ?? self::IDP_SLO),
                 $signing ?? self::signing('sp', $algorithm),
                 $relayState,
             ),
             'a Response' => $sender->response(
-                self::response(),
+                self::response($destination ?? self::ACS),
                 $signing ?? self::signing('idp', $algorithm),
                 SignedParts::Assertion,
                 $relayState,
             ),
             'a Response signed whole' => $sender->response(
-                self::response(),
+                self::response($destination ?? self::ACS),
                 $signing ?? self::signing('idp', $algorithm),
                 SignedParts::AssertionAndResponse,
                 $relayState,
             ),
-            'an unsigned failure' => $sender->failure(self::failure(), null, $relayState),
-            'a failure' => $sender->failure(self::failure(), $signing ?? self::signing('idp', $algorithm), $relayState),
+            'an unsigned failure' => $sender->failure(self::failure($destination ?? self::ACS), null, $relayState),
+            'a failure' => $sender->failure(self::failure($destination ?? self::ACS), $signing ?? self::signing('idp', $algorithm), $relayState),
         };
     }
 

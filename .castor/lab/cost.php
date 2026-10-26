@@ -65,6 +65,15 @@ const COST_MARGIN = 1.20;
 const COST_CEILING = 0.800;
 
 /**
+ * The requests of the step of the address, which a tenant that federates an e-mail domain to an upstream identity
+ * provider asks for before the login page (beffroi/saml S-61), as the development tenant does since issue #788: the
+ * address posted, and the usual login page opened again. They are measured apart and left out of the sum of the
+ * journey, whose p95 stays the one of the eight requests the baselines of decision 0018 were taken on; each of them is
+ * still held to the ceiling, as every request is.
+ */
+const COST_ADDRESS_STEPS = ['address', 'login page after the address'];
+
+/**
  * The KMS the count is read from, which is the value "--kms" takes for it, the compose profile that runs it
  * and the name of its service, all three being the same word (KMS_BACKENDS, compose.yaml).
  *
@@ -156,6 +165,12 @@ function login_cost(
         ' read with it (OIDC Core §5.3). The Symfony application of the demonstration is left out: what is',
         ' measured is what the provider spends.',
         '',
+        ' A tenant that federates an e-mail domain to an upstream identity provider, as the development tenant',
+        ' does since issue #788, asks for the address first (beffroi/saml S-61): two requests more, the address',
+        ' posted and the login page opened again. They are measured apart and left out of the journey, so that',
+        ' its p95 is still the one of the eight requests the baselines of decision 0018 were taken on; each of',
+        ' them is held to the ceiling all the same.',
+        '',
         ' Every journey carries a cookie jar of its own, so every one of them is a login and not a session',
         ' already open, and every one of them asks for a consent, so that the last journey is the same journey',
         ' as the first. The seconds are taken on this machine over the loopback interface, so they are the',
@@ -184,12 +199,21 @@ function login_cost(
     io()->progressFinish();
     $asked = cost_kms_calls($since);
 
-    $p95 = cost_p95(cost_journey_times($steps));
+    $addressSteps = array_intersect_key($steps, array_flip(COST_ADDRESS_STEPS));
+    $p95 = cost_p95(cost_journey_times(array_diff_key($steps, $addressSteps)));
     [$slowestStep, $slowestP95] = cost_slowest_request($steps);
 
     io()->section('Result');
     io()->table(['Measured', 'Result'], [
-        ['p95 of the login journey', sprintf('%d ms', cost_milliseconds($p95))],
+        [sprintf('p95 of the login journey, %d requests', count($steps) - count($addressSteps)), sprintf('%d ms', cost_milliseconds($p95))],
+        ...(
+            $addressSteps === []
+                ? []
+                : [[
+                    sprintf('p95 of the step of the address, %d requests, left out of the journey', count($addressSteps)),
+                    sprintf('%d ms', cost_milliseconds(cost_p95(cost_journey_times($addressSteps)))),
+                ]]
+        ),
         [sprintf('Calls to the KMS while the %d journeys were served', $journeys), (string) $asked],
     ]);
     io()->text([
@@ -268,9 +292,30 @@ function cost_journey(string $issuer, string $password, string $secret, string $
     );
 
     [$status, , $page] = cost_request($steps, $cookies, 'login page', $ca, 'GET', $location);
+    // A tenant that federates an e-mail domain to an upstream identity provider, as the development tenant does
+    // (beffroi.saml.identity_providers), asks for the address first (beffroi/saml S-61): the username, of no domain, is
+    // sent on to the usual page, two requests more of the journey of every login of such a tenant.
+    if (str_contains($page, 'data-step="address"')) {
+        cost_expect(
+            preg_match('/data-step="address".*?name="_token" value="([^"]+)"/s', $page, $token) === 1
+            && preg_match('/<form method="post" action="([^"]+)" data-step="address"/', $page, $addressForm) === 1,
+            'the login page asked for the address without carrying its form',
+        );
+        [$status, $location] = cost_request($steps, $cookies, 'address', $ca, 'POST', $issuer . html_entity_decode($addressForm[1]), [
+            '_address' => DEV_USERNAME,
+            '_token' => $token[1],
+        ]);
+        cost_expect(in_array($status, [302, 303], true), sprintf('the address was not taken (got %d)', $status));
+        [$status, , $page] = cost_request($steps, $cookies, 'login page after the address', $ca, 'GET', $location);
+    }
+    // The form of the password, named by its field: the layout of the page puts the forms of the locale and of the
+    // theme before it, each with a token of its own (demo_form_with()).
     cost_expect(
-        $status === 200 && preg_match('/name="_csrf_token" value="([^"]+)"/', $page, $csrf) === 1 && preg_match('/action="([^"]+)"/', $page, $loginForm) === 1,
-        sprintf('the login page did not carry the form (got %d)', $status),
+        $status === 200
+        && preg_match('/<form\b(?:(?!<\/form>).)*?name="_username"(?:(?!<\/form>).)*<\/form>/s', $page, $form) === 1
+        && preg_match('/name="_csrf_token" value="([^"]+)"/', $form[0], $csrf) === 1
+        && preg_match('/action="([^"]+)"/', $form[0], $loginForm) === 1,
+        sprintf('the login page did not carry the form of the password (got %d)', $status),
     );
 
     [$status, $location] = cost_request($steps, $cookies, 'password', $ca, 'POST', $issuer . html_entity_decode($loginForm[1]), [
@@ -295,12 +340,14 @@ function cost_journey(string $issuer, string $password, string $secret, string $
     );
 
     [$status, , $page] = cost_request($steps, $cookies, 'consent page', $ca, 'GET', $location);
+    // the form of the answer, named by its field, after the forms of the layout as on the login page
     cost_expect(
         $status === 200
-        && preg_match('/name="_token" value="([^"]+)"/', $page, $consentToken) === 1
-        && preg_match('/name="interaction" value="([^"]+)"/', $page, $interaction) === 1
-        && preg_match('/action="([^"]+)"/', $page, $consentForm) === 1,
-        sprintf('the consent page did not carry the form (got %d)', $status),
+        && preg_match('/<form\b(?:(?!<\/form>).)*?name="answer"(?:(?!<\/form>).)*<\/form>/s', $page, $form) === 1
+        && preg_match('/name="_token" value="([^"]+)"/', $form[0], $consentToken) === 1
+        && preg_match('/name="interaction" value="([^"]+)"/', $form[0], $interaction) === 1
+        && preg_match('/action="([^"]+)"/', $form[0], $consentForm) === 1,
+        sprintf('the consent page did not carry the form of the answer (got %d)', $status),
     );
 
     [$status, $location] = cost_request($steps, $cookies, 'consent', $ca, 'POST', $issuer . html_entity_decode($consentForm[1]), [

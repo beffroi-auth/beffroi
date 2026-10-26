@@ -78,7 +78,7 @@ function check_licenses(
  * of the host that the mount of the working directory does not cover, so every tool that reads the
  * repository from the container stops on "not a git repository: ...". What carries the objects, the refs and
  * the worktree's own directory is the common directory, so mounting it at the very path that pointer names
- * is what makes the repository readable. Every issue is worked on in a worktree (CLAUDE.md), and the one
+ * is what makes the repository readable. Every issue is worked on in a worktree (AGENTS.md), and the one
  * mutation run a change of a rule asks for by hand, "castor infect --diff", is a tool that reads it.
  *
  * A main checkout keeps its common directory under the working directory, where /project already carries
@@ -402,14 +402,15 @@ function rector_fix(): void
 
 /**
  * The configurations PHPStan runs, one analysis each: the identity provider's packages under the baseline, and
- * each SAML package under its own, with no baseline and the bans of its section 8, which are rules of that
- * package and not of the others.
+ * each SAML package, beffroi/saml among them, under its own, with no baseline and the bans of its section 8, which
+ * are rules of that package and not of the others.
  */
 const PHPSTAN_CONFIGURATIONS = [
     '.ci-tools/phpstan.neon',
     '.ci-tools/phpstan-xml-security.neon',
     '.ci-tools/phpstan-saml2-model.neon',
     '.ci-tools/phpstan-saml2-bindings.neon',
+    '.ci-tools/phpstan-saml.neon',
 ];
 
 #[AsTask(description: 'Run PHPStan, the identity provider\'s packages and then each SAML package')]
@@ -426,6 +427,140 @@ function phpstan(): void
             '--configuration=' . $configuration,
         ]);
     }
+    phpstan_saml_rules();
+}
+
+/**
+ * The fixture of the rules of beffroi/saml and the configuration that analyses it alone: every form section 8 of
+ * src/saml/spec/saml.md bans, one line each, and the lines that must pass.
+ */
+const PHPSTAN_SAML_RULES_FIXTURE = 'tests/saml/PhpStan/Fixture';
+
+const PHPSTAN_SAML_RULES_CONFIGURATION = '.ci-tools/phpstan-saml-rules.neon';
+
+const PHPSTAN_SAML_RULES_REPORT = '.ci-tools/cache/phpstan-saml-rules/report.json';
+
+/**
+ * The identifiers of the errors the rules of section 8 report, the only ones this task reads: BannedCallsRule and
+ * BannedCallablesRule, BannedNamesRule, and the function list and the statements of ekino/phpstan-banned-code.
+ */
+const PHPSTAN_SAML_RULES_IDENTIFIERS = [
+    'beffroi.bannedCall',
+    'beffroi.bannedName',
+    'ekinoBannedCode.function',
+    'ekinoBannedCode.expression',
+];
+
+#[AsTask(
+    description: 'Prove the bans of beffroi/saml (section 8): PHPStan with its rules on tests/saml/PhpStan/Fixture, whose lines say what each must report; fails on a refusal missing and on one nobody expected',
+)]
+function phpstan_saml_rules(): void
+{
+    io()->section('Proving the bans of beffroi/saml on their fixture');
+    $report = PHPSTAN_SAML_RULES_REPORT;
+    if (! is_dir(dirname($report))) {
+        mkdir(dirname($report), 0o777, true);
+    }
+    // A report left by an earlier run is never read as this one's.
+    if (is_file($report)) {
+        unlink($report);
+    }
+
+    // PHPStan answers 1 when it reports errors, which is its job here; the report is the result, and anything above 1
+    // is PHPStan failing. The redirection is the shell's of the container: phpqa() does not capture an output.
+    phpqa([
+        'sh',
+        '-c',
+        sprintf(
+            'phpstan analyse --no-progress --error-format=json --configuration=%s > %s; status=$?; [ "$status" -le 1 ]',
+            PHPSTAN_SAML_RULES_CONFIGURATION,
+            $report,
+        ),
+    ]);
+
+    $analysis = is_file($report) ? json_decode((string) file_get_contents($report), true) : null;
+    if (! is_array($analysis) || ! is_array($analysis['files'] ?? null) || ! is_array($analysis['errors'] ?? null)) {
+        io()->error('PHPStan left no readable report in ' . $report);
+        exit(1);
+    }
+
+    $expected = phpstan_saml_rules_expected();
+    $reported = [];
+    $broken = array_map(static fn (mixed $error): string => (string) json_encode($error), $analysis['errors']);
+    foreach ($analysis['files'] as $file => $result) {
+        foreach ($result['messages'] ?? [] as $message) {
+            $identifier = (string) ($message['identifier'] ?? '');
+            $line = sprintf('%s:%d %s', phpstan_saml_rules_relative((string) $file), $message['line'] ?? 0, $message['message']);
+            if (in_array($identifier, PHPSTAN_SAML_RULES_IDENTIFIERS, true)) {
+                // A set and not a count: PHPStan visits a nullsafe call twice, and what is asked is whether the line is refused.
+                $reported[$line] = true;
+            } elseif ($identifier === '' || str_starts_with($identifier, 'phpstan.')) {
+                // A parse error or a message without an identifier: the fixture was not read, and what it says is not proven.
+                $broken[] = $line;
+            }
+        }
+    }
+
+    $missing = array_keys(array_diff_key($expected, $reported));
+    $unexpected = array_keys(array_diff_key($reported, $expected));
+    sort($missing);
+    sort($unexpected);
+    if ($expected === []) {
+        $broken[] = 'the fixture expects nothing: no line of ' . PHPSTAN_SAML_RULES_FIXTURE . ' carries "// error: "';
+    }
+    if ($missing === [] && $unexpected === [] && $broken === []) {
+        io()->success(sprintf('%d refusals expected, %d reported, the same ones.', count($expected), count($reported)));
+
+        return;
+    }
+
+    foreach ([
+        'Expected by the fixture and not reported (a rule stopped firing, or a line moved)' => $missing,
+        'Reported and not expected (a rule fires on what it let through, or a line moved)' => $unexpected,
+        'PHPStan could not read the fixture' => $broken,
+    ] as $title => $lines) {
+        if ($lines !== []) {
+            io()->error($title);
+            io()->listing($lines);
+        }
+    }
+
+    exit(1);
+}
+
+/**
+ * What the lines of the fixture say they must be refused with: "file:line message", from each "// error: message".
+ *
+ * @return array<string, true>
+ */
+function phpstan_saml_rules_expected(): array
+{
+    $expected = [];
+    $files = glob(getcwd() . '/' . PHPSTAN_SAML_RULES_FIXTURE . '/*.php');
+    foreach ($files === false ? [] : $files as $file) {
+        foreach (file($file, \FILE_IGNORE_NEW_LINES) ?: [] as $number => $line) {
+            // A marker ends a line of code; the comments that explain the fixture may quote one.
+            if (preg_match('~^\s*(\*|/\*|//)~', $line) === 1) {
+                continue;
+            }
+            preg_match_all('~// error: (.+?)(?=\s// error: |$)~', $line, $matches);
+            foreach ($matches[1] as $message) {
+                $expected[sprintf('%s:%d %s', phpstan_saml_rules_relative($file), $number + 1, $message)] = true;
+            }
+        }
+    }
+
+    return $expected;
+}
+
+/**
+ * The path PHPStan reports (/project/... in the image, the working directory outside it) from the fixture directory on.
+ */
+function phpstan_saml_rules_relative(string $path): string
+{
+    $position = strpos($path, PHPSTAN_SAML_RULES_FIXTURE . '/');
+
+    return $position === false ? $path : substr($path, $position);
 }
 
 #[AsTask(description: 'Generate PHPStan baseline')]
@@ -557,7 +692,7 @@ function regenerate_generated_configuration(): void
 
 /**
  * The files the specifications of the SAML packages accept only with no escaped mutant (section 9 of spec/core.md,
- * spec/dsig.md, spec/enc.md, spec/model.md and spec/bindings.md): "castor infect --strict" mutates them whole,
+ * spec/dsig.md, spec/enc.md, spec/model.md, spec/bindings.md and spec/saml.md): "castor infect --strict" mutates them whole,
  * uncovered lines included, and fails under a hundred percent. A file joins the list in the commit that creates it, never before: a
  * listed file missing from the tree is an error.
  */
@@ -586,6 +721,7 @@ const INFECTION_STRICT_FILES = [
     'src/xml-security/src/Dsig/Signer.php',
     'src/xml-security/src/Dsig/PrivateKey.php',
     'src/xml-security/src/Enc/ContentAlgorithm.php',
+    'src/xml-security/src/Enc/CbcContentAlgorithm.php',
     'src/xml-security/src/Enc/OaepHash.php',
     'src/xml-security/src/Enc/KeyTransport.php',
     'src/xml-security/src/Enc/EncryptedData.php',
@@ -594,6 +730,7 @@ const INFECTION_STRICT_FILES = [
     'src/xml-security/src/Enc/Internal/Structure.php',
     'src/xml-security/src/Enc/Internal/CipherData.php',
     'src/xml-security/src/Enc/Internal/Pem.php',
+    'src/xml-security/src/Enc/Internal/BlockPadding.php',
     'src/xml-security/src/Enc/Decryptor.php',
     'src/xml-security/src/Enc/PrivateDecryptionKey.php',
     'src/xml-security/src/Enc/Encryptor.php',
@@ -662,10 +799,14 @@ const INFECTION_STRICT_FILES = [
     'src/saml2-model/src/Internal/Assertion/AuthnStatementReader.php',
     'src/saml2-model/src/Internal/Assertion/AttributeStatementReader.php',
     'src/saml2-model/src/Internal/Assertion/AssertionReader.php',
-    // Section 9: the envelope of a response, its status, and the selection of the signed element, section 6.1 steps 2
-    // to 6.
+    // Section 9: the envelope of a response, its status, the selection of the signed element and the decryption of an
+    // encrypted assertion, section 6.1 steps 2 to 6 and section 6.7.
     'src/saml2-model/src/Internal/Response/Envelope.php',
     'src/saml2-model/src/Internal/Response/SignedResponse.php',
+    'src/saml2-model/src/Internal/Response/DecryptedAssertion.php',
+    'src/saml2-model/src/Internal/Response/CoveringResponseSignature.php',
+    'src/saml2-model/src/Internal/Response/PlaintextReader.php',
+    'src/saml2-model/src/Internal/Response/ReadAssertion.php',
     'src/saml2-model/src/Internal/Response/SignedAssertion.php',
     'src/saml2-model/src/Internal/Response/EnvelopeReader.php',
     // Section 9: the validator of a response and what it takes and returns (sections 5.4, 5.5).
@@ -697,6 +838,122 @@ const INFECTION_STRICT_FILES = [
     // Section 6.6: the writers of the other messages and of metadata, each on the tree builder of the response's.
     'src/saml2-model/src/Writing/AuthnRequestWriter.php',
     'src/saml2-model/src/Writing/MetadataWriter.php',
+    // beffroi/saml, section 9: what the metadata of the identity provider of a tenant says, the certificates it keeps
+    // and forgets, and the handler and the writer that build it (section 6.1).
+    'src/saml/src/Domain/Metadata/Certificate.php',
+    'src/saml/src/Domain/Metadata/IdentityProviderDescription.php',
+    'src/saml/src/Domain/Metadata/PublishedMetadata.php',
+    'src/saml/src/Application/Metadata/SigningCertificates.php',
+    'src/saml/src/Application/Metadata/IdentityProviderMetadataHandler.php',
+    'src/saml/src/Bridge/Model/ModelMetadataWriter.php',
+    // beffroi/saml, section 9: the service provider of a tenant, its entity ID of its own, what its metadata say, and
+    // the handler and the writer that build them (section 6.9).
+    'src/saml/src/Domain/Metadata/ServiceProviderEndpoints.php',
+    'src/saml/src/Domain/Metadata/ServiceProviderDescription.php',
+    'src/saml/src/Application/Metadata/ServiceProviderMetadataHandler.php',
+    'src/saml/src/Bridge/Model/ModelServiceProviderMetadataWriter.php',
+    'src/saml/src/Bridge/Model/ModelEntityId.php',
+    // beffroi/saml, section 9: the key each upstream identity provider encrypts for, its certificates given to that
+    // provider alone, and the key that opens what it encrypted and nothing another provider encrypted (S-64 to S-66,
+    // sections 6.12 and 6.13).
+    'src/saml/src/Domain/Key/UpstreamEncryptionKeys.php',
+    'src/saml/src/Application/Metadata/BuiltCertificates.php',
+    'src/saml/src/Application/Metadata/EncryptionCertificates.php',
+    'src/saml/src/Bridge/Model/UpstreamDecryptionKeys.php',
+    'src/saml/src/Bridge/Model/ProviderDecryptionKey.php',
+    // beffroi/saml, section 9: the service providers of a tenant, their declaration, the reading of their metadata and
+    // the document kept against a rollback (section 6.2).
+    'src/saml/src/Domain/Metadata/AcceptedMetadata.php',
+    'src/saml/src/Domain/Metadata/Lexical.php',
+    'src/saml/src/Domain/Metadata/MetadataLocation.php',
+    'src/saml/src/Domain/ServiceProvider/AcceptedServiceProviderMetadata.php',
+    'src/saml/src/Domain/ServiceProvider/AttributeMapping.php',
+    'src/saml/src/Domain/ServiceProvider/AttributeNameFormat.php',
+    'src/saml/src/Domain/ServiceProvider/ServiceProvider.php',
+    'src/saml/src/Domain/ServiceProvider/ServiceProviderMetadata.php',
+    'src/saml/src/Application/Metadata/MetadataRefreshment.php',
+    'src/saml/src/Application/Metadata/MetadataRefresh.php',
+    'src/saml/src/Application/Metadata/AcceptedMetadataForgetting.php',
+    'src/saml/src/Application/ServiceProvider/ServiceProviderRole.php',
+    'src/saml/src/Bridge/Model/MetadataDocumentReader.php',
+    'src/saml/src/Bridge/Model/ModelServiceProviderMetadataReader.php',
+    'src/saml/src/Bridge/Configuration/ConfigurationServiceProviders.php',
+    'src/saml/src/Bridge/Configuration/DeclarationMembers.php',
+    // beffroi/saml, section 9: the upstream identity providers of a tenant, their declaration, their domains, the
+    // reading of their metadata and the role the refresh reads them by (S-42 to S-45)
+    'src/saml/src/Domain/Upstream/AcceptedUpstreamMetadata.php',
+    // the domain of S-44, the core's since S-60, so that the discovery of the login page, the first sign-in and the
+    // refusal of a local credential read it by one rule: held as it was, by the suite of the core
+    'src/core/src/Domain/Identity/EmailDomain.php',
+    'src/saml/src/Domain/Upstream/GroupMapping.php',
+    'src/saml/src/Domain/Upstream/ProfileAttribute.php',
+    'src/saml/src/Domain/Upstream/UpstreamIdentityProvider.php',
+    'src/saml/src/Domain/Upstream/UpstreamMetadata.php',
+    'src/saml/src/Application/Upstream/UpstreamIdentityProviderRole.php',
+    'src/saml/src/Bridge/Model/ModelUpstreamMetadataReader.php',
+    'src/saml/src/Bridge/Configuration/ConfigurationUpstreamIdentityProviders.php',
+    // beffroi/saml, section 9: the request the service provider sends an upstream identity provider, what it is written
+    // from, the use case that starts it and the sender that writes and signs it (S-48 to S-50, section 6.11)
+    'src/saml/src/Domain/Upstream/UpstreamAuthnRequest.php',
+    'src/saml/src/Domain/Upstream/SentAuthnRequest.php',
+    // the address a person gave the login page, carried to the provider that reads one (S-68, issue #816)
+    'src/saml/src/Domain/Upstream/AddressHint.php',
+    'src/saml/src/Application/Upstream/UpstreamSignOn.php',
+    'src/saml/src/Bridge/Model/ModelAuthnRequestSender.php',
+    // the assertion consumer service (spec/saml.md S-52 to S-59, issue #784)
+    'src/saml/src/Domain/Upstream/VerifiedAssertion.php',
+    'src/saml/src/Domain/Upstream/UpstreamAssertion.php',
+    'src/saml/src/Domain/Upstream/AuthnContextMethods.php',
+    'src/saml/src/Application/Upstream/AssertionConsumerService.php',
+    'src/saml/src/Bridge/Model/ModelResponseReceiver.php',
+    // beffroi/saml, section 9: the signature an authentication request needs and its translation to the model's terms
+    // (section 6.3).
+    'src/saml/src/Domain/ServiceProvider/AuthnRequestSigning.php',
+    'src/saml/src/Bridge/Model/ModelAuthnRequestParties.php',
+    // beffroi/saml, section 9: single sign-on, the values it keeps and writes, the use case, the attributes released,
+    // the request received and validated, and the answer written and signed (section 6.4).
+    'src/saml/src/Domain/SingleSignOn/AttributeValue.php',
+    'src/saml/src/Domain/SingleSignOn/PersistentNameId.php',
+    'src/saml/src/Domain/SingleSignOn/PostedForm.php',
+    'src/saml/src/Domain/SingleSignOn/ReleasedAttribute.php',
+    'src/saml/src/Domain/SingleSignOn/SignOnFailure.php',
+    'src/saml/src/Domain/SingleSignOn/SignOnRequest.php',
+    'src/saml/src/Domain/SingleSignOn/SignOnResponse.php',
+    'src/saml/src/Domain/SingleSignOn/SignOnStatus.php',
+    'src/saml/src/Application/SingleSignOn/AttributeRelease.php',
+    'src/saml/src/Application/SingleSignOn/SingleSignOn.php',
+    'src/saml/src/Bridge/Model/ModelAuthnRequestReceiver.php',
+    'src/saml/src/Bridge/Model/ModelIdentityProvider.php',
+    'src/saml/src/Bridge/Model/ModelSignOnResponder.php',
+    // beffroi/saml, section 9: Single Logout started by a service provider, the request accepted once, the sessions
+    // ended and the answer signed (section 6.5), and each service provider's part in a session (S-26).
+    'src/saml/src/Domain/SingleLogout/SignOutRequest.php',
+    'src/saml/src/Domain/SingleLogout/SignOutStatus.php',
+    'src/saml/src/Domain/SingleLogout/SignOutResponse.php',
+    'src/saml/src/Domain/SingleLogout/RedirectedMessage.php',
+    'src/saml/src/Domain/SingleLogout/SessionParticipation.php',
+    'src/saml/src/Domain/Replay/RememberedMessage.php',
+    'src/saml/src/Domain/Event/ServiceProviderSignedIn.php',
+    'src/saml/src/Application/SingleLogout/SingleLogout.php',
+    'src/saml/src/Application/SingleLogout/SessionParticipants.php',
+    'src/saml/src/Bridge/Model/DeclaredServiceProviderReader.php',
+    'src/saml/src/Bridge/Model/ModelLogoutMessageReceiver.php',
+    'src/saml/src/Bridge/Model/ModelSignOutResponder.php',
+    'src/saml/src/Bridge/Model/TenantReplayGuard.php',
+    'src/saml/src/Bridge/Model/TenantSigning.php',
+    // beffroi/saml, section 9: Single Logout started by the identity provider, every service provider of the ended
+    // sessions told through the browser, the chain kept and played once, and where it ends (section 6.6).
+    'src/saml/src/Domain/SingleLogout/LogoutRequester.php',
+    'src/saml/src/Domain/SingleLogout/LogoutHop.php',
+    'src/saml/src/Domain/SingleLogout/LogoutProgress.php',
+    'src/saml/src/Domain/SingleLogout/LogoutChain.php',
+    'src/saml/src/Domain/SingleLogout/LogoutChainStarted.php',
+    'src/saml/src/Domain/SingleLogout/LogoutChainEnded.php',
+    'src/saml/src/Domain/SingleLogout/SignOutNotice.php',
+    'src/saml/src/Domain/SingleLogout/SentSignOutNotice.php',
+    'src/saml/src/Domain/SingleLogout/SignOutAnswer.php',
+    'src/saml/src/Application/SingleLogout/ProviderLogout.php',
+    'src/saml/src/Bridge/Model/ModelSignOutNotifier.php',
     'src/saml2-model/src/Writing/LogoutRequestWriter.php',
     'src/saml2-model/src/Writing/LogoutResponseWriter.php',
     // Section 9: the strict readers of the two logout messages (sections 6.3, 6.4).
@@ -704,6 +961,7 @@ const INFECTION_STRICT_FILES = [
     'src/saml2-model/src/Internal/Logout/LogoutContext.php',
     'src/saml2-model/src/Internal/Logout/LogoutRequestReader.php',
     'src/saml2-model/src/Internal/Logout/LogoutResponseReader.php',
+    'src/saml2-model/src/Internal/Logout/ReplayWindow.php',
     // Section 9: the logout validators and what they return (section 5.6).
     'src/saml2-model/src/Validation/LogoutRequestValidator.php',
     'src/saml2-model/src/Validation/LogoutResponseValidator.php',
@@ -725,6 +983,8 @@ const INFECTION_STRICT_FILES = [
     'src/saml2-bindings/src/Internal/Percent.php',
     // B-8: base64 in its one form, the one place it is decoded.
     'src/saml2-bindings/src/Internal/Base64.php',
+    // Sections 6.3 and 6.4 step 1: the scheme of a Destination, http or https.
+    'src/saml2-bindings/src/Internal/DestinationScheme.php',
     // B-7, B-8: the bounded inflater, raw DEFLATE refused as soon as its output exceeds the bound.
     'src/saml2-bindings/src/Internal/Inflater.php',
     // B-8: the deflater, raw DEFLATE.
@@ -767,7 +1027,7 @@ function infect(
     #[AsOption(description: 'Mutate only the lines added or modified since --base, committed or not')]
     bool $diff = false,
     #[AsOption(
-        description: 'Mutate the files of INFECTION_STRICT_FILES whole, uncovered lines included, and fail under a hundred percent, whatever --min-msi and --min-covered-msi say, on a coverage of its own: the three SAML suites measured by Xdebug in .ci-tools/coverage-strict',
+        description: 'Mutate the files of INFECTION_STRICT_FILES whole, uncovered lines included, and fail under a hundred percent, whatever --min-msi and --min-covered-msi say, on a coverage of its own: the suites of the SAML packages and of the core measured by Xdebug in .ci-tools/coverage-strict',
     )]
     bool $strict = false,
     #[AsOption(
@@ -792,9 +1052,9 @@ function infect(
     }
 
     // The XML coverage and the JUnit report of a "castor phpunit" run are what Infection reads from .ci-tools/coverage.
-    // The strict run reads a coverage of its own, the three SAML suites measured by Xdebug: pcov reports no line for a
-    // "continue" statement, so the mutant that turns one into "break" is not covered under it, and the hundred percent
-    // the specifications ask for is out of reach on a line every test of the corpus runs.
+    // The strict run reads a coverage of its own, the suites of the SAML packages and of the core measured by Xdebug:
+    // pcov reports no line for a "continue" statement, so the mutant that turns one into "break" is not covered under
+    // it, and the hundred percent the specifications ask for is out of reach on a line every test of the corpus runs.
     $coverage = $strict ? '.ci-tools/coverage-strict' : '.ci-tools/coverage';
     if ($reuseCoverage) {
         if (! is_file($coverage . '/index.xml') || ! is_file($coverage . '/junit.xml')) {
@@ -843,8 +1103,9 @@ function infect(
 }
 
 /**
- * The coverage the strict mutation run reads: the suites of the SAML packages alone, measured by Xdebug, which counts a
- * "continue" statement as a line, where pcov does not.
+ * The coverage the strict mutation run reads: the suites of the SAML packages, and the one of the core, which tests the
+ * domain of an address all of them read (spec/saml.md S-60), measured by Xdebug, which counts a "continue" statement as
+ * a line, where pcov does not.
  */
 function strict_coverage(): void
 {
@@ -860,7 +1121,7 @@ function strict_coverage(): void
             '--configuration',
             '.ci-tools/phpunit.xml.dist',
             '--testsuite',
-            'xml-security,saml2-model,saml2-bindings',
+            'xml-security,saml2-model,saml2-bindings,saml,core',
         ],
         ['XDEBUG_MODE' => 'coverage'],
     );

@@ -206,7 +206,7 @@
         @apply fixed inset-0 z-20 block;
     }
 
-    /* The logo of the tenant (issue beffroi-php/beffroi#449): served by a host the tenant named, so how
+    /* The logo of the tenant (issue beffroi-auth/beffroi#449): served by a host the tenant named, so how
        large it is on the page is the page's decision and never the tenant's, exactly as a client's logo on
        the consent page. The skeletons place it; its height is the only thing said of it here, and the panel
        of an interaction, which is nothing but that logo and that name, is given more of it. */
@@ -461,7 +461,7 @@
     /*
      * A part of a page that is a panel of its own: a heading, the line that says what it is for, and the
      * list, the table or the forms it holds. The page of the profile is written with them (issue
-     * beffroi-php/op#17), so that what this provider holds of somebody, what they may change of it and
+     * beffroi-auth/op#17), so that what this provider holds of somebody, what they may change of it and
      * what they have changed are three panels a reader tells apart and not three headings in one column.
      */
     main[data-page="account"] section[data-panel] {
@@ -701,7 +701,7 @@
     }
 
     /*
-     * What a person may change of themselves, edited in place (issue beffroi-php/op#17): the value they
+     * What a person may change of themselves, edited in place (issue beffroi-auth/op#17): the value they
      * read is the field they type into, so a line looks like the list above it until it is touched. No
      * script does this. The button is always in the document, for a browser that styles nothing and for
      * whoever moves by keyboard; what the stylesheet does is keep it out of the way until the line has
@@ -834,7 +834,7 @@
     }
 
     /* What a session proved is a state of it, not more of its value, and the session of the browser
-       reading the page is the one whose end signs that reader out (issue beffroi-php/beffroi#450). */
+       reading the page is the one whose end signs that reader out (issue beffroi-auth/beffroi#450). */
     main[data-page="account"] td span[data-acr],
     main[data-page="account"] td span[data-amr] {
         @apply badge badge-sm badge-soft mr-1 font-normal;
@@ -862,7 +862,7 @@
     }
 
     /*
-     * The page of one application (issue beffroi-php/beffroi#451) opens on what that application holds
+     * The page of one application (issue beffroi-auth/beffroi#451) opens on what that application holds
      * and not on who is signed in, so its first paragraph is a state of the panel and not the subtitle
      * the rules above give one. The date of the last renewal keeps that subtitle shape: it is read under
      * the count and not beside it.

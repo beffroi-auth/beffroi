@@ -12,6 +12,9 @@
    user holds would satisfy one, by kind (login.step_up.<kind>: a passkey, the password, a TOTP after the
    password), nothing of a kind they do not hold; both forms stay offered. A step-up asked for by a page
    of the provider names no client, that page serving no request of a browser (CIBA Core §7.1).
+   When the tenant federates an e-mail domain, the page comes after the step of the address
+   (login_address.html.twig, beffroi/saml S-61), and offers to go back to it ("after_the_address"), after the
+   forms of the login so that the first button of the page is still the one of the password.
    Overridable by an application under templates/bundles/BeffroiBundle/. #}
 {% extends '@Beffroi/layout.html.twig' %}
 {% trans_default_domain 'beffroi' %}
@@ -54,6 +57,13 @@
             <input type="hidden" name="_passkey" value="">
             <button type="button" data-passkey-button>{{ 'login.passkey'|trans }}</button>
             <p data-passkey-error hidden>{{ 'login.passkey_failed'|trans }}</p>
+        </form>
+    {% endif %}
+    {% if after_the_address ?? false %}
+        <form method="post" action="{{ path('beffroi_interaction_login_address', interaction is null ? {} : {interaction: interaction.id}) }}" data-step="another-address">
+            <input type="hidden" name="_token" value="{{ csrf_token('beffroi_login_address') }}">
+            <input type="hidden" name="_address" value="">
+            <button type="submit">{{ 'login.other_address'|trans }}</button>
         </form>
     {% endif %}
 {% endblock %}

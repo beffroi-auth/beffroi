@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Controller;
 
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Bundle\Http\Account\AsksForARecentProofInterface;
 use Beffroi\Bundle\Http\AccountAccess;
 use Beffroi\Bundle\Http\InteractionPages;
@@ -50,6 +51,11 @@ final readonly class PasskeyEnrolmentController implements AsksForARecentProofIn
 
     public const string REFUSED = 'refused';
 
+    /**
+     * A person of a federated domain, for whom no passkey is posed (decision 0029, beffroi/saml S-63).
+     */
+    public const string FEDERATED_DOMAIN = 'federated_domain';
+
     public function __construct(
         private AccountAccess $account,
         private RequestContextFactory $contexts,
@@ -57,6 +63,7 @@ final readonly class PasskeyEnrolmentController implements AsksForARecentProofIn
         private PasskeyOptionsStore $options,
         private WhatWasRefused $refusals,
         private InteractionPages $pages,
+        private FederatedDomains $federated,
     ) {
     }
 
@@ -76,6 +83,11 @@ final readonly class PasskeyEnrolmentController implements AsksForARecentProofIn
             return $session;
         }
         $user = $session->user;
+        // before the ceremony goes on: what the page offers nobody of a federated domain is refused to a post written
+        // by hand, which the enrolment of the core refuses too, and this says why
+        if (! $this->federated->admitsLocalCredentials($user)) {
+            return $this->refused($request, self::FEDERATED_DOMAIN);
+        }
         $name = trim($request->request->getString(self::NAME_PARAMETER));
         if ($name === '' || mb_strlen($name) > PasskeyCredential::NAME_MAX_LENGTH) {
             return $this->refused($request, self::INVALID_NAME);

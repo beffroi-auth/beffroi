@@ -10,7 +10,15 @@ use function file_get_contents;
 use function file_put_contents;
 use function fileperms;
 use function glob;
+use Beffroi\Bundle\Key\DormantKeyAlgorithms;
 use Beffroi\Bundle\Key\FileTenantKeyRepository;
+use Beffroi\Bundle\Saml\JoseSamlEncryptionAlgorithms;
+use Beffroi\Bundle\Saml\SamlEncryption;
+use Beffroi\Core\Bridge\JwtLibrary\JoseKeyAlgorithms;
+use Beffroi\Core\Bridge\JwtLibrary\JoseKeyFamily;
+use Beffroi\Core\Domain\Key\RotationSchedule;
+use Beffroi\Saml\Domain\Key\SamlEncryptionAlgorithmInterface;
+use DateInterval;
 use Beffroi\Core\Bridge\JwtLibrary\JoseSignatureAlgorithms;
 use Beffroi\Core\Domain\Key\KeyStatus;
 use Beffroi\Core\Domain\Key\TenantKey;
@@ -264,6 +272,152 @@ final class FileTenantKeyRepositoryTest extends TestCase
         $unwired->find($tenant, Keys::pair()->kid);
     }
 
+    /**
+     * Spec/saml.md section 5.1: the key of a capability the deployment turned off after the tenant drew it is read
+     * past, and the keys beside it are read as they were.
+     */
+    #[Test]
+    public function theKeyOfADormantAlgorithmIsReadPast(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $this->repository->save(self::activeKey($tenant, Keys::pair()->kid));
+        $this->repository->save(self::applicationServerKey($tenant));
+
+        // When
+        $keys = $this->withoutApplicationServer()->findAll($tenant);
+
+        // Then
+        static::assertSame([Keys::pair()->kid], array_map(static fn (TenantKey $key): string => $key->kid, $keys));
+    }
+
+    /**
+     * Spec/saml.md section 5.1: nothing answers for the key of a dormant algorithm, its kid included.
+     */
+    #[Test]
+    public function theKeyOfADormantAlgorithmIsNotFoundByItsKid(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $this->repository->save(self::applicationServerKey($tenant));
+
+        // When / Then
+        static::assertNull($this->withoutApplicationServer()->find($tenant, Keys::applicationServerPair()->kid));
+    }
+
+    /**
+     * Spec/saml.md section 5.1: a key read past while its capability was off is in service again, as it was, once
+     * its algorithm is wired again.
+     */
+    #[Test]
+    public function aKeyReadPastIsInServiceAgainOnceItsAlgorithmIsWired(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $this->repository->save(self::applicationServerKey($tenant));
+        $this->withoutApplicationServer()->findAll($tenant);
+
+        // When
+        $inService = new FileTenantKeyRepository($this->directory, Algorithms::everyUse())->findInService($tenant);
+
+        // Then
+        static::assertSame(
+            [[Keys::applicationServerPair()->kid, KeyStatus::Active]],
+            array_map(static fn (TenantKey $key): array => [$key->kid, $key->status], $inService),
+        );
+    }
+
+    /**
+     * Spec/saml.md section 5.1, issue #156: a name that neither the wiring nor a section that left its capability
+     * off knows is still a fault of the storage.
+     */
+    #[Test]
+    public function aKeyOfAnAlgorithmNoSectionLeftOffIsStillRefused(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $this->repository->save(self::key($tenant, Keys::pair()->kid));
+        $unwired = new FileTenantKeyRepository(
+            $this->directory,
+            new JoseSignatureAlgorithms([Algorithms::es256()]),
+            new DormantKeyAlgorithms([Algorithms::vapid()]),
+        );
+
+        // Then
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIsOrContains('names an algorithm this provider is not wired with');
+
+        // When
+        $unwired->findAll($tenant);
+    }
+
+    /**
+     * Spec/saml.md S-64: the key of an upstream identity provider nothing wires any more, an algorithm of a family named
+     * after its holder, is read past, and the keys beside it are read as they were.
+     */
+    #[Test]
+    public function theKeyOfAProviderNothingWiresIsReadPast(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $this->repository->save(self::activeKey($tenant, Keys::pair()->kid));
+        $wired = new FileTenantKeyRepository($this->directory, self::withProviders(['https://idp-a.example/metadata']));
+        $wired->save(self::providerKey($tenant, 'https://idp-a.example/metadata'));
+        $unwired = new FileTenantKeyRepository(
+            $this->directory,
+            Algorithms::all(),
+            new DormantKeyAlgorithms([], [SamlEncryptionAlgorithmInterface::NAME_PREFIX]),
+        );
+
+        // When
+        $keys = $unwired->findAll($tenant);
+
+        // Then
+        static::assertSame([Keys::pair()->kid], array_map(static fn (TenantKey $key): string => $key->kid, $keys));
+    }
+
+    /**
+     * Spec/saml.md S-64: one material is the key of one algorithm, so the key of another algorithm under the "kid" a
+     * file holds is refused rather than written over it, and the key that file holds is left as it was.
+     */
+    #[Test]
+    public function theKeyOfAnotherAlgorithmUnderAKidHeldAlreadyIsRefused(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $repository = new FileTenantKeyRepository($this->directory, self::withProviders(['https://idp-a.example/metadata', 'https://idp-b.example/metadata']));
+        $repository->save(self::providerKey($tenant, 'https://idp-a.example/metadata'));
+
+        // Then
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIs(sprintf(
+            'The key "%s" of tenant "acme" is held already, and not as a key of SAML-ENCRYPTION:https://idp-b.example/metadata: one material is the key of one algorithm.',
+            Keys::otherPair()->kid,
+        ));
+
+        // When
+        $repository->save(self::providerKey($tenant, 'https://idp-b.example/metadata'));
+    }
+
+    /**
+     * The key a file holds is saved again as it changes, under the same algorithm: its status survives.
+     */
+    #[Test]
+    public function aKeyIsSavedAgainUnderItsOwnAlgorithm(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $key = self::key($tenant, Keys::pair()->kid);
+        $this->repository->save($key);
+        $key->activate(Fixtures::now());
+
+        // When
+        $this->repository->save($key);
+
+        // Then
+        static::assertSame(KeyStatus::Active, $this->repository->find($tenant, Keys::pair()->kid)?->status);
+    }
+
     #[Test]
     #[DataProvider('provideKidsThatCannotNameAFile')]
     public function aKidThatIsNotAThumbprintNamesNoFile(string $kid): void
@@ -507,11 +661,74 @@ final class FileTenantKeyRepositoryTest extends TestCase
         );
     }
 
+    /**
+     * The algorithms of the suite and the one of each upstream identity provider given (spec/saml.md S-64).
+     *
+     * @param list<string> $providers
+     */
+    private static function withProviders(array $providers): JoseKeyAlgorithms
+    {
+        $algorithms = [];
+        foreach ($providers as $provider) {
+            $algorithms[] = new SamlEncryption($provider);
+        }
+        $schedule = new RotationSchedule(new DateInterval('PT6M'), new DateInterval('P90D'));
+
+        return new JoseKeyAlgorithms([
+            new JoseKeyFamily(Algorithms::all(), $schedule),
+            new JoseKeyFamily(new JoseSamlEncryptionAlgorithms($algorithms), $schedule),
+        ]);
+    }
+
+    /**
+     * The key an upstream identity provider encrypts for, on the second RSA pair of the suite.
+     */
+    private static function providerKey(Tenant $tenant, string $provider): TenantKey
+    {
+        $algorithm = new SamlEncryption($provider);
+        $pair = Keys::otherPair();
+
+        return new TenantKey(
+            $pair->kid,
+            $tenant,
+            $algorithm,
+            [
+                ...$pair->publicJwk,
+                'alg' => $algorithm->name(),
+                'use' => $algorithm->keyUse()->value,
+            ],
+            'sealed',
+            Fixtures::now(),
+            Fixtures::now(),
+        );
+    }
+
     private static function activeKey(Tenant $tenant, string $kid, ?DateTimeImmutable $createdAt = null): TenantKey
     {
         $key = self::key($tenant, $kid, $createdAt);
         $key->activate(Fixtures::now());
 
         return $key;
+    }
+
+    /**
+     * The application server key of the tenant, active: the key of a capability a deployment may turn off.
+     */
+    private static function applicationServerKey(Tenant $tenant): TenantKey
+    {
+        $pair = Keys::applicationServerPair();
+        $key = new TenantKey($pair->kid, $tenant, Algorithms::vapid(), $pair->publicJwk, 'sealed', Fixtures::now(), Fixtures::now());
+        $key->activate(Fixtures::now());
+
+        return $key;
+    }
+
+    /**
+     * The same storage read by a deployment that reaches nobody by push: the signature algorithms wired, the
+     * application server algorithm dormant.
+     */
+    private function withoutApplicationServer(): FileTenantKeyRepository
+    {
+        return new FileTenantKeyRepository($this->directory, Algorithms::all(), new DormantKeyAlgorithms([Algorithms::vapid()]));
     }
 }

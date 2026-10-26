@@ -81,6 +81,19 @@ final class ContentAlgorithmTest extends TestCase
     }
 
     /**
+     * §9.3 row 25, E-15: every case of the one type the encryptor takes is an AES-GCM method, so that nothing is
+     * encrypted in CBC.
+     */
+    #[Test]
+    #[DataProvider('provideCases')]
+    public function itNamesAesGcmOnly(ContentAlgorithm $algorithm): void
+    {
+        // When / Then
+        static::assertStringEndsWith('-gcm', $algorithm->cipher());
+        static::assertStringStartsWith('http://www.w3.org/2009/xmlenc11#aes', $algorithm->value);
+    }
+
+    /**
      * Section 5.1: what the two OpenSSL functions take.
      */
     #[Test]

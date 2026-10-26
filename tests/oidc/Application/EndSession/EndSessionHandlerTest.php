@@ -6,6 +6,7 @@ namespace Beffroi\Oidc\Tests\Application\EndSession;
 
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Bridge\InMemory\InMemoryAuthenticationSessionRepository;
+use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryJwsVerifier;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -19,14 +20,12 @@ use Beffroi\Core\Tests\Fixture\FakePasswordHasher;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use Beffroi\Oidc\Application\Authorization\IdTokenHintVerifier;
+use Beffroi\Oidc\Application\Claims\AssignedSubjectIdentifiers;
 use Beffroi\Oidc\Application\Claims\StandardClaimsProvider;
 use Beffroi\Oidc\Application\EndSession\EndSessionHandler;
 use Beffroi\Oidc\Application\EndSession\EndSessionRequestParser;
 use Beffroi\Oidc\Application\Token\JwtIdTokenIssuer;
-use Beffroi\Oidc\Application\Token\RefreshTokenRevocation;
-use Beffroi\Oidc\Bridge\InMemory\InMemoryAccessTokenRepository;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryClientRepository;
-use Beffroi\Oidc\Bridge\InMemory\InMemoryRefreshTokenRepository;
 use Beffroi\Oidc\Domain\Authorization\IdTokenHint;
 use Beffroi\Oidc\Domain\Client\Client;
 use Beffroi\Oidc\Domain\EndSession\EndSessionRequest;
@@ -35,10 +34,7 @@ use Beffroi\Oidc\Domain\EndSession\LogoutConfirmationReason;
 use Beffroi\Oidc\Domain\EndSession\LogoutConfirmationRequired;
 use Beffroi\Oidc\Domain\Token\AccessToken;
 use Beffroi\Oidc\Domain\Token\UserAuthorization;
-use Beffroi\Oidc\Domain\Token\RefreshToken;
-use Beffroi\Oidc\Domain\Token\RefreshTokenFamily;
 use Beffroi\Oidc\Exception\InvalidArgumentException;
-use Beffroi\Oidc\Port\AccessTokenRepositoryInterface;
 use Beffroi\Oidc\Tests\Fixture\Clients;
 use Beffroi\Oidc\Tests\Fixture\Grants;
 use Beffroi\Oidc\Tests\Fixture\Jwts;
@@ -68,11 +64,9 @@ final class EndSessionHandlerTest extends TestCase
 
     private InMemoryAuthenticationSessionRepository $sessions;
 
-    private InMemoryRefreshTokenRepository $refreshTokens;
-
-    private InMemoryAccessTokenRepository $accessTokens;
-
     private RecordingEventDispatcher $events;
+
+    private AssignedSubjectIdentifiers $subjects;
 
     private EndSessionHandler $handler;
 
@@ -86,13 +80,14 @@ final class EndSessionHandlerTest extends TestCase
         $this->session = Fixtures::session($this->alice, $this->clock->now()->modify('-1 hour'));
         $this->sessions = new InMemoryAuthenticationSessionRepository();
         $this->sessions->save($this->session);
-        $this->refreshTokens = new InMemoryRefreshTokenRepository();
-        $this->accessTokens = new InMemoryAccessTokenRepository();
         $this->events = new RecordingEventDispatcher();
+        $users = new InMemoryUserRepository();
+        $users->save($this->alice);
+        $users->save(Fixtures::user($this->tenant, 'bob', 'bob-subject'));
+        $this->subjects = Subjects::bothKinds($users);
         $this->handler = new EndSessionHandler(
             new SessionTerminator($this->sessions, $this->clock, $this->events),
-            new RefreshTokenRevocation($this->refreshTokens),
-            $this->accessTokens,
+            $this->subjects,
             $this->clock,
         );
     }
@@ -165,96 +160,6 @@ final class EndSessionHandlerTest extends TestCase
     }
 
     /**
-     * Decision 0006: every refresh token issued in the session is revoked, rotated ones included; those
-     * of other sessions are not.
-     */
-    #[Test]
-    public function theRefreshTokensOfTheSessionAreRevoked(): void
-    {
-        // Given
-        $family = Tokens::family(Fixtures::now(), $this->client->tenant);
-        $rotated = $this->refreshToken('rotated', $this->session, $family);
-        $rotated->rotate(Fixtures::now()->modify('+1 day'));
-        $current = $this->refreshToken('current', $this->session, $family, '+2 days');
-        $otherSession = Fixtures::session($this->alice);
-        $this->sessions->save($otherSession);
-        $elsewhere = $this->refreshToken('elsewhere', $otherSession);
-
-        // When
-        $this->handler->begin($this->request($this->hint($this->session)), $this->session, $this->context);
-
-        // Then
-        static::assertTrue($rotated->isRevoked());
-        static::assertEquals($this->clock->now(), $rotated->revokedAt);
-        static::assertTrue($current->isRevoked());
-        static::assertFalse($elsewhere->isRevoked());
-    }
-
-    /**
-     * Decision 0006: every stored access token issued in the session is revoked; those of other
-     * sessions are not.
-     */
-    #[Test]
-    public function theStoredAccessTokensOfTheSessionAreRevoked(): void
-    {
-        // Given
-        $this->accessTokens->save(Tokens::storedAccessToken('here', $this->client, $this->session, Fixtures::now()));
-        $otherSession = Fixtures::session($this->alice);
-        $this->sessions->save($otherSession);
-        $elsewhere = Tokens::storedAccessToken('elsewhere', $this->client, $otherSession, Fixtures::now());
-        $this->accessTokens->save($elsewhere);
-
-        // When
-        $this->handler->begin($this->request($this->hint($this->session)), $this->session, $this->context);
-
-        // Then
-        static::assertSame([$elsewhere], $this->accessTokens->all());
-    }
-
-    /**
-     * A store that cannot take access tokens back is not asked to: the session ends all the same.
-     */
-    #[Test]
-    public function aStoreThatCannotRevokeIsNotAskedTo(): void
-    {
-        // Given
-        $handler = new EndSessionHandler(
-            new SessionTerminator($this->sessions, $this->clock, $this->events),
-            new RefreshTokenRevocation($this->refreshTokens),
-            static::createStub(AccessTokenRepositoryInterface::class),
-            $this->clock,
-        );
-
-        // When
-        $handler->begin($this->request($this->hint($this->session)), $this->session, $this->context);
-
-        // Then
-        static::assertTrue($this->session->hasEnded());
-    }
-
-    /**
-     * The tokens revoked now are saved; one already revoked keeps its date and is not saved again.
-     */
-    #[Test]
-    public function onlyTheTokensRevokedNowAreSaved(): void
-    {
-        // Given
-        $family = Tokens::family(Fixtures::now(), $this->client->tenant);
-        $revoked = $this->refreshToken('revoked', $this->session, $family, '+1 day');
-        $revoked->revoke(Fixtures::now()->modify('+2 days'));
-        $this->refreshToken('current', $this->session, $family, '+2 days');
-        $this->refreshToken('other', $this->session, $family, '+3 days');
-        $savesBefore = $this->refreshTokens->saves;
-
-        // When
-        $this->handler->begin($this->request($this->hint($this->session)), $this->session, $this->context);
-
-        // Then
-        static::assertEquals(Fixtures::now()->modify('+2 days'), $revoked->revokedAt, 'the first revocation wins');
-        static::assertSame($savesBefore + 2, $this->refreshTokens->saves);
-    }
-
-    /**
      * §2: the provider must ask when there is no id_token_hint, when the hint names another user, or
      * when it does not belong to the current session; §6: a request without a valid hint may be a
      * denial of service.
@@ -288,16 +193,14 @@ final class EndSessionHandlerTest extends TestCase
     public function nothingIsWrittenUntilTheUserAnswers(callable $hint, LogoutConfirmationReason $reason): void
     {
         // Given
-        $token = $this->refreshToken('current', $this->session);
-        $savesBefore = $this->refreshTokens->saves + $this->sessions->saves;
+        $savesBefore = $this->sessions->saves;
 
         // When
         $this->handler->begin($this->request($hint($this)), $this->session, $this->context);
 
         // Then
         static::assertTrue($this->session->isActive($this->clock->now()));
-        static::assertFalse($token->isRevoked());
-        static::assertSame($savesBefore, $this->refreshTokens->saves + $this->sessions->saves);
+        static::assertSame($savesBefore, $this->sessions->saves);
         static::assertSame([], $this->events->events);
     }
 
@@ -314,6 +217,10 @@ final class EndSessionHandlerTest extends TestCase
             static fn (self $test): IdTokenHint => new IdTokenHint(new Subject('bob-subject'), ['oidc-demo'], $test->session->id),
             LogoutConfirmationReason::DifferentUser,
         ];
+        yield 'a subject that names nobody' => [
+            static fn (self $test): IdTokenHint => new IdTokenHint(new Subject('nobody-subject'), ['oidc-demo'], $test->session->id),
+            LogoutConfirmationReason::DifferentUser,
+        ];
         yield 'another session of the user' => [
             static fn (self $test): IdTokenHint => $test->hint(Fixtures::session($test->alice)),
             LogoutConfirmationReason::DifferentSession,
@@ -322,6 +229,44 @@ final class EndSessionHandlerTest extends TestCase
             static fn (self $test): IdTokenHint => new IdTokenHint(new Subject('alice-subject'), ['oidc-demo'], null),
             LogoutConfirmationReason::DifferentSession,
         ];
+    }
+
+    /**
+     * OIDC Core §8.1, RP-Initiated Logout §2: a client of pairwise subjects holds the identifier of its sector,
+     * and its hint names the user of the session all the same, read back for that client (issue #838).
+     */
+    #[Test]
+    public function aHintOfAPairwiseClientNamingTheSessionEndsItWithoutAsking(): void
+    {
+        // Given
+        $client = Clients::pairwise($this->tenant);
+        $hint = new IdTokenHint($this->subjects->resolve($this->alice, $client), ['pairwise-app'], $this->session->id);
+
+        // When
+        $decision = $this->handler->begin(new EndSessionRequest($this->tenant, $client, $hint, null), $this->session, $this->context);
+
+        // Then
+        static::assertInstanceOf(LoggedOut::class, $decision);
+        static::assertSame($this->session, $decision->endedSession);
+    }
+
+    /**
+     * OIDC Core §8: what a "sub" means is decided by the kind its client registered, so the subject the core
+     * keeps names nobody to a client of pairwise subjects.
+     */
+    #[Test]
+    public function theSubjectTheCoreKeepsNamesNobodyToAPairwiseClient(): void
+    {
+        // Given
+        $client = Clients::pairwise($this->tenant);
+        $hint = new IdTokenHint($this->alice->subject, ['pairwise-app'], $this->session->id);
+
+        // When
+        $decision = $this->handler->begin(new EndSessionRequest($this->tenant, $client, $hint, null), $this->session, $this->context);
+
+        // Then
+        static::assertInstanceOf(LogoutConfirmationRequired::class, $decision);
+        static::assertSame(LogoutConfirmationReason::DifferentUser, $decision->reason);
     }
 
     /**
@@ -390,16 +335,12 @@ final class EndSessionHandlerTest extends TestCase
      */
     #[Test]
     #[DataProvider('provideHintsToConfirm')]
-    public function aConfirmedLogoutRevokesTheTokensAndAnnouncesTheEnd(callable $hint): void
+    public function aConfirmedLogoutAnnouncesTheEnd(callable $hint): void
     {
-        // Given
-        $token = $this->refreshToken('current', $this->session);
-
         // When
         $this->handler->confirm($this->request($hint($this)), $this->session, $this->context);
 
         // Then
-        static::assertTrue($token->isRevoked());
         static::assertCount(1, $this->events->of(AuthenticationSessionEnded::class));
     }
 
@@ -459,17 +400,17 @@ final class EndSessionHandlerTest extends TestCase
     }
 
     /**
-     * A token of the session the hint names is not revoked on the word of the token: the browser proves
-     * the session, the token does not. No event either.
+     * The session the hint names is not ended on the word of the token: the browser proves the session,
+     * the token does not. Nothing is announced, so nothing issued in it is revoked either
+     * (SessionTokensRevocation).
      *
      * @param callable(self): ?AuthenticationSession $session
      */
     #[Test]
     #[DataProvider('provideSessionsNotToEnd')]
-    public function nothingIsRevokedNorAnnouncedWithoutAnActiveSession(callable $session, bool $withHint): void
+    public function nothingIsAnnouncedWithoutAnActiveSession(callable $session, bool $withHint): void
     {
         // Given
-        $token = $this->refreshToken('current', $this->session);
         $request = $this->request($withHint ? $this->hint($this->session) : null);
         $held = $session($this);
 
@@ -478,7 +419,6 @@ final class EndSessionHandlerTest extends TestCase
         $this->handler->confirm($request, $held, $this->context);
 
         // Then
-        static::assertFalse($token->isRevoked());
         static::assertSame([], $this->events->events);
     }
 
@@ -596,7 +536,7 @@ final class EndSessionHandlerTest extends TestCase
         $jwts = new Jwts($this->tenant);
         $issuer = new JwtIdTokenIssuer($jwts->documents, Subjects::publicKind(), new StandardClaimsProvider(), Algorithms::all());
         $accessToken = new AccessToken('jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y', Fixtures::now(), Fixtures::now()->modify('+10 minutes'));
-        $refreshToken = $this->refreshToken('current', $this->session);
+        $refreshToken = Tokens::refreshToken('current', $this->client, $this->session, Fixtures::now());
         $authorization = $refreshed
             ? UserAuthorization::fromRefreshToken(Grants::refreshToken(), $refreshToken, null)
             : UserAuthorization::fromAuthorizationCode(Grants::authorizationCode(), Tokens::code(
@@ -628,7 +568,6 @@ final class EndSessionHandlerTest extends TestCase
         static::assertSame($this->session, $decision->endedSession);
         static::assertSame('https://demo.localhost/', $decision->redirect?->toUri(), 'no state was sent, none comes back');
         static::assertTrue($this->session->hasEnded());
-        static::assertTrue($refreshToken->isRevoked());
         static::assertCount(1, $this->events->of(AuthenticationSessionEnded::class));
     }
 
@@ -666,20 +605,5 @@ final class EndSessionHandlerTest extends TestCase
     private function hint(AuthenticationSession $session): IdTokenHint
     {
         return new IdTokenHint($session->user->subject, ['oidc-demo'], $session->id);
-    }
-
-    /**
-     * A refresh token of the session, issued at the fixture's "now" plus an offset, saved.
-     */
-    private function refreshToken(
-        string $value,
-        AuthenticationSession $session,
-        ?RefreshTokenFamily $family = null,
-        string $issuedOffset = '+0 seconds',
-    ): RefreshToken {
-        $token = Tokens::refreshToken($value, $this->client, $session, Fixtures::now()->modify($issuedOffset), $family);
-        $this->refreshTokens->save($token);
-
-        return $token;
     }
 }

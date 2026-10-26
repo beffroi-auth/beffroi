@@ -81,6 +81,8 @@ final class BeffroiBundleConfigurationTest extends TestCase
             [
                 'kms' => 'op',
                 'key_id' => 'signing',
+                // the secret of the kernel binds the stored data keys, as the component does by default
+                'data_key_secrets' => ['%kernel.secret%'],
                 'storage' => '%kernel.project_dir%/var/keys',
                 'jwks_max_age' => JwksHandler::DEFAULT_MAX_AGE,
                 'staging_delay' => null,
@@ -337,6 +339,26 @@ final class BeffroiBundleConfigurationTest extends TestCase
             ],
             'staging_delay',
         ];
+        yield 'no secret to bind a stored data key' => [
+            [
+                'tenant' => self::MINIMAL['tenant'],
+                'keys' => self::MINIMAL['keys']
+                    + [
+                        'data_key_secrets' => [],
+                    ],
+            ],
+            'data_key_secrets',
+        ];
+        yield 'an empty secret to bind a stored data key' => [
+            [
+                'tenant' => self::MINIMAL['tenant'],
+                'keys' => self::MINIMAL['keys']
+                    + [
+                        'data_key_secrets' => [''],
+                    ],
+            ],
+            'data_key_secrets',
+        ];
         yield 'a sliding refresh lifetime beyond the absolute one' => [
             self::MINIMAL
                 + [
@@ -402,6 +424,27 @@ final class BeffroiBundleConfigurationTest extends TestCase
 
         // When
         self::process($config);
+    }
+
+    /**
+     * One secret written alone is the list of one secret, the first and the only one, as the component reads
+     * its own.
+     */
+    #[Test]
+    public function oneSecretToBindTheStoredDataKeysIsAListOfOne(): void
+    {
+        // When
+        $config = self::process([
+            'tenant' => self::MINIMAL['tenant'],
+            'keys' => self::MINIMAL['keys']
+                + [
+                    'data_key_secrets' => '%env(BEFFROI_DATA_KEY_SECRET)%',
+                ],
+        ]);
+
+        // Then
+        static::assertIsArray($config['keys']);
+        static::assertSame(['%env(BEFFROI_DATA_KEY_SECRET)%'], $config['keys']['data_key_secrets'] ?? null);
     }
 
     /**

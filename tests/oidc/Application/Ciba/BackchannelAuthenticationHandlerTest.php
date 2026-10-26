@@ -574,7 +574,7 @@ final class BackchannelAuthenticationHandlerTest extends TestCase
     }
 
     /**
-     * FAPI-CIBA §5.2.2, OIDC Registration "require_signed_request_object": a client that registered it is
+     * FAPI-CIBA §5.2.2, RFC 9101 §10.5 "require_signed_request_object": a client that registered it is
      * read from an object it signed here as at the authorization endpoint, a request having arrived
      * without a browser changing nothing of what a request of that client is made of.
      */
@@ -586,7 +586,7 @@ final class BackchannelAuthenticationHandlerTest extends TestCase
 
         // Then
         $this->expectException(InvalidRequestException::class);
-        $this->expectExceptionMessageIs('invalid_request: This client makes a backchannel authentication request with a request object it signed and no other way (OIDC Registration, require_signed_request_object; FAPI-CIBA section 5.2.2).');
+        $this->expectExceptionMessageIs('invalid_request: This client makes a backchannel authentication request with a request object it signed and no other way (RFC 9101 section 10.5, require_signed_request_object; FAPI-CIBA section 5.2.2).');
 
         // When
         $this->askAs('signing-terminal');

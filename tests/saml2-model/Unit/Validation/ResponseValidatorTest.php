@@ -324,7 +324,7 @@ final class ResponseValidatorTest extends TestCase
     {
         // Given
         $response = $this->unverified($fixture);
-        $message = 'The samlp:Response holds more than one saml:Assertion (M-4).';
+        $message = 'The samlp:Response holds more than one saml:Assertion or saml:EncryptedAssertion (M-4).';
 
         // Then
         $this->expectException(MalformedMessage::class);
@@ -714,31 +714,12 @@ final class ResponseValidatorTest extends TestCase
     {
         yield 'Responder with an assertion' => [
             'hostile/response-status-responder-with-assertion-refused.xml',
-            'The samlp:Response has a status other than Success and holds a saml:Assertion (M-13).',
+            'The samlp:Response has a status other than Success and holds a saml:Assertion or a saml:EncryptedAssertion (M-13).',
         ];
         yield 'Success without assertion' => [
             'hostile/response-success-without-assertion-refused.xml',
-            'The samlp:Response has the status Success and holds no saml:Assertion (M-13).',
+            'The samlp:Response has the status Success and holds no saml:Assertion or saml:EncryptedAssertion (M-13).',
         ];
-    }
-
-    /**
-     * §9.2 row 29, section 6.7: a saml:EncryptedAssertion, until sub-spike 9e.
-     */
-    #[Test]
-    public function itRefusesAnEncryptedAssertion(): void
-    {
-        // Given
-        $response = $this->unverified('hostile/response-encrypted-assertion-refused.xml');
-        $message = 'The response holds a saml:EncryptedAssertion, which the package does not support until sub-spike 9e (section 6.7).';
-
-        // Then
-        $this->expectException(Unsupported::class);
-        $this->expectExceptionMessageIs($message);
-        self::assertCarriesNothingOf($message, $response->document);
-
-        // When
-        $this->validator()->validate($response, self::identityProvider(), self::expected());
     }
 
     /**

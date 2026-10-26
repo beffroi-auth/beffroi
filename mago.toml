@@ -20,7 +20,7 @@ php-version = "8.4"
 paths = ["src", "tests", "castor.php", ".castor", ".ci-tools/rector.php", "apps/website/src", "apps/website/tests", "apps/website/migrations"]
 # The fixtures of the SAML packages are data, byte-exact, and their interoperability projects are
 # throwaway Composer projects run in their own containers against libraries that are not dependencies
-# here (tests/xml-security/*/Fixture/real, tests/saml2-model/Interop, tests/saml2-bindings/Interop).
+# here (tests/xml-security/*/Fixture/real, tests/saml2-model/Interop, tests/saml2-bindings/Interop, tests/saml/Interop).
 excludes = [
     "tests/xml-security/Core/Fixture",
     "tests/xml-security/Dsig/Fixture",
@@ -29,6 +29,9 @@ excludes = [
     "tests/saml2-model/Interop",
     "tests/saml2-bindings/Fixture",
     "tests/saml2-bindings/Interop",
+    "tests/saml/Interop",
+    # The fixture of the bans of beffroi/saml is code written to be refused (tests/saml/PhpStan/Fixture).
+    "tests/saml/PhpStan/Fixture",
 ]
 # Read, never reported on: what the analyzer needs to resolve a symbol. The second path is where the
 # phpqa image keeps PHPUnit, as phpstan.neon reads it from there too; it simply does not exist outside

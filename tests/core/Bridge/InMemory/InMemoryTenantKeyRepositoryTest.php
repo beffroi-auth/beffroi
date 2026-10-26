@@ -9,10 +9,13 @@ use Beffroi\Core\Bridge\InMemory\InMemoryTenantKeyRepository;
 use Beffroi\Core\Domain\Key\TenantKey;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Tests\Fixture\Algorithms;
+use Beffroi\Core\Exception\RuntimeException;
 use Beffroi\Core\Tests\Fixture\Fixtures;
+use Beffroi\Core\Tests\Fixture\KeptEncryption;
 use Beffroi\Core\Tests\Fixture\Keys;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use function sprintf;
 
 final class InMemoryTenantKeyRepositoryTest extends TestCase
 {
@@ -139,6 +142,40 @@ final class InMemoryTenantKeyRepositoryTest extends TestCase
 
         // When / Then
         static::assertSame([$oldest, $newest], $this->repository->findInService($this->acme));
+    }
+
+    /**
+     * Beffroi/saml S-64: one material is the key of one algorithm, so the key of another algorithm under a "kid" the
+     * store holds is refused rather than written over it.
+     */
+    #[Test]
+    public function theKeyOfAnotherAlgorithmUnderAKidHeldAlreadyIsRefused(): void
+    {
+        // Given
+        $this->repository->save(self::activeKey($this->acme, Keys::pair()->kid));
+        $other = new TenantKey(
+            Keys::pair()->kid,
+            $this->acme,
+            new KeptEncryption(),
+            [
+                ...Keys::pair()->publicJwk,
+                'alg' => new KeptEncryption()->name(),
+                'use' => 'enc',
+            ],
+            'sealed',
+            Fixtures::now(),
+            Fixtures::now(),
+        );
+
+        // Then
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIs(sprintf(
+            'The key "%s" of tenant "acme" is held already, and not as a key of KEPT-ENCRYPTION:a: one material is the key of one algorithm.',
+            Keys::pair()->kid,
+        ));
+
+        // When
+        $this->repository->save($other);
     }
 
     private static function activeKey(Tenant $tenant, string $kid, ?DateTimeImmutable $createdAt = null): TenantKey

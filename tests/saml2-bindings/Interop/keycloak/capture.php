@@ -155,7 +155,7 @@ if (is_array($login)) {
         }
         $run->say(sprintf('RedirectReceiver read its LogoutRequest; its query string, %s; RelayState of %d bytes', query_described($query), strlen((string) $request->relayState)));
         try {
-            $request->validate(new LogoutRequestValidator(SamlLoader::create(), $clock), $sp, $idp, $endpoint);
+            $request->validate(new LogoutRequestValidator(SamlLoader::create(), $clock, new InMemoryReplayGuard()), $sp, $idp, $endpoint);
         } catch (RefusedXml $refused) {
             $run->say(sprintf('the model refused it: %s: %s', $refused::class, $refused->getMessage()));
         }
@@ -178,7 +178,7 @@ if (is_array($login)) {
             throw new RuntimeException('realm idp answered with no LogoutResponse');
         }
         $accepted = $response->validate(
-            new LogoutResponseValidator(SamlLoader::create(), $clock),
+            new LogoutResponseValidator(SamlLoader::create(), $clock, new InMemoryReplayGuard()),
             $idp,
             $sp,
             BROKER_ENDPOINT,

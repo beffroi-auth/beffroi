@@ -1,0 +1,62 @@
+# A deployment whose tenant is a SAML service provider and no SAML identity provider (beffroi/saml, spec/saml.md
+# S-38 to S-41): the SAML key drawn for the service provider alone, its metadata served, and nothing of the identity
+# provider served with that key (ServiceProviderMetadataTest). The declarations of config_test.yml are under
+# "when@test", so this environment declares no service provider, as a tenant that is no identity provider declares
+# none. The upstream identity provider it declares, and two more an extension tags, each have the algorithm of the
+# key they encrypt for wired (S-64, S-65).
+beffroi:
+    saml:
+        identity_provider: false
+        service_provider: ~
+        # The SimpleSAMLphp identity provider of the judge (spec/saml.md S-42, issue #788): its metadata read from a
+        # file the tests write in the cache directory of the kernel, the one of their worker, by
+        # "beffroi:saml:identity-provider:refresh" (UpstreamIdentityProvidersTest); the attributes its authentication
+        # source sends, the e-mail, the profile and the groups.
+        identity_providers:
+            'https://saml-idp.localhost/simplesaml/module.php/saml/idp/metadata':
+                metadata: '%kernel.cache_dir%/saml/simplesamlphp-idp-metadata.xml'
+                # example.org, the domain of its users, and a domain outside ASCII written as its A-label, bücher.example,
+                # which the login page reads an address of in any spelling (spec/saml.md S-60, S-61)
+                domains: ['example.org', 'xn--bcher-kva.example']
+                email_attribute: 'mail'
+                profile:
+                    givenName: given_name
+                    sn: family_name
+                groups:
+                    attribute: 'eduPersonAffiliation'
+                    map:
+                        member: 'Members'
+                # The parameter of its single sign-on service that takes the address typed on the login page, as Entra
+                # reads login_hint (spec/saml.md S-68): what the sign-on carries to it (AddressHintTest). The second
+                # provider below names none, and is sent none.
+                address_parameter: 'login_hint'
+            # A second identity provider, whose declaration requires its assertions encrypted (spec/saml.md S-54, S-67):
+            # its document is the one the model's writer signs for the test key of an identity provider of saml2-model,
+            # a file of the fixtures, so that a refresh of every provider reads it; what the assertion consumer service
+            # refuses of it, and of the first provider presented for a request sent to it, is played against both
+            # (AssertionConsumerServiceTest).
+            'https://idp.example.org/saml':
+                metadata: '%kernel.project_dir%/../saml/Fixture/metadata/signed-idp-metadata.xml'
+                domains: ['encrypting.example']
+                email_attribute: 'mail'
+                require_encrypted_assertions: true
+
+services:
+    # Two more upstream identity providers, each the algorithm of the key it encrypts for (spec/saml.md S-64), tagged
+    # as an extension of a deployment may tag one beside those the SAML section tags for the providers declared above:
+    # what the metadata given to each provider (S-65) and the key that opens what it encrypted (S-66) are played
+    # against, apart from the provider of the judge.
+    beffroi_test.saml_encryption.a:
+        class: Beffroi\Bundle\Saml\SamlEncryption
+        arguments: ['https://idp-a.example/metadata', '@Beffroi\Core\Bridge\JwtLibrary\Algorithm\RsaKeyBits']
+        tags: ['beffroi.saml_encryption_algorithm']
+    beffroi_test.saml_encryption.b:
+        class: Beffroi\Bundle\Saml\SamlEncryption
+        arguments: ['https://idp-b.example/metadata', '@Beffroi\Core\Bridge\JwtLibrary\Algorithm\RsaKeyBits']
+        tags: ['beffroi.saml_encryption_algorithm']
+
+    # Reachable from the tests: the key the assertion consumer service gives the model with a provider (S-66), which
+    # the tests of the keys of the upstream identity providers open apart from a response.
+    test.beffroi.upstream_decryption_keys:
+        alias: Beffroi\Saml\Bridge\Model\UpstreamDecryptionKeys
+        public: true

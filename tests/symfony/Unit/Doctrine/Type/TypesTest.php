@@ -35,7 +35,13 @@ use Beffroi\Bundle\Doctrine\Type\ResourceIndicatorsType;
 use Beffroi\Bundle\Doctrine\Type\ScopesType;
 use Beffroi\Bundle\Doctrine\Type\SubjectType;
 use Beffroi\Bundle\Doctrine\Type\SelfServedClaimsType;
+use Beffroi\Bundle\Doctrine\Type\UserSourceType;
 use Beffroi\Bundle\Doctrine\Type\TenantLookType;
+use Beffroi\Bundle\Doctrine\Type\LogoutProgressType;
+use Beffroi\Saml\Domain\SingleLogout\LogoutHop;
+use Beffroi\Saml\Domain\SingleLogout\LogoutProgress;
+use Beffroi\Saml\Domain\SingleLogout\LogoutRequester;
+use Symfony\Component\Uid\Uuid;
 use Beffroi\Core\Domain\Tenant\LogoUri;
 use Beffroi\Core\Domain\Tenant\SelfServedClaims;
 use Beffroi\Core\Domain\Tenant\TenantLook;
@@ -232,6 +238,24 @@ final class TypesTest extends TestCase
             '{"shared":"a2b0c5d1e9f4a7b3c8d2e6f0a1b5c9d3"}',
         ];
         yield 'one actor' => [ActorType::class, new Actor(new Subject('gateway')), '{"sub":"gateway"}'];
+        yield 'a chain of SAML logout a service provider started' => [
+            LogoutProgressType::class,
+            new LogoutProgress(
+                [Uuid::fromString('0199e8a4-6f00-7000-8000-000000000001')],
+                [new LogoutHop(Uuid::fromString('0199e8a4-6f00-7000-8000-000000000001'), 'https://sp.example.org/saml')],
+                'https://other.example.org/saml',
+                true,
+                new LogoutRequester(
+                    'https://asked.example.org/saml',
+                    '_9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b',
+                    'state-1',
+                    'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
+                    'https://asked.example.org/saml/slo',
+                ),
+                null,
+            ),
+            '{"sessions":["0199e8a4-6f00-7000-8000-000000000001"],"hops":[{"session":"0199e8a4-6f00-7000-8000-000000000001","service_provider":"https://sp.example.org/saml"}],"awaiting_from":"https://other.example.org/saml","partial":true,"requester":{"service_provider":"https://asked.example.org/saml","request_id":"_9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b","relay_state":"state-1","answer_binding":"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect","answer_location":"https://asked.example.org/saml/slo"},"continue_to":null}',
+        ];
         yield 'a chain of actors' => [
             ActorType::class,
             new Actor(new Subject('backend'), new Actor(new Subject('gateway'))),
@@ -322,6 +346,8 @@ final class TypesTest extends TestCase
         yield 'a list of strings for backup codes' => [BackupCodesType::class, ['K7Q2M-X9PL4']];
         yield 'a string for authorization details' => [AuthorizationDetailsType::class, '[]'];
         yield 'a detail alone for authorization details' => [AuthorizationDetailsType::class, AuthorizationDetailTypes::detail()];
+        yield 'a string for the progress of a chain' => [LogoutProgressType::class, '{}'];
+        yield 'a name for the source of a person' => [UserSourceType::class, 'local'];
     }
 
     /**
@@ -387,6 +413,10 @@ final class TypesTest extends TestCase
         yield 'backup codes that are not a list' => [BackupCodesType::class, '12'];
         yield 'a backup code without an algorithm' => [BackupCodesType::class, '[{"encoded":"x","parameters":[],"used_at":null}]'];
         yield 'backup codes that are not a string' => [BackupCodesType::class, 12];
+        yield 'the progress of a chain whose session is no UUID' => [LogoutProgressType::class, '{"sessions":["session-1"],"partial":false}'];
+        yield 'the progress of a chain that does not say whether it is partial' => [LogoutProgressType::class, '{"sessions":[]}'];
+        yield 'the source of a person that names no provider' => [UserSourceType::class, '{"claims":["email"]}'];
+        yield 'the source of a person whose claims are not names' => [UserSourceType::class, '{"provider":"workforce","claims":[12]}'];
     }
 
     /**
@@ -479,10 +509,10 @@ final class TypesTest extends TestCase
     }
 
     #[Test]
-    public function theBundleDeclaresThirtyOneTypes(): void
+    public function theBundleDeclaresThirtyThreeTypes(): void
     {
         // When / Then
-        static::assertCount(31, BeffroiBundle::DBAL_TYPES);
+        static::assertCount(33, BeffroiBundle::DBAL_TYPES);
     }
 
     /**

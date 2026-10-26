@@ -19,8 +19,8 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
 
 /**
- * Opens the session of the core after a login of the firewall, with a password, with a passkey or with
- * the code that completes a password, through the SessionOpener of the core, and binds the browser to it
+ * Opens the session of the core after a login of the firewall, with a password, with a passkey, with the
+ * code that completes a password or with the assertion of an upstream identity provider, through the SessionOpener of the core, and binds the browser to it
  * (architecture §3.2, §5.4). A password of a user who holds a second factor opens nothing yet: the
  * SecondFactorGate holds the login until the code. A re-login records its proofs on the session the
  * browser holds rather than opening another; a browser bound to someone else's session ends it first.
@@ -61,17 +61,25 @@ final readonly class LoginSuccessListener
         }
         $tenant = $this->tenants->provide();
 
+        // what an upstream identity provider proved is dated by its AuthnInstant (beffroi/saml S-57), every other
+        // login by the request
+        $provenAt = $this->proofs->provenAt($passport);
+        // and ends no later than that provider allows (beffroi/saml S-57)
+        $notOnOrAfter = $this->proofs->sessionNotOnOrAfter($passport);
         $session = $this->browser->authenticationSession($request, $tenant);
         if ($session !== null && $session->user->id->equals($user->id)) {
             foreach ($methods as $method) {
-                $session->recordProof($method, $context);
+                $session->recordProof($method, $context, $provenAt);
+            }
+            if ($notOnOrAfter !== null) {
+                $session->endNoLaterThan($notOnOrAfter);
             }
             $this->sessions->save($session);
         } else {
             if ($session !== null) {
                 $this->terminator->end($session, SessionEnd::User, $context);
             }
-            $session = $this->opener->open($tenant, $user->user(), $methods, $context);
+            $session = $this->opener->open($tenant, $user->user(), $methods, $context, $provenAt, $notOnOrAfter);
         }
 
         $this->recordUse($passport, $user, $now, $context);

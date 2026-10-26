@@ -214,6 +214,13 @@ final class ClientConfigurationTest extends BrowserTestCase
             ],
             'billing.read',
         ];
+
+        yield 'a request that moves the front-channel logout URI to a host that carries a directive of a policy' => [
+            [
+                'frontchannel_logout_uri' => 'https://registered.test;sandbox/frontchannel-logout',
+            ],
+            'must name a host of letters, digits, hyphens and dots, or an IP address',
+        ];
     }
 
     /**

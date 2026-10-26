@@ -24,6 +24,24 @@
             "match": "{BEFFROI_ISSUER}/authorize*",
             "tasks": [
                 {
+                    "task": "Pass the address",
+                    "optional": true,
+                    "match": "{BEFFROI_ISSUER}/login*",
+                    "commands": [
+                        [
+                            "text",
+                            "id",
+                            "address",
+                            "{BEFFROI_DEV_USERNAME}"
+                        ],
+                        [
+                            "click",
+                            "css",
+                            "form[data-step=\"address\"] button[type=submit]"
+                        ]
+                    ]
+                },
+                {
                     "task": "Sign in",
                     "optional": true,
                     "match": "{BEFFROI_ISSUER}/login*",
@@ -43,7 +61,7 @@
                         [
                             "click",
                             "css",
-                            "form button[type=submit]"
+                            "form[action^=\"/login\"] button[type=submit]"
                         ]
                     ]
                 },
@@ -105,6 +123,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -132,7 +168,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -171,6 +207,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -198,7 +252,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -261,6 +315,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -280,7 +352,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -315,6 +387,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -334,7 +424,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -369,6 +459,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -388,7 +496,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -495,6 +603,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -514,7 +640,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -586,6 +712,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -605,7 +749,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -677,6 +821,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -696,7 +858,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -768,6 +930,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -787,7 +967,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -846,6 +1026,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -865,7 +1063,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -924,6 +1122,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -943,7 +1159,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -1002,6 +1218,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -1021,7 +1255,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -1080,6 +1314,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -1099,7 +1351,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -1182,6 +1434,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -1209,7 +1479,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -1312,6 +1582,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -1331,7 +1619,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -1393,6 +1681,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -1412,7 +1718,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -1519,6 +1825,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -1538,7 +1862,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },
@@ -1596,6 +1920,24 @@
                     "match": "{BEFFROI_ISSUER}/authorize*",
                     "tasks": [
                         {
+                            "task": "Pass the address",
+                            "optional": true,
+                            "match": "{BEFFROI_ISSUER}/login*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "id",
+                                    "address",
+                                    "{BEFFROI_DEV_USERNAME}"
+                                ],
+                                [
+                                    "click",
+                                    "css",
+                                    "form[data-step=\"address\"] button[type=submit]"
+                                ]
+                            ]
+                        },
+                        {
                             "task": "Sign in",
                             "optional": true,
                             "match": "{BEFFROI_ISSUER}/login*",
@@ -1623,7 +1965,7 @@
                                 [
                                     "click",
                                     "css",
-                                    "form button[type=submit]"
+                                    "form[action^=\"/login\"] button[type=submit]"
                                 ]
                             ]
                         },

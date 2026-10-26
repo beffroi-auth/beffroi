@@ -1,9 +1,9 @@
 {
     "name": "beffroi/framework",
-    "description": "An identity provider for the Symfony ecosystem: identity core, OAuth 2.0 / OpenID Connect module, XML security, the SAML 2.0 model and its bindings, Symfony bundle.",
+    "description": "An identity provider for the Symfony ecosystem: identity core, OAuth 2.0 / OpenID Connect module, SAML 2.0 module, XML security, the SAML 2.0 model and its bindings, Symfony bundle.",
     "type": "symfony-bundle",
     "license": "MIT",
-    "homepage": "https://github.com/beffroi-php/beffroi",
+    "homepage": "https://github.com/beffroi-auth/beffroi",
     "keywords": [
         "oauth2",
         "openid-connect",
@@ -20,6 +20,7 @@
     "require": {
         "php": ">=8.4",
         "ext-dom": "*",
+        "ext-intl": "*",
         "ext-libxml": "*",
         "ext-openssl": "*",
         "ext-zlib": "*",
@@ -80,6 +81,7 @@
     "replace": {
         "beffroi/core": "self.version",
         "beffroi/oidc": "self.version",
+        "beffroi/saml": "self.version",
         "beffroi/saml2-bindings": "self.version",
         "beffroi/saml2-model": "self.version",
         "beffroi/symfony-bundle": "self.version",
@@ -91,6 +93,7 @@
         "psr-4": {
             "Beffroi\\Core\\": "src/core/src/",
             "Beffroi\\Oidc\\": "src/oidc/src/",
+            "Beffroi\\Saml\\": "src/saml/src/",
             "Beffroi\\Bundle\\": "src/symfony/src/",
             "Beffroi\\Xml\\": "src/xml-security/src/",
             "Beffroi\\Saml2\\Model\\": "src/saml2-model/src/",
@@ -101,6 +104,7 @@
         "psr-4": {
             "Beffroi\\Core\\Tests\\": "tests/core/",
             "Beffroi\\Oidc\\Tests\\": "tests/oidc/",
+            "Beffroi\\Saml\\Tests\\": "tests/saml/",
             "Beffroi\\Bundle\\Tests\\": "tests/symfony/",
             "Beffroi\\Bundle\\Migrations\\": "src/symfony/migrations/",
             "Beffroi\\Xml\\Tests\\": "tests/xml-security/",
@@ -111,7 +115,9 @@
             "tests/saml2-model/Fixture/",
             "tests/saml2-model/Interop/",
             "tests/saml2-bindings/Fixture/",
-            "tests/saml2-bindings/Interop/"
+            "tests/saml2-bindings/Interop/",
+            "tests/saml/Interop/",
+            "tests/saml/PhpStan/Fixture/"
         ]
     },
     "config": {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Bundle\Identity;
 
 use Beffroi\Core\Domain\Identity\Claim\ClaimInterface;
-use Beffroi\Core\Domain\Tenant\Tenant;
+use Beffroi\Core\Domain\Identity\User;
 use function array_keys;
 
 /**
@@ -49,16 +49,17 @@ final readonly class WiredClaims
     }
 
     /**
-     * What this tenant lets a person say of themselves, in the order the claims are wired: the policy says
-     * which names, this says which claims answer them.
+     * What this person may say of themselves, in the order the claims are wired: what their tenant opens
+     * and the source that created them does not hold (`User::maySayOfThemselves()`), which says which names,
+     * this saying which claims answer them.
      *
      * @return list<ClaimInterface>
      */
-    public function openedBy(Tenant $tenant): array
+    public function openedTo(User $user): array
     {
         $opened = [];
         foreach ($this->byName as $name => $claim) {
-            if ($tenant->selfServedClaims->opens($name)) {
+            if ($user->maySayOfThemselves($name)) {
                 $opened[] = $claim;
             }
         }

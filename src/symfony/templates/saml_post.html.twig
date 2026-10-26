@@ -1,0 +1,33 @@
+{# The page that posts a SAML message (beffroi/saml, spec/saml.md section 6.8, spec/bindings.md section 6.7, SAML
+   Bindings §3.5.4): a response or a message of Single Logout to a service provider, or, when "upstream" is true, an
+   AuthnRequest to the single sign-on service of an upstream identity provider (S-51), whose words say so. Its form,
+   whose action and values Twig escapes for an HTML attribute, submitted by the one script below, which the
+   Content-Security-Policy of the page names by its hash, never by "unsafe-inline"; a browser without scripting is shown
+   the sentence and the button.
+   This page does not extend the layout of the interaction plane, on purpose, as the page of the form post response
+   mode does not: it carries a message of the protocol, and its policy is "default-src 'none'". Overridable by an
+   application under templates/bundles/BeffroiBundle/, the script kept exactly as it is given: its hash is the policy. #}
+{% trans_default_domain 'beffroi' %}
+{% set words = (upstream ?? false) ? 'saml_post.upstream' : 'saml_post' %}
+<!DOCTYPE html>
+<html lang="{{ app.request.locale|replace({'_': '-'}) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ (words ~ '.title')|trans }}</title>
+</head>
+<body>
+    <main>
+        <form method="post" action="{{ action }}">
+            {% for name, value in fields %}
+                <input type="hidden" name="{{ name }}" value="{{ value }}">
+            {% endfor %}
+            <noscript>
+                <p>{{ (words ~ '.explanation')|trans }}</p>
+                <button type="submit">{{ 'saml_post.continue'|trans }}</button>
+            </noscript>
+        </form>
+    </main>
+    <script>{{ script|raw }}</script>
+</body>
+</html>

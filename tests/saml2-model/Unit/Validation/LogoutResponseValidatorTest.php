@@ -7,6 +7,7 @@ namespace Beffroi\Saml2\Model\Tests\Unit\Validation;
 use Beffroi\Saml2\Model\Exception\DestinationMismatch;
 use Beffroi\Saml2\Model\Exception\InResponseToMismatch;
 use Beffroi\Saml2\Model\Exception\MalformedMessage;
+use Beffroi\Saml2\Model\Exception\Replayed;
 use Beffroi\Saml2\Model\Exception\SignatureRequired;
 use Beffroi\Saml2\Model\Exception\IssuerMismatch;
 use Beffroi\Saml2\Model\Metadata\IdentityProvider;
@@ -16,10 +17,12 @@ use Beffroi\Saml2\Model\Protocol\Status;
 use Beffroi\Saml2\Model\Protocol\StatusCode;
 use Beffroi\Saml2\Model\Protocol\UnverifiedLogoutResponse;
 use Beffroi\Saml2\Model\SamlLoader;
+use Beffroi\Saml2\Model\Tests\Support\InMemoryReplayGuard;
 use Beffroi\Saml2\Model\Tests\Unit\Metadata\MetadataFixtures;
 use Beffroi\Saml2\Model\Validation\AcceptedLogoutResponse;
 use Beffroi\Saml2\Model\Validation\Authentication;
 use Beffroi\Xml\Core\Document;
+use DateTimeImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -509,14 +512,107 @@ final class LogoutResponseValidatorTest extends TestCase
     }
 
     /**
+     * §9.2 row 37, M-11: a signed response accepted once is Replayed when it is given to validate() again, inside its
+     * window.
+     */
+    #[Test]
+    public function itRefusesTheSameSignedResponseTwice(): void
+    {
+        // Given
+        $validator = LogoutFixtures::responseValidator();
+        $validator->validate(
+            UnverifiedLogoutResponse::of(MetadataFixtures::load(self::SIGNED)),
+            LogoutFixtures::serviceProvider(),
+            LogoutFixtures::identityProvider(),
+            LogoutFixtures::IDP_SLO_RESPONSE,
+            LogoutFixtures::REQUEST_ID,
+        );
+
+        // Then
+        $this->expectException(Replayed::class);
+        $this->expectExceptionMessageIs('The logout message was already accepted from its issuer (M-11).');
+
+        // When
+        $validator->validate(
+            UnverifiedLogoutResponse::of(MetadataFixtures::load(self::SIGNED)),
+            LogoutFixtures::serviceProvider(),
+            LogoutFixtures::identityProvider(),
+            LogoutFixtures::IDP_SLO_RESPONSE,
+            LogoutFixtures::REQUEST_ID,
+        );
+    }
+
+    /**
+     * §9.2 row 37, M-11, issue #708: a response the binding authenticated, accepted once, is Replayed when it is
+     * presented a second time inside its window.
+     */
+    #[Test]
+    public function itRefusesTheSameResponseTheBindingAuthenticatedTwice(): void
+    {
+        // Given
+        $replay = new InMemoryReplayGuard();
+        $this->byBinding(MetadataFixtures::load(self::REDIRECT), replay: $replay);
+
+        // Then
+        $this->expectException(Replayed::class);
+        $this->expectExceptionMessageIs('The logout message was already accepted from its issuer (M-11).');
+
+        // When
+        $this->byBinding(MetadataFixtures::load(self::REDIRECT), replay: $replay);
+    }
+
+    /**
+     * §9.3 row 22, M-11, section 6.4: an accepted response, which carries no NotOnOrAfter, is remembered under its
+     * issuer and its ID until its IssueInstant plus maxMessageAge and the skew.
+     */
+    #[Test]
+    public function itRemembersAResponseUntilItsWindowCloses(): void
+    {
+        // Given
+        $replay = new InMemoryReplayGuard();
+
+        // When
+        $this->byBinding(MetadataFixtures::load(self::REDIRECT), replay: $replay);
+
+        // Then
+        static::assertEquals(
+            new DateTimeImmutable('2026-09-30T12:08:00Z'),
+            $replay->expiresAt(LogoutFixtures::SP, LogoutFixtures::RESPONSE_ID),
+        );
+    }
+
+    /**
+     * §9.3 row 21, M-11: a response refused by a rule, here one answering another request, remembers nothing.
+     */
+    #[Test]
+    public function itRemembersNothingOfARefusedResponse(): void
+    {
+        // Given
+        $replay = new InMemoryReplayGuard();
+        $document = $this->variant([
+            'InResponseTo="' . LogoutFixtures::REQUEST_ID . '"' => 'InResponseTo="_0000000000000000000000000000000000000000"',
+        ]);
+
+        // When
+        try {
+            $this->byBinding($document, replay: $replay);
+        } catch (InResponseToMismatch) {
+        }
+
+        // Then
+        static::assertTrue($replay->isEmpty());
+    }
+
+    /**
      * The service provider's response given to the identity provider's validateAuthenticatedByBinding().
      */
     private function byBinding(
         Document $document,
         string $receivedAt = LogoutFixtures::IDP_SLO,
         string $certificate = 'sp',
+        InMemoryReplayGuard $replay = new InMemoryReplayGuard(),
     ): AcceptedLogoutResponse {
-        return LogoutFixtures::responseValidator()->validateAuthenticatedByBinding(
+        return LogoutFixtures::responseValidator(0, $replay)->validateAuthenticatedByBinding(
             UnverifiedLogoutResponse::of($document),
             LogoutFixtures::serviceProvider($certificate),
             LogoutFixtures::identityProvider(),

@@ -103,7 +103,7 @@ final class AccountNavigationTest extends BrowserTestCase
     }
 
     /**
-     * Issue beffroi-php/op#17 and what this skeleton adds to it: the identity of the reader and the way out
+     * Issue beffroi-auth/op#17 and what this skeleton adds to it: the identity of the reader and the way out
      * are true of every page of the plane, so they are in the bar above them and on none of them.
      */
     #[Test]

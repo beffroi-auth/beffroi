@@ -9,11 +9,18 @@ use Closure;
 use function hash;
 use Beffroi\Bundle\Tests\Functional\Messenger\LogoutEndpoints;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
+use Beffroi\Core\Port\PasswordHasherInterface;
+use Beffroi\Oidc\Domain\Client\ClientRecord;
+use Beffroi\Oidc\Domain\Client\HashedClientSecret;
 use Beffroi\Oidc\Domain\EndSession\FrontChannelLogoutPage;
+use Beffroi\Oidc\Domain\Secret\DrawnSecret;
+use Beffroi\Oidc\Port\ClientStoreInterface;
+use Beffroi\Oidc\Tests\Fixture\Secrets;
 use PHPUnit\Framework\Attributes\Test;
 use function sort;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Front-Channel Logout 1.0 §2 and §3, architecture §4.9, §5.2: the page a browser is given once its
@@ -22,6 +29,12 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class FrontChannelLogoutTest extends BrowserTestCase
 {
+    private const string STALE = 'stale-app';
+
+    private const string STALE_REDIRECT_URI = 'https://stale.test/callback';
+
+    private const string STALE_SECRET = 'stale-secret-of-at-least-32-characters-long';
+
     private LogoutEndpoints $endpoints;
 
     protected function setUp(): void
@@ -167,6 +180,41 @@ final class FrontChannelLogoutTest extends BrowserTestCase
     }
 
     /**
+     * RFC 7591 §2, architecture §4.1, the security review of 20 October 2026: a client that registered itself
+     * before the host of its URIs was held to a name or an address, a front-channel logout URI on a host that
+     * carries a directive of a policy, is a row the reader refuses now. The session it signed in still ends, and
+     * the page of that session loads the frames of the other clients, under a policy that names their origins and
+     * nothing that row wrote.
+     */
+    #[Test]
+    public function aClientWhoseRowNoLongerReadsLeavesThePageOfTheSessionToTheOthers(): void
+    {
+        // Given
+        self::registerTheStaleClient();
+        $session = $this->signedInWithFourClients();
+        $this->signInClient(self::STALE, self::STALE_REDIRECT_URI, self::STALE_SECRET);
+        self::rewriteTheRowOfTheStaleClient('https://stale.test;sandbox/frontchannel-logout');
+
+        // When
+        $crawler = $this->logOut();
+
+        // Then
+        $response = $this->browser->getResponse();
+        static::assertSame(Response::HTTP_OK, $response->getStatusCode(), self::string($response->getContent()));
+        static::assertSame(
+            [
+                'https://legacy.test/frontchannel-logout?app=1',
+                'https://opaque.test/frontchannel-logout?iss=https%3A%2F%2Fop.test&sid=' . $session->id->toRfc4122(),
+            ],
+            self::framesOf($crawler),
+        );
+        static::assertStringStartsWith(
+            "default-src 'none'; frame-src https://legacy.test https://opaque.test; script-src",
+            self::string($response->headers->get('Content-Security-Policy')),
+        );
+    }
+
+    /**
      * Back-Channel Logout 1.0 §3 and Front-Channel Logout 1.0 §3: the document announces the two ways
      * the bundle wires, and says that each of them carries the session.
      */
@@ -198,6 +246,53 @@ final class FrontChannelLogoutTest extends BrowserTestCase
         $this->signInClient('oidc-demo', 'https://demo.test/login/check', 'demo-secret-of-at-least-32-characters-long');
 
         return $session;
+    }
+
+    /**
+     * A client that registered itself (RFC 7591 §3.1), its front-channel logout URI on its own host: the row as it
+     * was written before the rule.
+     */
+    private static function registerTheStaleClient(): void
+    {
+        self::service('test.beffroi.client_store', ClientStoreInterface::class)
+            ->save(new ClientRecord(
+                Uuid::v7(),
+                self::tenant(),
+                self::STALE,
+                self::staleMembers('https://stale.test/frontchannel-logout'),
+                [],
+                new HashedClientSecret(self::service('test.beffroi.password_hasher', PasswordHasherInterface::class)->hash(self::STALE_SECRET)),
+                DrawnSecret::digestOf(Secrets::draw()),
+                self::now(),
+            ));
+        self::reload();
+    }
+
+    /**
+     * The row of that client holding another front-channel logout URI, written into the store as a row of an
+     * earlier version is found there, without the reader that would refuse it.
+     */
+    private static function rewriteTheRowOfTheStaleClient(string $frontChannelLogoutUri): void
+    {
+        $store = self::service('test.beffroi.client_store', ClientStoreInterface::class);
+        $record = $store->findRecord(self::tenant(), self::STALE) ?? static::fail('The stale client has no row.');
+        $record->replaceWith(self::staleMembers($frontChannelLogoutUri), $record->assigned, $record->secret);
+        $store->save($record);
+        self::reload();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function staleMembers(string $frontChannelLogoutUri): array
+    {
+        return [
+            'client_name' => 'A client that registered itself before the rule',
+            'redirect_uris' => [self::STALE_REDIRECT_URI],
+            'token_endpoint_auth_method' => 'client_secret_basic',
+            'scope' => 'openid profile',
+            'frontchannel_logout_uri' => $frontChannelLogoutUri,
+        ];
     }
 
     private function logOut(?string $postLogoutRedirectUri = 'https://demo.test/'): Crawler

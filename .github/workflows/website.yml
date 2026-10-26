@@ -34,8 +34,11 @@ jobs:
       DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
     services:
       database:
-        # From Docker Hub, anonymously, as the database of the Application workflow (application.yml).
+        # From Docker Hub, under the account of the Application workflow, for the same reason (application.yml).
         image: postgres:16-alpine
+        credentials:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
         env:
           POSTGRES_DB: app
           POSTGRES_USER: app

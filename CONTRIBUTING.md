@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for looking at Beffroi. The project is young: the scope is narrow on purpose, and the decisions that shape it are settled. Read `CLAUDE.md` for the conventions.
+Thank you for looking at Beffroi. The project is young: the scope is narrow on purpose, and the decisions that shape it are settled. Read `AGENTS.md` for the conventions.
 
 ## Before opening a pull request
 

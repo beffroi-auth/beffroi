@@ -1,4 +1,4 @@
-# The page of what this provider holds of a person, which this application owns (issue beffroi-php/op#17).
+# The page of what this provider holds of a person, which this application owns (issue beffroi-auth/op#17).
 # It is imported after routes/beffroi.yaml, which the glob of config/routes/ orders alphabetically, and it
 # carries the two route names of the bundle on purpose: the page of the bundle is bare HTML with a form
 # token, and this one is the same thing written with symfony/form, so every link of the bundle that names

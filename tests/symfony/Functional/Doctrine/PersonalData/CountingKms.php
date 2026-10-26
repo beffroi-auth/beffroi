@@ -58,9 +58,9 @@ final class CountingKms implements DataKeyGeneratorInterface, DecrypterInterface
         return $this->kms->unwrapDataKey($wrapped, $aad);
     }
 
-    public function encrypt(string $keyId, #[SensitiveParameter] string $plaintext, string $aad = '', bool $deterministic = false): Ciphertext
+    public function encrypt(string $keyId, #[SensitiveParameter] string $plaintext, string $aad = ''): Ciphertext
     {
-        return $this->kms->encrypt($keyId, $plaintext, $aad, $deterministic);
+        return $this->kms->encrypt($keyId, $plaintext, $aad);
     }
 
     public function decrypt(Ciphertext $ciphertext, string $aad = ''): string

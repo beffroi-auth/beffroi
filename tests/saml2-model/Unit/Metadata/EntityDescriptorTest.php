@@ -14,6 +14,7 @@ use Beffroi\Saml2\Model\Metadata\IndexedEndpoints;
 use Beffroi\Saml2\Model\Metadata\ServiceProvider;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -35,35 +36,71 @@ final class EntityDescriptorTest extends TestCase
         $sp = $this->serviceProvider('https://entity.example.com');
 
         // When
-        $descriptor = new EntityDescriptor('https://entity.example.com', $validUntil, $idp, $sp);
+        $descriptor = new EntityDescriptor('https://entity.example.com', $validUntil, $idp, $sp, 86_400);
 
         // Then
         static::assertSame(
-            ['https://entity.example.com', $validUntil, $idp, $sp],
+            ['https://entity.example.com', $validUntil, $idp, $sp, 86_400],
             [
                 $descriptor->entityId,
                 $descriptor->validUntil,
                 $descriptor->identityProvider,
                 $descriptor->serviceProvider,
+                $descriptor->cacheDuration,
             ],
         );
     }
 
     /**
-     * Section 5.3: no validUntil and no role, by default.
+     * Section 5.3: no validUntil, no role and no cacheDuration, by default.
      */
     #[Test]
-    public function itHasNoValidUntilAndNoRoleByDefault(): void
+    public function itHasNoValidUntilNoRoleAndNoCacheDurationByDefault(): void
     {
         // When
         $descriptor = new EntityDescriptor('https://entity.example.com');
 
         // Then
-        static::assertSame([null, null, null], [
+        static::assertSame([null, null, null, null], [
             $descriptor->validUntil,
             $descriptor->identityProvider,
             $descriptor->serviceProvider,
+            $descriptor->cacheDuration,
         ]);
+    }
+
+    /**
+     * Section 5.3: the shortest cacheDuration it carries is one second.
+     */
+    #[Test]
+    public function itKeepsACacheDurationOfOneSecond(): void
+    {
+        // When / Then
+        static::assertSame(1, new EntityDescriptor('https://entity.example.com', cacheDuration: 1)->cacheDuration);
+    }
+
+    /**
+     * Section 5.3: a cacheDuration is a number of seconds, one at least, a programming error of the caller otherwise.
+     */
+    #[Test]
+    #[DataProvider('provideCacheDurationsRefused')]
+    public function itRefusesACacheDurationUnderOneSecond(int $cacheDuration): void
+    {
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('The cacheDuration of an entity descriptor is a number of seconds, one at least (section 5.3).');
+
+        // When
+        new EntityDescriptor('https://entity.example.com', cacheDuration: $cacheDuration);
+    }
+
+    /**
+     * @return iterable<string, array{int}>
+     */
+    public static function provideCacheDurationsRefused(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negative' => [-1];
     }
 
     /**

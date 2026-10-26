@@ -340,6 +340,16 @@ final class ClientMetadataReaderTest extends TestCase
             null,
             'either inline in "jwks" or behind a "jwks_uri", never both',
         ];
+        yield 'signed request objects required, and read unsigned (RFC 9101 section 10.5)' => [
+            [
+                'redirect_uris' => ['https://rp.example/cb'],
+                'require_signed_request_object' => true,
+                'request_object_signing_alg' => 'none',
+            ],
+            InvalidClientMetadataException::class,
+            null,
+            'registers no request_object_signing_alg under which an unsigned one is read',
+        ];
         yield 'a response type this provider does not answer with' => [
             [
                 'redirect_uris' => ['https://rp.example/cb'],

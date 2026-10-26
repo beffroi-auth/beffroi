@@ -19,7 +19,7 @@ on:
 jobs:
   switch:
     name: "Switch the default branch"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
 
     # Tags create a reference too, and none of them is a maintenance branch.
     if: "github.event.ref_type == 'branch'"

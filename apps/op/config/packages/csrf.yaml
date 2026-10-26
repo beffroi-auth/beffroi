@@ -1,4 +1,4 @@
-# The CSRF protection of the forms this application owns (issue beffroi-php/op#17).
+# The CSRF protection of the forms this application owns (issue beffroi-auth/op#17).
 #
 # The stateful token and not the stateless one the recipe of symfony/form proposes: a stateless token is a
 # double submit whose hidden field is filled by a Stimulus controller, so a form protected that way does

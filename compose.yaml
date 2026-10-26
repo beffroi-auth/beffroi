@@ -5,11 +5,15 @@
 #   docker compose --profile conformance up -d    plus the OpenID conformance suite on https://localhost:8443
 #   docker compose --profile vault up -d          plus HashiCorp Vault (dev mode), whose Transit engine seals the signing keys
 #   docker compose --profile aws up -d            plus LocalStack (KMS only), an AWS KMS on the desk that seals them the same way
+#   docker compose --profile saml-sp up -d        plus the SimpleSAMLphp service provider of the SAML judge on https://saml-sp.localhost (castor saml-sp)
+#   docker compose --profile saml-idp up -d       plus the SimpleSAMLphp identity provider of the SAML judge on https://saml-idp.localhost (castor saml-idp)
 #
 # The OP answers on op.localhost for the browser (every *.localhost name is loopback) and for the
-# conformance suite container (network alias). Caddy issues the certificate from its internal CA;
-# that CA is imported into the Java truststore of the suite at start-up (tests/conformance/server-entrypoint.sh),
-# with the certificate of the suite's own nginx, for the scripted browser of the suite (tests/conformance/README.md).
+# conformance suite container (network alias). Its certificate is the one mkcert issued on the machine
+# when "castor start" found an mkcert CA (BEFFROI_STACK_CERTIFICATE, docker/op/entrypoint.sh), and one
+# Caddy issues from its internal CA otherwise. Either root is imported into the Java truststore of the
+# suite at start-up (tests/conformance/server-entrypoint.sh), with the certificate of the suite's own
+# nginx, for the scripted browser of the suite (tests/conformance/README.md).
 services:
   op:
     build:
@@ -23,7 +27,13 @@ services:
       # the same listener, another name, and the site block of apps/op/frankenphp/mtls.Caddyfile, imported
       # the way worker.Caddyfile is. The host of SERVER_NAME above is untouched and keeps asking for nothing.
       MTLS_SERVER_NAME: ${MTLS_SERVER_NAME:-mtls.op.localhost}
-      CADDY_EXTRA_CONFIG: "import mtls.Caddyfile"
+      # The service provider of the SAML judge, saml-sp.localhost, and its identity provider, saml-idp.localhost,
+      # are sites of this listener as well: docker/saml-sp/saml-sp.Caddyfile and docker/saml-idp/saml-idp.Caddyfile,
+      # mounted below rather than built into the image, being sites of the stack and not of the application.
+      CADDY_EXTRA_CONFIG: |-
+        import mtls.Caddyfile
+        import saml-sp.Caddyfile
+        import saml-idp.Caddyfile
       DATABASE_URL: postgresql://${POSTGRES_USER:-beffroi}:${POSTGRES_PASSWORD:-beffroi}@database:5432/${POSTGRES_DB:-beffroi}?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: amqp://${RABBITMQ_USER:-beffroi}:${RABBITMQ_PASSWORD:-beffroi}@rabbitmq:5672/%2f/messages
       # https://xdebug.org/docs/all_settings#mode
@@ -34,6 +44,10 @@ services:
       # The name the suite's nginx answers on, set by "castor start --conformance" and by nothing else:
       # it is what tells the entrypoint that there is a certificate to trust (docker/conformance/trust-nginx.sh).
       CONFORMANCE_NGINX_HOST: ${CONFORMANCE_NGINX_HOST:-}
+      # The fingerprint of the certificate mkcert issued for the stack (the volume of /stack-certificate
+      # below), read by nothing in the container: Caddy loads the certificate once, at start, and a value
+      # that changes is what has compose create this container again when "castor start" issued a new one.
+      BEFFROI_STACK_CERTIFICATE_FINGERPRINT: ${BEFFROI_STACK_CERTIFICATE_FINGERPRINT:-}
       # Worker mode, as in production (architecture §3.3, §6): the kernel, and with it the opened signing key,
       # lives for every request a worker serves; the KMS is asked once per key and per worker, not once per
       # signature. The workers restart when a source file of the application or of the packages changes,
@@ -68,9 +82,20 @@ services:
     volumes:
       - ./docker/op/entrypoint.sh:/entrypoint/entrypoint.sh:ro
       - ./docker/conformance/trust-nginx.sh:/entrypoint/trust-nginx.sh:ro
+      - ./docker/saml-sp/saml-sp.Caddyfile:/etc/frankenphp/saml-sp.Caddyfile:ro
+      - ./docker/saml-idp/saml-idp.Caddyfile:/etc/frankenphp/saml-idp.Caddyfile:ro
       - ./apps/op:/app
       - ./src:/src
       - /app/var/
+      # The metadata of the service provider of the SAML judge, the file apps/op/config/packages/beffroi.yaml
+      # declares ("castor saml-sp" writes it); the directory holds nothing else, the private key of the service
+      # provider being beside it, not in it. The worker below reads the same file for its hourly refresh.
+      - ./var/saml-sp/metadata:/saml-sp:ro
+      # The metadata of the identity provider of the SAML judge, the file the development declaration of
+      # beffroi.saml.identity_providers names ("castor saml-idp" writes it from what the identity provider serves);
+      # nothing else is in the directory, its key being under var/saml-idp/ and not in it. The worker below reads
+      # the same file for its hourly refresh.
+      - ./var/saml-idp/metadata:/saml-idp-metadata:ro
       # The sealed signing keys are files (architecture §3.3): the process that serves them and the process
       # that rotates them (the worker below) share the directory, or a rotation would change nothing here.
       - keys_data:/app/var/keys
@@ -84,6 +109,11 @@ services:
       - geoip_data:/app/var/geoip
       - caddy_data:/data
       - caddy_config:/config
+      # The certificate mkcert issued on the machine for every name of the stack, its key and a copy of the
+      # mkcert root, which "castor start" names when the machine has an mkcert CA (STACK_HOSTS of
+      # .castor/stack/stack.php); the directory of mkcert itself, and the key of its root, are mounted
+      # nowhere. Without it, a directory with no certificate in it, and Caddy keeps its internal CA.
+      - ${BEFFROI_STACK_CERTIFICATE:-./docker/op/without-mkcert}:/stack-certificate:ro
     ports:
       - target: 80
         published: ${HTTP_PORT:-80}
@@ -100,6 +130,8 @@ services:
           - op.localhost
           # so that a container of the stack reaches the mTLS host the way a browser on the machine does
           - mtls.op.localhost
+          # and the identity provider of the SAML judge, whose site is this Caddy's, at the name its metadata give
+          - saml-idp.localhost
     depends_on:
       database:
         condition: service_healthy
@@ -127,7 +159,9 @@ services:
     # The image checks Caddy; a worker is healthy while the consumer is its first process. The entrypoint
     # runs before that process replaces it, and waits for the certificate of the conformance suite when
     # the suite is starting beside it: the window is wide enough for that wait, or "up --wait" would call
-    # a worker that is still getting ready unhealthy.
+    # a worker that is still getting ready unhealthy. The consumer refuses to boot without the KMS that
+    # "castor provision" names, so on a stack not provisioned yet "castor start" creates this container and
+    # leaves it stopped, and "castor provision" starts it (issue #773).
     healthcheck:
       test: ["CMD-SHELL", "grep -q messenger:consume /proc/1/cmdline"]
       start_period: 90s
@@ -152,6 +186,8 @@ services:
       - ./apps/op:/app
       - ./src:/src
       - /app/var/
+      - ./var/saml-sp/metadata:/saml-sp:ro
+      - ./var/saml-idp/metadata:/saml-idp-metadata:ro
       - keys_data:/app/var/keys
       - kms_data:/app/var/kms
       - geoip_data:/app/var/geoip
@@ -225,6 +261,65 @@ services:
     volumes:
       - ./docker/localstack:/etc/localstack/init/ready.d:ro
 
+  # The SAML judge (issue #732, sub-spike 9c): SimpleSAMLphp 2.5.3.1, the service provider of 9b, on
+  # https://saml-sp.localhost through the Caddy of op (docker/saml-sp/saml-sp.Caddyfile). The image is the one the
+  # judges of saml2-bindings build, its slim release archive pinned by the SHA-256 the release publishes; what
+  # makes it this service provider is mounted. It reads the metadata of the provider at https://op.localhost/saml/metadata
+  # through the alias of op, verified against the root of the internal CA of Caddy, and holds its own key and
+  # certificate: all three are files "castor saml-sp" puts in var/saml-sp/ (the root certificate is copied out of op,
+  # the volume of Caddy being mounted nowhere else than in op: its directories hold the private key of that CA).
+  saml-sp:
+    build:
+      context: tests/saml2-bindings/Interop/simplesamlphp/installation
+    image: beffroi-saml-sp:2.5.3.1
+    profiles: [saml-sp]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost/simplesaml/module.php/saml/sp/metadata/beffroi || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    # The private key of the service provider is 0600 under var/saml-sp/ ("castor saml-sp"), its owner's alone on the
+    # machine. Root of the container reads it there whatever uid owns it, as root of a container does on Linux, under
+    # rootless Docker and through Docker Desktop alike, and gives www-data, the user Apache serves as, a copy of its
+    # own that exists in this container only (docker/saml-sp/config/authsources.php).
+    command: ["sh", "-c", "install -d -o root -g www-data -m 0750 /run/saml-sp && install -o www-data -g www-data -m 0400 /saml-sp/sp.pem /run/saml-sp/sp.pem && exec apache2-foreground"]
+    volumes:
+      - ./docker/saml-sp/config:/var/simplesamlphp/config:ro
+      - ./docker/saml-sp/metadata:/var/simplesamlphp/metadata:ro
+      - ./docker/saml-sp/status.php:/var/simplesamlphp/public/status.php:ro
+      - ./docker/saml-sp/https-behind-caddy.conf:/etc/apache2/conf-enabled/https-behind-caddy.conf:ro
+      - ./var/saml-sp:/saml-sp:ro
+
+  # The upstream identity provider of the SAML judge (issue #788, sub-spike 9d): SimpleSAMLphp 2.5.3.1 again, from the
+  # same pinned image as the service provider above, on https://saml-idp.localhost through the Caddy of op
+  # (docker/saml-idp/saml-idp.Caddyfile). What makes it this identity provider is mounted (docker/saml-idp/): two people,
+  # a persistent NameID, its responses, assertions and metadata signed. It holds its own key and certificate and reads
+  # the metadata of the service provider of the stack at https://op.localhost/saml/sp/metadata/{identity provider}
+  # through the alias of op, verified against the root of the certificate of the stack: all three are files "castor
+  # saml-idp" puts in var/saml-idp/.
+  saml-idp:
+    build:
+      context: tests/saml2-bindings/Interop/simplesamlphp/installation
+    image: beffroi-saml-idp:2.5.3.1
+    profiles: [saml-idp]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost/simplesaml/module.php/saml/idp/metadata || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    # The private key of the identity provider is 0600 under var/saml-idp/ ("castor saml-idp"), its owner's alone on the
+    # machine; root of the container gives www-data a copy of its own, as the service provider above does.
+    command: ["sh", "-c", "install -d -o root -g www-data -m 0750 /run/saml-idp && install -o www-data -g www-data -m 0400 /saml-idp/idp.pem /run/saml-idp/idp.pem && exec apache2-foreground"]
+    volumes:
+      - ./docker/saml-idp/config:/var/simplesamlphp/config:ro
+      - ./docker/saml-idp/metadata:/var/simplesamlphp/metadata:ro
+      - ./docker/saml-sp/https-behind-caddy.conf:/etc/apache2/conf-enabled/https-behind-caddy.conf:ro
+      - ./var/saml-idp:/saml-idp:ro
+
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
     environment:
@@ -291,6 +386,10 @@ services:
       OIDC_GOOGLE_SECRET: google-secret
       OIDC_GITLAB_CLIENTID: gitlab-client
       OIDC_GITLAB_SECRET: gitlab-secret
+      # Read by nothing in the container, as on the op container: the suite imports the root of what the OP
+      # serves once, at start, so a stack that changes certificate, or goes from mkcert to the internal CA of
+      # Caddy, creates the suite again too.
+      BEFFROI_STACK_CERTIFICATE_FINGERPRINT: ${BEFFROI_STACK_CERTIFICATE_FINGERPRINT:-}
     entrypoint: ["/bin/sh", "/entrypoint/server-entrypoint.sh"]
     volumes:
       - ./tests/conformance/server-entrypoint.sh:/entrypoint/server-entrypoint.sh:ro

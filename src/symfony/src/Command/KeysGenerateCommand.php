@@ -45,7 +45,7 @@ final readonly class KeysGenerateCommand
      * What both this command and "beffroi:keys:rotate" offer, said once: the wiring is the one source of
      * truth over the algorithms, so the option describes it the same way wherever it is offered.
      */
-    public const string ALGORITHM_OPTION = 'The algorithm the key pair is generated for, among those the provider is wired with: a JWS algorithm for a key that signs, a JWE key management one for a key clients encrypt to, and the name of one of the keys the tenant keeps rather than publishing, the one it hands to browsers and the one it seals its own messages to. The default signature algorithm when none is named.';
+    public const string ALGORITHM_OPTION = 'The algorithm the key pair is generated for, among those the provider is wired with: a JWS algorithm for a key that signs, a JWE key management one for a key clients encrypt to, and the name of one of the keys the tenant keeps rather than publishing: the one it hands to browsers, the one it seals its own messages to, its SAML signing key (SAML-SIGNING) and the key an upstream SAML identity provider encrypts for (SAML-ENCRYPTION: and the entity ID of that provider). The default signature algorithm when none is named.';
 
     public function __invoke(
         SymfonyStyle $io,

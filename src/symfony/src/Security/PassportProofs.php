@@ -7,6 +7,7 @@ namespace Beffroi\Bundle\Security;
 use function array_any;
 use Beffroi\Core\Domain\Session\AuthenticationMethod;
 use Beffroi\Core\Domain\Tenant\Tenant;
+use DateTimeImmutable;
 use function sprintf;
 use Beffroi\Oidc\Port\ProvableMethodsInterface;
 use LogicException;
@@ -46,6 +47,38 @@ final readonly class PassportProofs implements ProvableMethodsInterface
         }
 
         throw new LogicException('The firewall authenticated a user of the bundle with a login none of the tagged ones recognises: the passport carries the badge of no login of the bundle.');
+    }
+
+    /**
+     * When what the passport proved was proven, null when it was proven now: the first login that dates its proofs and
+     * recognises the passport answers (DatesItsProofsInterface, beffroi/saml S-57).
+     */
+    public function provenAt(Passport $passport): ?DateTimeImmutable
+    {
+        foreach ($this->logins as $login) {
+            $provenAt = $login instanceof DatesItsProofsInterface ? $login->provenAt($passport) : null;
+            if ($provenAt !== null) {
+                return $provenAt;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The instant the session the passport opens must end by, null when nothing bounds it: the first login that bounds
+     * its session and recognises the passport answers (BoundsItsSessionInterface, beffroi/saml S-57).
+     */
+    public function sessionNotOnOrAfter(Passport $passport): ?DateTimeImmutable
+    {
+        foreach ($this->logins as $login) {
+            $bound = $login instanceof BoundsItsSessionInterface ? $login->sessionNotOnOrAfter($passport) : null;
+            if ($bound !== null) {
+                return $bound;
+            }
+        }
+
+        return null;
     }
 
     /**

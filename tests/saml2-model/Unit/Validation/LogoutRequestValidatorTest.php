@@ -12,17 +12,20 @@ use Beffroi\Saml2\Model\Exception\LimitExceeded;
 use Beffroi\Saml2\Model\Exception\MalformedMessage;
 use Beffroi\Saml2\Model\Exception\MessageRefused;
 use Beffroi\Saml2\Model\Exception\OutsideValidityWindow;
+use Beffroi\Saml2\Model\Exception\Replayed;
 use Beffroi\Saml2\Model\Exception\SignatureRequired;
 use Beffroi\Saml2\Model\Exception\Unsupported;
 use Beffroi\Saml2\Model\Metadata\IdentityProvider;
 use Beffroi\Saml2\Model\Metadata\ServiceProvider;
 use Beffroi\Saml2\Model\Protocol\UnverifiedLogoutRequest;
 use Beffroi\Saml2\Model\SamlLoader;
+use Beffroi\Saml2\Model\Tests\Support\InMemoryReplayGuard;
 use Beffroi\Saml2\Model\Tests\Unit\Metadata\MetadataFixtures;
 use Beffroi\Saml2\Model\Validation\AcceptedLogoutRequest;
 use Beffroi\Saml2\Model\Validation\Authentication;
 use Beffroi\Xml\Core\Document;
 use Beffroi\Xml\Dsig\Exception\SignatureMismatch;
+use DateTimeImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -278,7 +281,7 @@ final class LogoutRequestValidatorTest extends TestCase
 
     /**
      * §9.2 row 25, M-5, section 6.3: the structure of the request is the schema's, checked before any signature;
-     * saml:BaseID is refused by name (section 8), saml:EncryptedID until sub-spike 9e (§9.2 row 29, section 6.7).
+     * saml:BaseID is refused by name (section 8), saml:EncryptedID too (§9.2 row 29, section 6.7).
      *
      * @param class-string<MessageRefused> $exception
      */
@@ -346,7 +349,7 @@ final class LogoutRequestValidatorTest extends TestCase
         yield 'a saml:EncryptedID' => [
             'hostile/logout-request-encrypted-id-refused.xml',
             Unsupported::class,
-            'The LogoutRequest names its principal with a saml:EncryptedID, which the package does not support until sub-spike 9e (section 6.7).',
+            'The LogoutRequest names its principal with a saml:EncryptedID, which the package does not support (section 6.7).',
         ];
     }
 
@@ -786,6 +789,126 @@ final class LogoutRequestValidatorTest extends TestCase
     }
 
     /**
+     * §9.2 row 37, M-11: a signed request accepted once is Replayed when it is given to validate() again, inside its
+     * window.
+     */
+    #[Test]
+    public function itRefusesTheSameSignedRequestTwice(): void
+    {
+        // Given
+        $validator = LogoutFixtures::requestValidator();
+        $validator->validate(
+            UnverifiedLogoutRequest::of(MetadataFixtures::load(self::SIGNED)),
+            LogoutFixtures::identityProvider(),
+            LogoutFixtures::serviceProvider(),
+            LogoutFixtures::SP_SLO,
+        );
+
+        // Then
+        $this->expectException(Replayed::class);
+        $this->expectExceptionMessageIs('The logout message was already accepted from its issuer (M-11).');
+
+        // When
+        $validator->validate(
+            UnverifiedLogoutRequest::of(MetadataFixtures::load(self::SIGNED)),
+            LogoutFixtures::identityProvider(),
+            LogoutFixtures::serviceProvider(),
+            LogoutFixtures::SP_SLO,
+        );
+    }
+
+    /**
+     * §9.2 row 37, M-11, issue #708: a request the binding authenticated, accepted once, is Replayed when its query
+     * string, which verifies again, is presented a second time inside its window.
+     */
+    #[Test]
+    public function itRefusesTheSameRequestTheBindingAuthenticatedTwice(): void
+    {
+        // Given
+        $replay = new InMemoryReplayGuard();
+        $this->byBinding(MetadataFixtures::load(self::REDIRECT), replay: $replay);
+
+        // Then
+        $this->expectException(Replayed::class);
+        $this->expectExceptionMessageIs('The logout message was already accepted from its issuer (M-11).');
+
+        // When
+        $this->byBinding(MetadataFixtures::load(self::REDIRECT), replay: $replay);
+    }
+
+    /**
+     * M-11: the key is the issuer and the ID together, the verified ones.
+     */
+    #[Test]
+    public function itRemembersTheIssuerAndTheIdOfTheRequest(): void
+    {
+        // Given
+        $replay = new InMemoryReplayGuard();
+
+        // When
+        $this->byBinding(MetadataFixtures::load(self::REDIRECT), replay: $replay);
+
+        // Then
+        static::assertNotNull($replay->expiresAt(LogoutFixtures::IDP, LogoutFixtures::REQUEST_ID));
+    }
+
+    /**
+     * §9.3 row 21, M-11: a request refused by a rule, here its Destination, remembers nothing, so that an attacker
+     * cannot burn the ID of a request it could not have had accepted.
+     */
+    #[Test]
+    public function itRemembersNothingOfARefusedRequest(): void
+    {
+        // Given
+        $replay = new InMemoryReplayGuard();
+        $document = $this->variant(['Destination="' . LogoutFixtures::SP_SLO . '"' => 'Destination="https://sp.example.com/saml/acs"']);
+
+        // When
+        try {
+            $this->byBinding($document, replay: $replay);
+        } catch (DestinationMismatch) {
+        }
+
+        // Then
+        static::assertTrue($replay->isEmpty());
+    }
+
+    /**
+     * §9.3 row 22, M-11, section 6.3: an accepted request is remembered until the window in which it would be accepted
+     * again closes, its IssueInstant plus maxMessageAge and the skew, or its NotOnOrAfter plus the skew when earlier.
+     */
+    #[Test]
+    #[DataProvider('provideWindowsOfARequest')]
+    public function itRemembersARequestUntilItsWindowCloses(string $notOnOrAfter, string $until): void
+    {
+        // Given
+        $replay = new InMemoryReplayGuard();
+        $document = $this->variant([' NotOnOrAfter="2026-09-30T12:05:00Z"' => $notOnOrAfter]);
+
+        // When
+        $this->byBinding($document, replay: $replay);
+
+        // Then
+        static::assertEquals(
+            new DateTimeImmutable($until),
+            $replay->expiresAt(LogoutFixtures::IDP, LogoutFixtures::REQUEST_ID),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideWindowsOfARequest(): iterable
+    {
+        yield 'no NotOnOrAfter: the IssueInstant, 300 s of maxMessageAge and 180 s of skew' => ['', '2026-09-30T12:08:00Z'];
+        yield 'a NotOnOrAfter earlier than that: it and the skew' => [' NotOnOrAfter="2026-09-30T12:01:00Z"', '2026-09-30T12:04:00Z'];
+        yield 'a NotOnOrAfter later than that: the IssueInstant, maxMessageAge and the skew' => [
+            ' NotOnOrAfter="2026-09-30T12:05:01Z"',
+            '2026-09-30T12:08:00Z',
+        ];
+    }
+
+    /**
      * The request of the fixture for HTTP-Redirect with the replacements made, loaded with SamlLoader::create().
      *
      * @param array<string, string> $replacements
@@ -805,8 +928,9 @@ final class LogoutRequestValidatorTest extends TestCase
         IdentityProvider|ServiceProvider|null $peer = null,
         IdentityProvider|ServiceProvider|null $self = null,
         string $receivedAt = LogoutFixtures::SP_SLO,
+        InMemoryReplayGuard $replay = new InMemoryReplayGuard(),
     ): AcceptedLogoutRequest {
-        return LogoutFixtures::requestValidator($seconds)->validateAuthenticatedByBinding(
+        return LogoutFixtures::requestValidator($seconds, $replay)->validateAuthenticatedByBinding(
             UnverifiedLogoutRequest::of($document),
             $peer ?? LogoutFixtures::identityProvider(),
             $self ?? LogoutFixtures::serviceProvider(),

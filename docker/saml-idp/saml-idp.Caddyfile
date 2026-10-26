@@ -1,0 +1,8 @@
+# The SimpleSAMLphp identity provider of the judge of sub-spike 9d (issue #788), imported by the Caddy of the op
+# container of compose.yaml and by no image: a site of the development stack, served under the certificate of the
+# stack like op.localhost (STACK_HOSTS in .castor/stack/stack.php), and passed to the "saml-idp" service, which
+# "castor saml-idp" starts. Caddy dials that service at each request, so nothing here waits for it:
+# saml-idp.localhost answers 502 while it is not running.
+saml-idp.localhost {
+	reverse_proxy saml-idp:80
+}

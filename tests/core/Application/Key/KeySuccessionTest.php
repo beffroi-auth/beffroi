@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Key;
 
+use function array_map;
 use DateInterval;
 use Beffroi\Core\Application\Key\KeyStaging;
 use Beffroi\Core\Application\Key\KeySuccession;
 use Beffroi\Core\Application\Key\KeyTakeOver;
 use Beffroi\Core\Bridge\InMemory\InMemoryTenantKeyRepository;
+use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryKeyPairGenerator;
+use Beffroi\Core\Domain\Key\RotationSchedule;
+use Beffroi\Core\Domain\Key\TenantKey;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\LogicException;
@@ -69,6 +73,28 @@ final class KeySuccessionTest extends TestCase
         static::assertSame(Algorithms::rs256()->name(), $staged[0]->algorithm->name());
         static::assertEquals($this->clock->now()->add(new DateInterval(KeyLifecycle::STAGING_DELAY)), $staged[0]->activationDueAt);
         static::assertSame($first, $this->repository->findActive($this->tenant, Algorithms::rs256()));
+    }
+
+    /**
+     * Issue #738: a key is old by the age of its family, so that a family that works a year gets no successor
+     * when the keys of the others, active as long, get theirs.
+     */
+    #[Test]
+    public function aKeyIsOldByTheAgeOfItsFamily(): void
+    {
+        // Given
+        $lifecycle = new KeyLifecycle($this->clock, generator: new JwtLibraryKeyPairGenerator(Algorithms::everyUse()), families: [
+            Algorithms::es256()->name() => new RotationSchedule(new DateInterval('P7D'), new DateInterval('P365D')),
+        ]);
+        $lifecycle->takeOver->rotate($this->tenant, Algorithms::edDsa(), $this->context);
+        $lifecycle->takeOver->rotate($this->tenant, Algorithms::es256(), $this->context);
+        $this->clock->modify('+30 days');
+
+        // When
+        $staged = $lifecycle->succession->stageSuccessorsDue($this->tenant, $this->context);
+
+        // Then
+        static::assertSame([Algorithms::edDsa()->name()], array_map(static fn (TenantKey $key): string => $key->algorithm->name(), $staged));
     }
 
     #[Test]

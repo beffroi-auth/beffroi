@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Saml2\Bindings\Tests\Unit;
 
 use function array_keys;
+use function array_map;
 use function base64_decode;
 use function base64_encode;
 use Beffroi\Saml2\Bindings\BindingLimits;
@@ -14,13 +15,17 @@ use Beffroi\Saml2\Bindings\PostSender;
 use Beffroi\Saml2\Bindings\Tests\Support\BrowserForm;
 use Beffroi\Saml2\Model\SamlLoader;
 use Beffroi\Saml2\Model\Writing\AuthnRequestWriter;
+use Beffroi\Saml2\Model\Writing\Encryption;
 use Beffroi\Saml2\Model\Writing\LogoutRequestWriter;
 use Beffroi\Saml2\Model\Writing\LogoutResponseWriter;
 use Beffroi\Saml2\Model\Writing\ResponseWriter;
 use Beffroi\Saml2\Model\Writing\SignedParts;
 use Beffroi\Saml2\Model\Writing\Signing;
+use Beffroi\Xml\Core\Children;
 use Beffroi\Xml\Core\Serializer;
 use Beffroi\Xml\Dsig\SigningKeyInterface;
+use Beffroi\Xml\Enc\PeerKey;
+use function file_get_contents;
 use function get_class_methods;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -225,6 +230,100 @@ final class PostSenderTest extends TestCase
     }
 
     /**
+     * §9.2 row 33, section 6.4 step 1, RFC 3986 §3.1: a Destination whose scheme is neither http nor https, which
+     * would be the action the browser submits the form to, is a programming error of the caller, whatever the method,
+     * refused before anything is written or signed, and whatever the case of the letters of the scheme.
+     *
+     * @param PostMessage $message
+     */
+    #[Test]
+    #[DataProvider('provideDestinationsOfAnotherScheme')]
+    public function itRefusesADestinationWhoseSchemeIsNeitherHttpNorHttps(string $message, string $destination): void
+    {
+        // Given
+        $signing = $this->uncalledSigning();
+
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('The Destination is neither an http nor an https URL, the only actions a form is submitted to (section 6.4).');
+
+        // When
+        self::post($message, signing: $signing, destination: $destination);
+    }
+
+    /**
+     * @return iterable<string, array{PostMessage, string}>
+     */
+    public static function provideDestinationsOfAnotherScheme(): iterable
+    {
+        $destinations = [
+            'javascript:' => 'javascript:alert(document.domain)//',
+            'javascript: in upper case' => 'JAVASCRIPT:alert(1)//',
+            'data:' => 'data:text/html,<script>alert(1)</script>',
+            'ftp:' => 'ftp://peer.example.com/saml',
+            'file:' => 'file:///etc/passwd',
+            'a scheme after a scheme' => 'javascript:https://peer.example.com/saml',
+            'a scheme that only starts with https' => 'httpsx://peer.example.com/saml',
+        ];
+        foreach ($destinations as $case => $destination) {
+            foreach (self::postMessages() as $method => $message) {
+                yield $case . ', ' . $method => [$message, $destination];
+            }
+        }
+    }
+
+    /**
+     * Section 6.4 step 1, RFC 3986 §3.1: a Destination whose scheme is http or https, in whatever case, is the action
+     * as it is written, never normalised: the scheme of a URL is case-insensitive, and a browser reads it so.
+     *
+     * @param PostMessage $message
+     */
+    #[Test]
+    #[DataProvider('provideDestinationsOfAWebScheme')]
+    public function itKeepsADestinationWhoseSchemeIsHttpOrHttpsAsItIs(string $message, string $destination): void
+    {
+        // When
+        $form = self::post($message, destination: $destination);
+
+        // Then
+        static::assertSame($destination, $form->action);
+    }
+
+    /**
+     * @return iterable<string, array{PostMessage, string}>
+     */
+    public static function provideDestinationsOfAWebScheme(): iterable
+    {
+        $destinations = [
+            'http:' => 'http://peer.example.com/saml',
+            'https:' => 'https://peer.example.com/saml',
+            'https: in upper case' => 'HTTPS://peer.example.com/saml',
+            'http: in mixed case' => 'HtTp://peer.example.com/saml',
+        ];
+        foreach ($destinations as $case => $destination) {
+            foreach (self::postMessages() as $method => $message) {
+                yield $case . ', ' . $method => [$message, $destination];
+            }
+        }
+    }
+
+    /**
+     * Every method of the sender, with the message it is given.
+     *
+     * @return array<string, PostMessage>
+     */
+    private static function postMessages(): array
+    {
+        return [
+            'authnRequest()' => 'an AuthnRequest',
+            'logoutRequest()' => 'a LogoutRequest',
+            'logoutResponse()' => 'a LogoutResponse',
+            'response()' => 'a Response',
+            'failure()' => 'a failure',
+        ];
+    }
+
+    /**
      * §9.2 row 33, B-9, section 6.4 step 1, section 8: a RelayState of 1 025 bytes, or an empty one, given to
      * any method, is a programming error of the caller, refused before anything is written or signed: a key management
      * service is never called for a form the sender refuses by its arguments.
@@ -393,6 +492,29 @@ final class PostSenderTest extends TestCase
 
         // Then
         static::assertSame(self::AUTHN_REQUEST_ID, $received->response->inResponseTo);
+    }
+
+    /**
+     * §9.3 row 15, section 6.4 step 2, section 11, model.md section 6.7: the Encryption given is the writer's, whose
+     * response then holds a saml:EncryptedAssertion in place of its assertion.
+     */
+    #[Test]
+    public function itHandsTheEncryptionToTheWriter(): void
+    {
+        // Given
+        $encryption = new Encryption(PeerKey::fromCertificatePem(
+            (string) file_get_contents(__DIR__ . '/../Fixture/keys/sp-signing-certificate.pem'),
+        ));
+
+        // When
+        $form = self::postSender()->response(self::response(), self::signing('idp'), SignedParts::Assertion, null, $encryption);
+
+        // Then
+        $response = SamlLoader::create()->load((string) base64_decode($form->fields['SAMLResponse'], true));
+        static::assertSame(
+            ['saml:Issuer', 'samlp:Status', 'saml:EncryptedAssertion'],
+            array_map(static fn ($child): string => $child->nodeName, Children::all($response->root())),
+        );
     }
 
     /**

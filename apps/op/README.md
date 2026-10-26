@@ -4,11 +4,11 @@ The standalone identity provider: a Symfony skeleton on `beffroi/symfony-bundle`
 with PostgreSQL and RabbitMQ behind it. It is the recommended deployment, the form the provider takes for
 whoever runs one rather than installs it inside an application of their own.
 
-It is the `apps/op` directory of the monorepo, [beffroi-php/beffroi](https://github.com/beffroi-php/beffroi),
+It is the `apps/op` directory of the monorepo, [beffroi-auth/beffroi](https://github.com/beffroi-auth/beffroi),
 beside the packages it installs: the identity core, the OAuth 2.0 and OpenID Connect module and the Symfony
-bundle. `beffroi-php/op` is a mirror of that directory, read only, pushed by git split. The design and the
-decisions are in [beffroi-php/design](https://github.com/beffroi-php/design), and the reference relying
-party in [beffroi-php/oidc-demo](https://github.com/beffroi-php/oidc-demo).
+bundle. `beffroi-auth/op` is a mirror of that directory, read only, pushed by git split. The design and the
+decisions are in [beffroi-auth/design](https://github.com/beffroi-auth/design), and the reference relying
+party in [beffroi-auth/oidc-demo](https://github.com/beffroi-auth/oidc-demo).
 
 ## What is here, and what is not
 
@@ -28,7 +28,7 @@ drive this application from a working copy.
 Everything that builds, provisions, judges or demonstrates runs from the root above:
 
 ```bash
-git clone git@github.com:beffroi-php/beffroi.git && cd beffroi
+git clone git@github.com:beffroi-auth/beffroi.git && cd beffroi
 composer install && (cd apps/op && composer install)
 castor start            # https://op.localhost, PostgreSQL, RabbitMQ
 castor provision        # the tenant, its keys, the first user, the client certificate

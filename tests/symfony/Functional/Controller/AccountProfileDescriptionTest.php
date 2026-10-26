@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Beffroi\Bundle\Tests\Functional\Controller;
 
 use Beffroi\Bundle\Http\ProfilePage;
+use Beffroi\Core\Domain\Identity\Profile;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Issue #452, architecture §5.2: a person changes what the tenant lets them change of themselves. The
@@ -194,6 +198,42 @@ final class AccountProfileDescriptionTest extends BrowserTestCase
     }
 
     /**
+     * Decision 0002: what the source that created the person holds is not theirs to change, so it is not
+     * offered, the tenant opening it all the same.
+     */
+    #[Test]
+    public function aClaimTheSourceOfThePersonHoldsIsNotOffered(): void
+    {
+        // Given
+        $this->signIn(self::federated());
+
+        // When
+        $page = $this->profilePage();
+
+        // Then
+        static::assertSame(['nickname', 'locale', 'zoneinfo'], $page->filter('form[data-changeable]')->extract(['data-changeable']));
+    }
+
+    /**
+     * Posted anyway, it is refused on the server as a claim that is not theirs to change, and not as a
+     * value the claim cannot hold, which it is not.
+     */
+    #[Test]
+    public function aClaimTheSourceHoldsPostedAnywayIsNotTheirsToChange(): void
+    {
+        // Given
+        $alice = self::federated();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->describe('birthdate', '1990-05-01');
+
+        // Then
+        static::assertSame([ProfilePage::NOT_OPEN], $page->filter('p[data-error]')->extract(['data-error']));
+        static::assertSame('1815-12-10', self::reread($alice)->profile->birthdate);
+    }
+
+    /**
      * Issue #482: what this person changed of their own record is a page of its own, and the page that
      * changes it offers the way there rather than holding the table.
      */
@@ -299,6 +339,25 @@ final class AccountProfileDescriptionTest extends BrowserTestCase
     private function profilePage(): Crawler
     {
         return $this->browser->request('GET', '/account/profile');
+    }
+
+    /**
+     * A person an upstream provider created, which holds the birthdate the kernel of these tests opens.
+     */
+    private static function federated(): User
+    {
+        $user = User::create(
+            Uuid::v7(),
+            self::tenant(),
+            new Subject('alice-subject'),
+            'alice',
+            self::now(),
+            source: UserSource::upstream('https://idp.acme.example/saml', ['birthdate']),
+        );
+        $user->updateProfile(new Profile(birthdate: '1815-12-10'), self::now());
+        self::service('test.beffroi.users', UserRepositoryInterface::class)->save($user);
+
+        return $user;
     }
 
     private static function reread(User $user): User

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
+                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <!--
+      What the newest metadata document accepted for a peer of a tenant keeps, whichever its role (beffroi/saml,
+      spec/saml.md S-6, S-8, S-42): one row per peer, found by its entity ID, unique under its tenant. The
+      declaration of the peer is in the configuration of the deployment and never here (S-5, S-42): what a
+      row holds is what was read of it, its validUntil, which the rule against a rollback compares, and when it
+      was accepted.
+
+      Each role has a table of its own, sealed in the family of that table (decision 0018), so the document,
+      whose type names that family, is mapped by the entity of each role and not here.
+    -->
+    <mapped-superclass name="Beffroi\Saml\Domain\Metadata\AcceptedMetadata">
+        <id name="id" type="uuid" column="id"/>
+        <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
+            <join-column name="tenant_id" referenced-column-name="id" nullable="false"/>
+        </many-to-one>
+        <field name="entityId" type="string" column="entity_id" length="1024"/>
+        <!-- To the second, as the column keeps it, which is what the rule against a rollback compares (S-6). -->
+        <field name="validUntil" type="datetime_immutable" column="valid_until" nullable="true"/>
+        <field name="acceptedAt" type="datetime_immutable" column="accepted_at"/>
+    </mapped-superclass>
+</doctrine-mapping>

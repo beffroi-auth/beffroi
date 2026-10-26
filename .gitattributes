@@ -5,7 +5,9 @@
 /tests/saml2-model/Fixture/** -text
 /tests/saml2-bindings/Fixture/** -text
 
+/.agents export-ignore
 /.ci-tools export-ignore
+/.claude export-ignore
 /.github export-ignore
 /apps export-ignore
 /tests export-ignore

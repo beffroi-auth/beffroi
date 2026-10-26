@@ -653,6 +653,47 @@ final class RedirectReceiverTest extends TestCase
     }
 
     /**
+     * B-6, SAML Bindings §3.4.4.1 step 1: the check looks at the children of the root and no deeper. The AuthnRequest
+     * signed in XML of the hostile corpus, its ds:Signature moved under samlp:Extensions, passes it and is left to the
+     * strict reader of the model, which never reads that element (saml2-model, spec/model.md section 6.2 step 1, M-5)
+     * and neither verifies nor reads a ds:Signature below a child of the root (M-2): the request is accepted on its
+     * other merits, the query string signed or not.
+     */
+    #[Test]
+    #[DataProvider('provideMessagesSignedInXmlUnderTheirExtensions')]
+    public function itLeavesAnXmlSignatureUnderTheExtensionsToTheModel(RedirectQuery $query, Authentication $authentication): void
+    {
+        // When
+        $accepted = self::receiver()
+            ->authnRequest($query->toString())
+            ->validate(self::authnRequestValidator(), self::serviceProvider(), self::identityProvider(), self::SSO);
+
+        // Then
+        static::assertSame(
+            ['https://sp.example.com/saml', $authentication],
+            [$accepted->request->issuer->entityId, $accepted->authentication],
+        );
+    }
+
+    /**
+     * @return iterable<string, array{RedirectQuery, Authentication}>
+     */
+    public static function provideMessagesSignedInXmlUnderTheirExtensions(): iterable
+    {
+        $query = RedirectQuery::carrying(
+            'SAMLRequest',
+            str_replace(
+                ['<ds:Signature ', '</ds:Signature>'],
+                ['<samlp:Extensions><ds:Signature ', '</ds:Signature></samlp:Extensions>'],
+                self::fixture('hostile/authn-request-xml-signature-over-http-redirect-refused.xml'),
+            ),
+        );
+
+        yield 'the query string signed' => [$query->signed(), Authentication::Binding];
+        yield 'the query string unsigned' => [$query, Authentication::None];
+    }
+
+    /**
      * §9.2 row 22, B-7, section 6.1 step 8, SAML Bindings §3.4.4.1: the largest DEFLATE bomb a query string under
      * maxQueryStringBytes carries, 6 MiB of zeros deflated by zlib at level 9 into 6 113 bytes, a query string of 8 168
      * bytes (the largest measured on 1 October 2026, zlib 1.3.1, is 6 311 474 bytes into 8 190), is refused at

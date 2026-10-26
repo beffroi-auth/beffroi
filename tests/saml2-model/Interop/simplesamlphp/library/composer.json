@@ -1,5 +1,5 @@
 {
-    "name": "beffroi-php/saml2-model-simplesamlphp-interop",
+    "name": "beffroi/saml2-model-simplesamlphp-interop",
     "description": "The throwaway project that runs SimpleSAMLphp's own SAML 2 library against the model, in a container, never a dependency of the package",
     "type": "project",
     "license": "MIT",

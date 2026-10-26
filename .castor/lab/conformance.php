@@ -73,7 +73,7 @@ const CONFORMANCE_FAPI_MTLS_CLIENTS = ['conformance-fapi-mtls', 'conformance-fap
 
 /**
  * Message Signing runs with clients of its own: a client of those runs is registered to start every
- * authorization request with a request object it signed (OIDC Registration,
+ * authorization request with a request object it signed (RFC 9101 §10.5,
  * require_signed_request_object), which the unsigned requests of the Security Profile plan could not be.
  */
 const CONFORMANCE_FAPI_SIGNING_PRIVATE_KEY_JWT_CLIENTS = ['conformance-fapi-signing-private-key-jwt', 'conformance-fapi-signing-private-key-jwt-second'];

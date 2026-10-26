@@ -127,6 +127,7 @@ final class SimpleSamlPhpDocumentsTest extends TestCase
         $validator = new LogoutResponseValidator(
             SamlLoader::create(),
             new FrozenClock(new DateTimeImmutable('2026-09-30T13:07:35Z')),
+            new InMemoryReplayGuard(),
         );
 
         // When
@@ -268,6 +269,7 @@ final class SimpleSamlPhpDocumentsTest extends TestCase
         $validator = new LogoutRequestValidator(
             SamlLoader::create(),
             new FrozenClock(new DateTimeImmutable('2026-09-30T13:07:34Z')),
+            new InMemoryReplayGuard(),
         );
 
         // When

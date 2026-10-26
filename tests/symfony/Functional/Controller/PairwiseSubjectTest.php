@@ -6,6 +6,7 @@ namespace Beffroi\Bundle\Tests\Functional\Controller;
 
 use function base64_encode;
 use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Port\AuthenticationSessionRepositoryInterface;
 use Beffroi\Oidc\Domain\Claims\SectorIdentifier;
 use Beffroi\Oidc\Port\PairwiseSubjectRepositoryInterface;
 use Beffroi\Oidc\Port\SectorIdentifiersInterface;
@@ -203,6 +204,51 @@ final class PairwiseSubjectTest extends BrowserTestCase
         // Then
         static::assertSame($alice->subject->value, $found?->subject->value);
         static::assertNull($elsewhere);
+    }
+
+    /**
+     * OIDC Core §3.1.2.1 id_token_hint (issue #838): the ID token a client of pairwise subjects was given names
+     * the person signed in, so prompt=none is answered with a code and not with login_required.
+     */
+    #[Test]
+    public function theIdTokenOfAPairwiseClientNamesThePersonSignedInAtTheAuthorizationEndpoint(): void
+    {
+        // Given
+        $this->signIn(self::user('alice'));
+        $idToken = self::string($this->tokensOf('pairwise-app', self::REDIRECT_URI, self::SECRET)['id_token']);
+
+        // When
+        $this->browser->request('GET', '/authorize', self::authorizationParameters('pairwise-app', [
+            'redirect_uri' => self::REDIRECT_URI,
+            'prompt' => 'none',
+            'id_token_hint' => $idToken,
+        ]));
+
+        // Then
+        $query = self::redirectedQuery($this->browser->getResponse());
+        static::assertArrayHasKey('code', $query, $query['error'] ?? '');
+    }
+
+    /**
+     * RP-Initiated Logout 1.0 §2 (issue #838): the same ID token presented at the end session endpoint names the
+     * session the browser holds, which therefore ends without a question.
+     */
+    #[Test]
+    public function theIdTokenOfAPairwiseClientEndsTheSessionWithoutAQuestion(): void
+    {
+        // Given
+        $session = $this->signIn(self::user('alice'));
+        $idToken = self::string($this->tokensOf('pairwise-app', self::REDIRECT_URI, self::SECRET)['id_token']);
+
+        // When
+        $this->browser->request('GET', '/logout', [
+            'id_token_hint' => $idToken,
+        ]);
+
+        // Then
+        $ended = self::service('test.beffroi.sessions', AuthenticationSessionRepositoryInterface::class)
+            ->find($session->id) ?? static::fail('The session is gone.');
+        static::assertTrue($ended->hasEnded());
     }
 
     /**

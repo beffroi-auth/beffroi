@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Totp;
 
+use Beffroi\Core\Exception\CredentialEnrolmentFailedException;
+use Beffroi\Core\Domain\Identity\UpstreamProvider;
+use Beffroi\Core\Domain\Identity\EmailDomain;
+use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
+use Beffroi\Core\Application\Credential\EnrolmentRefusal;
 use function array_map;
 use function array_unique;
 use Beffroi\Core\Application\Totp\BackupCodeSet;
@@ -39,17 +46,21 @@ final class BackupCodesRenewalTest extends TestCase
 
     private BackupCodesRenewal $renewal;
 
+    private InMemoryUpstreamProviders $upstreamProviders;
+
     protected function setUp(): void
     {
         $this->alice = Fixtures::user();
         $this->credentials = new InMemoryCredentialRepository();
         $this->hasher = new FakePasswordHasher();
         $this->events = new RecordingEventDispatcher();
+        $this->upstreamProviders = new InMemoryUpstreamProviders();
         $this->renewal = new BackupCodesRenewal(
             $this->credentials,
             new BackupCodeSet(new PlatformRandomness(), $this->hasher),
             new MockClock('2026-09-15T13:00:00+00:00'),
             $this->events,
+            new EnrolmentRefusal(new FederatedDomains($this->upstreamProviders)),
         );
     }
 
@@ -136,6 +147,26 @@ final class BackupCodesRenewalTest extends TestCase
 
         // Then
         $this->expectException(LogicException::class);
+
+        // When
+        $this->renewal->renew($totp, Fixtures::context());
+    }
+
+    /**
+     * Decision 0029, spec/saml.md S-63: a person whose e-mail domain the tenant federated since they enrolled a TOTP is
+     * drawn no backup code, which would be a way in posed for them.
+     */
+    #[Test]
+    public function noBackupCodeIsDrawnForAPersonOfAFederatedDomain(): void
+    {
+        // Given
+        $totp = $this->totp();
+        $this->upstreamProviders->declare($this->alice->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $this->alice->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+
+        // Then
+        $this->expectException(CredentialEnrolmentFailedException::class);
+        $this->expectExceptionMessageIs('A set of backup codes is posed for nobody of an e-mail domain the tenant "acme" federates to an upstream provider, through which alone they sign in.');
 
         // When
         $this->renewal->renew($totp, Fixtures::context());

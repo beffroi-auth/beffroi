@@ -1,4 +1,4 @@
-# Layers of docs/11-architecture.md §2: three packages, four layers in each pure-PHP package.
+# Layers of docs/11-architecture.md §2: four layers in each pure-PHP package of the identity provider.
 # The identity core never depends on a protocol; protocols never depend on each other;
 # nothing below the bundle knows Symfony's HTTP, DI or Doctrine.
 deptrac:
@@ -31,6 +31,21 @@ deptrac:
     - name: 'OidcBridge'
       collectors:
         - { type: directory, value: '../src/oidc/src/Bridge/.*' }
+    # beffroi/saml (decision 0013, src/saml/spec/saml.md section 2), the SAML module, at the level of beffroi/oidc: the
+    # same four layers, and nothing of the other protocol either way.
+    - name: 'SamlDomain'
+      collectors:
+        - { type: directory, value: '../src/saml/src/Domain/.*' }
+        - { type: directory, value: '../src/saml/src/Exception/.*' }
+    - name: 'SamlPort'
+      collectors:
+        - { type: directory, value: '../src/saml/src/Port/.*' }
+    - name: 'SamlApplication'
+      collectors:
+        - { type: directory, value: '../src/saml/src/Application/.*' }
+    - name: 'SamlBridge'
+      collectors:
+        - { type: directory, value: '../src/saml/src/Bridge/.*' }
     - name: 'Bundle'
       collectors:
         - { type: directory, value: '../src/symfony/.*' }
@@ -101,7 +116,8 @@ deptrac:
     - name: 'Twig'
       collectors:
         - { type: classLike, value: '^Twig\\' }
-    # The SAML packages, which know nothing of the identity provider's and are known by none of them yet.
+    # The SAML packages, which know nothing of the identity provider's and are known by beffroi/saml alone, through
+    # their public layers.
     # beffroi/xml-security (decision 0014): Dsig and Enc depend on Core, never the reverse and never on each other,
     # Core on nothing of the package. Each namespace is two layers, its Internal one apart, so that saml2-model below
     # is held to the public classes; within the package the split changes nothing, an Internal layer and the public
@@ -126,11 +142,13 @@ deptrac:
         - { type: classLike, value: '^Beffroi\\Xml\\Enc\\Internal\\' }
     # beffroi/saml2-model (section 10 of spec/model.md): Value below Assertion, Protocol and Metadata, those below
     # Validation and Writing; Port beside, Exception and the two classes of the root (Saml, SamlLoader) under all of
-    # them; Internal, the strict readers and the selection of the signed element, between the objects it builds and the
-    # validators that call it. Outside the package, the public classes of Core and Dsig and psr/clock where the
-    # specification uses them. What is forbidden is a layer no rule allows: the Internal namespaces of xml-security,
-    # its Enc namespace until sub-spike 9e (section 6.7), and HTTP (decision 0013), which is in the Symfony and Psr
-    # layers above.
+    # them; Internal, the strict readers, the selection of the signed element and the decryption of an encrypted
+    # assertion, between the objects it builds and the validators that call it. Outside the package, the public classes
+    # of Core and Dsig and psr/clock where the specification uses them, and the public classes of Enc for Writing, whose
+    # response writer encrypts the assertion for the service provider that asks for it, and for Validation and
+    # Internal, where the response validator decrypts one with the key of the service provider (section 6.7). What is
+    # forbidden is a layer no rule allows: the Internal namespaces of xml-security, and HTTP (decision 0013), which is
+    # in the Symfony and Psr layers above.
     - name: 'Saml2ModelRoot'
       collectors:
         - { type: classLike, value: '^Beffroi\\Saml2\\Model\\[^\\]+$' }
@@ -248,6 +266,58 @@ deptrac:
       - 'Jose'
       - 'Pki'
       - 'Uid'
+    SamlDomain:
+      - 'CoreDomain'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Uid'
+    SamlPort:
+      - 'SamlDomain'
+      - 'CoreDomain'
+      - 'CorePort'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Uid'
+    SamlApplication:
+      - 'SamlDomain'
+      - 'SamlPort'
+      - 'CoreDomain'
+      - 'CorePort'
+      - 'CoreApplication'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Uid'
+    # The SAML stack is a brick of the module, as JOSE is of beffroi/oidc: its Bridge implements the ports on it, and
+    # sees each public layer of saml2-model, saml2-bindings and xml-security, never one of their Internal namespaces;
+    # Enc for the key of the service provider an assertion is encrypted for and the scheme it is encrypted under, which
+    # it hands the model's writer (spec/saml.md S-19, S-20, issue #733); pki-framework for the self-signed certificate
+    # around a tenant's key (decision 0013).
+    SamlBridge:
+      - 'SamlDomain'
+      - 'SamlPort'
+      - 'SamlApplication'
+      - 'CoreDomain'
+      - 'CorePort'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Pki'
+      - 'Uid'
+      - 'Saml2ModelRoot'
+      - 'Saml2ModelException'
+      - 'Saml2ModelValue'
+      - 'Saml2ModelPort'
+      - 'Saml2ModelAssertion'
+      - 'Saml2ModelProtocol'
+      - 'Saml2ModelMetadata'
+      - 'Saml2ModelTimeBounds'
+      - 'Saml2ModelAuthentication'
+      - 'Saml2ModelValidation'
+      - 'Saml2ModelWriting'
+      - 'Saml2BindingsPublic'
+      - 'Saml2BindingsException'
+      - 'XmlCore'
+      - 'XmlDsig'
+      - 'XmlEnc'
     Bundle:
       - 'CoreDomain'
       - 'CorePort'
@@ -257,6 +327,12 @@ deptrac:
       - 'OidcPort'
       - 'OidcApplication'
       - 'OidcBridge'
+      # beffroi/saml, which the bundle wires and serves the routes of (spec/saml.md section 2): its four layers, never
+      # the SAML stack under them, which is the Bridge's
+      - 'SamlDomain'
+      - 'SamlPort'
+      - 'SamlApplication'
+      - 'SamlBridge'
       - 'Psr'
       - 'PsrClock'
       - 'Symfony'
@@ -286,10 +362,11 @@ deptrac:
     Saml2ModelAuthentication: ~
     Saml2ModelAssertion: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'XmlCore']
     Saml2ModelProtocol: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelInternal', 'XmlCore']
-    Saml2ModelMetadata: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelInternal', 'Saml2ModelTimeBounds', 'XmlCore', 'XmlDsig', 'PsrClock']
-    Saml2ModelInternal: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelProtocol', 'Saml2ModelMetadata', 'Saml2ModelTimeBounds', 'Saml2ModelAuthentication', 'XmlCore', 'XmlDsig']
-    Saml2ModelValidation: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelProtocol', 'Saml2ModelMetadata', 'Saml2ModelPort', 'Saml2ModelTimeBounds', 'Saml2ModelAuthentication', 'Saml2ModelInternal', 'XmlCore', 'XmlDsig', 'PsrClock']
-    Saml2ModelWriting: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelProtocol', 'Saml2ModelMetadata', 'Saml2ModelInternal', 'XmlCore', 'XmlDsig']
+    # IdentityProvider carries the service provider's decryption key given to that provider, Enc's port (model.md 5.5)
+    Saml2ModelMetadata: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelInternal', 'Saml2ModelTimeBounds', 'XmlCore', 'XmlDsig', 'XmlEnc', 'PsrClock']
+    Saml2ModelInternal: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelProtocol', 'Saml2ModelMetadata', 'Saml2ModelTimeBounds', 'Saml2ModelAuthentication', 'XmlCore', 'XmlDsig', 'XmlEnc']
+    Saml2ModelValidation: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelProtocol', 'Saml2ModelMetadata', 'Saml2ModelPort', 'Saml2ModelTimeBounds', 'Saml2ModelAuthentication', 'Saml2ModelInternal', 'XmlCore', 'XmlDsig', 'XmlEnc', 'PsrClock']
+    Saml2ModelWriting: ['Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelAssertion', 'Saml2ModelProtocol', 'Saml2ModelMetadata', 'Saml2ModelInternal', 'XmlCore', 'XmlDsig', 'XmlEnc']
     Saml2BindingsPublic: ['Saml2BindingsException', 'Saml2BindingsInternal', 'Saml2ModelRoot', 'Saml2ModelException', 'Saml2ModelValue', 'Saml2ModelPort', 'Saml2ModelAssertion', 'Saml2ModelProtocol', 'Saml2ModelMetadata', 'Saml2ModelTimeBounds', 'Saml2ModelAuthentication', 'Saml2ModelValidation', 'Saml2ModelWriting', 'XmlCore', 'XmlDsig']
     # BindingRefused extends the RefusedXml of Core (section 5.4)
     Saml2BindingsException: ['XmlCore']

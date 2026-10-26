@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Bridge\InMemory;
 
+use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -45,6 +46,18 @@ final class InMemoryUserRepository implements UserRepositoryInterface
         }
 
         return null;
+    }
+
+    public function findAllByEmail(Tenant $tenant, EmailAddress $email): array
+    {
+        $holders = [];
+        foreach ($this->users as $user) {
+            if ($user->belongsTo($tenant) && $user->email?->isTheSameMailboxAs($email) === true) {
+                $holders[] = $user;
+            }
+        }
+
+        return $holders;
     }
 
     public function save(User $user): void

@@ -291,7 +291,7 @@ final class RealDocumentsTest extends TestCase
 
         // When
         $received->validate(
-            new LogoutRequestValidator(SamlLoader::create(), self::clock(self::KEYCLOAK_OCTOBER_1)),
+            new LogoutRequestValidator(SamlLoader::create(), self::clock(self::KEYCLOAK_OCTOBER_1), new InMemoryReplayGuard()),
             self::serviceProvider('real/keycloak-26.7.4-sp-metadata-2026-10-01.xml', self::KEYCLOAK_OCTOBER_1),
             self::keycloakIdentityProvider(),
             self::KEYCLOAK . 'idp/protocol/saml',
@@ -326,7 +326,7 @@ final class RealDocumentsTest extends TestCase
 
         // When
         $accepted = $received->validate(
-            new LogoutRequestValidator(SamlLoader::create(), self::clock($capturedAt)),
+            new LogoutRequestValidator(SamlLoader::create(), self::clock($capturedAt), new InMemoryReplayGuard()),
             self::serviceProvider($serviceProvider, $capturedAt),
             $self,
             $receivedAt,
@@ -515,7 +515,7 @@ final class RealDocumentsTest extends TestCase
 
         // When
         $accepted = $received->validate(
-            new LogoutResponseValidator(SamlLoader::create(), self::clock($capturedAt)),
+            new LogoutResponseValidator(SamlLoader::create(), self::clock($capturedAt), new InMemoryReplayGuard()),
             $identityProvider,
             $self,
             $receivedAt,
@@ -587,7 +587,7 @@ final class RealDocumentsTest extends TestCase
 
         // When
         $accepted = $received->validate(
-            new LogoutResponseValidator(SamlLoader::create(), self::clock($capturedAt)),
+            new LogoutResponseValidator(SamlLoader::create(), self::clock($capturedAt), new InMemoryReplayGuard()),
             $identityProvider,
             $self,
             $receivedAt,
@@ -668,7 +668,7 @@ final class RealDocumentsTest extends TestCase
 
         // When
         $received->validate(
-            new LogoutResponseValidator(SamlLoader::create(), self::clock(self::OCTOBER_1)),
+            new LogoutResponseValidator(SamlLoader::create(), self::clock(self::OCTOBER_1), new InMemoryReplayGuard()),
             self::simpleSamlPhpIdentityProvider(),
             $self,
             $receivedAt,

@@ -314,6 +314,91 @@ final class RedirectSenderTest extends TestCase
     }
 
     /**
+     * §9.2 row 33, section 6.3 step 1, RFC 3986 §3.1: a Destination whose scheme is neither http nor https, which
+     * would be the head of the location the browser is sent to, is a programming error of the caller, whatever the
+     * method, and whatever the case of the letters of the scheme.
+     *
+     * @param Message $message
+     */
+    #[Test]
+    #[DataProvider('provideDestinationsOfAnotherScheme')]
+    public function itRefusesADestinationWhoseSchemeIsNeitherHttpNorHttps(string $message, string $destination): void
+    {
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('The Destination is neither an http nor an https URL, the only locations a browser is sent to (section 6.3).');
+
+        // When
+        self::send($message, destination: $destination);
+    }
+
+    /**
+     * @return iterable<string, array{Message, string}>
+     */
+    public static function provideDestinationsOfAnotherScheme(): iterable
+    {
+        $destinations = [
+            'javascript:' => 'javascript:alert(document.domain)//',
+            'javascript: in upper case' => 'JAVASCRIPT:alert(1)//',
+            'data:' => 'data:text/html,<script>alert(1)</script>',
+            'ftp:' => 'ftp://peer.example.com/saml',
+            'file:' => 'file:///etc/passwd',
+            'a scheme after a scheme' => 'javascript:https://peer.example.com/saml',
+            'a scheme that only starts with https' => 'httpsx://peer.example.com/saml',
+        ];
+        $messages = [
+            'authnRequest()' => 'an unsigned AuthnRequest',
+            'logoutRequest()' => 'a LogoutRequest',
+            'logoutResponse()' => 'a LogoutResponse',
+        ];
+        foreach ($destinations as $case => $destination) {
+            foreach ($messages as $method => $message) {
+                yield $case . ', ' . $method => [$message, $destination];
+            }
+        }
+    }
+
+    /**
+     * Section 6.3 step 1, RFC 3986 §3.1: a Destination whose scheme is http or https, in whatever case, is the head of
+     * the URL as it is written, never normalised: the scheme of a URL is case-insensitive, and a browser reads it so.
+     *
+     * @param Message $message
+     */
+    #[Test]
+    #[DataProvider('provideDestinationsOfAWebScheme')]
+    public function itKeepsADestinationWhoseSchemeIsHttpOrHttpsAsItIs(string $message, string $destination): void
+    {
+        // When
+        $url = self::send($message, destination: $destination);
+
+        // Then
+        static::assertStringStartsWith($destination . '?', $url);
+    }
+
+    /**
+     * @return iterable<string, array{Message, string}>
+     */
+    public static function provideDestinationsOfAWebScheme(): iterable
+    {
+        $destinations = [
+            'http:' => 'http://peer.example.com/saml',
+            'https:' => 'https://peer.example.com/saml',
+            'https: in upper case' => 'HTTPS://peer.example.com/saml',
+            'http: in mixed case' => 'HtTp://peer.example.com/saml',
+        ];
+        $messages = [
+            'authnRequest()' => 'an unsigned AuthnRequest',
+            'logoutRequest()' => 'a LogoutRequest',
+            'logoutResponse()' => 'a LogoutResponse',
+        ];
+        foreach ($destinations as $case => $destination) {
+            foreach ($messages as $method => $message) {
+                yield $case . ', ' . $method => [$message, $destination];
+            }
+        }
+    }
+
+    /**
      * §9.2 row 33, B-1, section 6.3 step 1: a Destination whose own query holds one of the six parameters of the
      * binding, under its name or a name PHP's parser reads as it, percent-encoded, after a leading space, followed by a
      * NUL or a "[", first or not, with or without "=", which the receiver would refuse, is a programming error of the
@@ -546,6 +631,14 @@ final class RedirectSenderTest extends TestCase
             $limits,
             InvalidArgumentException::class,
             'The RelayState is empty (B-9).',
+        ];
+        yield 'a Destination of the scheme javascript:, a LogoutRequest' => [
+            'a LogoutRequest',
+            null,
+            'javascript:alert(1)//',
+            $limits,
+            InvalidArgumentException::class,
+            'The Destination is neither an http nor an https URL, the only locations a browser is sent to (section 6.3).',
         ];
         yield 'a Destination holding a fragment, a LogoutResponse' => [
             'a LogoutResponse',

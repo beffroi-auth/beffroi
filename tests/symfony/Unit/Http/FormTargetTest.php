@@ -6,6 +6,7 @@ namespace Beffroi\Bundle\Tests\Unit\Http;
 
 use Beffroi\Bundle\Http\FormTarget;
 use Beffroi\Oidc\Domain\Client\RedirectUri;
+use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -149,6 +150,71 @@ final class FormTargetTest extends TestCase
             "form-action 'self' " . self::ORIGIN . ' https://other.example.com',
             $response->headers->get(self::ENFORCED),
         );
+    }
+
+    /**
+     * beffroi/saml S-36, the security review of 20 October 2026 (finding C-2): what a page names is written into the
+     * header as it is, so a source that is not a scheme, a host and a port is refused where the page names it rather
+     * than pasted into the policy, where a ';' would end the directive and start one of its own, "sandbox" freezing
+     * the page, and a ',' a policy of its own.
+     */
+    #[Test]
+    #[DataProvider('provideSourcesThatAreNoOrigin')]
+    public function aSourceThatIsNoOriginIsRefusedWhereThePageNamesIt(string $source): void
+    {
+        // Given
+        $listener = new FormTarget();
+        $request = Request::create('https://op.test/logout');
+
+        // Then
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessageIs('A page names an origin in its Content-Security-Policy as a scheme, a host and a port, and nothing else, which would be written into the header as it is (CSP Level 3 §2.3.1, beffroi/saml S-36).');
+
+        // When
+        $listener->mayReach($request, $source);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideSourcesThatAreNoOrigin(): iterable
+    {
+        yield 'a host that carries a directive' => ['https://sp.example.org;sandbox'];
+        yield 'a host that carries a second policy' => ['https://sp.example.org,sandbox'];
+        yield 'a host that carries a space' => ['https://sp.example.org sandbox'];
+        yield 'a keyword' => ["'unsafe-inline'"];
+        yield 'two sources' => ["'unsafe-inline' https://sp.example.org"];
+        yield 'a path' => ['https://sp.example.org/slo'];
+        yield 'no host' => ['javascript://'];
+    }
+
+    /**
+     * CSP Level 3 §2.3.1: an origin on a port, on an IPv4 address or an IPv6 literal, is a source a page may name.
+     */
+    #[Test]
+    #[DataProvider('provideOrigins')]
+    public function anOriginIsNamed(string $origin): void
+    {
+        // Given
+        $listener = new FormTarget();
+        $request = Request::create('https://op.test/logout');
+        $listener->mayReach($request, $origin);
+
+        // When
+        $response = self::answered($listener, $request, new Response('a page', Response::HTTP_OK, [self::ENFORCED => "form-action 'self'"]));
+
+        // Then
+        static::assertSame("form-action 'self' " . $origin, $response->headers->get(self::ENFORCED));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideOrigins(): iterable
+    {
+        yield 'a name and a port' => ['https://sp.example.org:8443'];
+        yield 'the loopback address of a native client' => ['http://127.0.0.1:51004'];
+        yield 'an IPv6 literal' => ['https://[2001:db8::1]'];
     }
 
     private static function answer(string $policy, ?RedirectUri $target, string $header = self::ENFORCED): Response

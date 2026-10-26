@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Http;
 
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use function array_filter;
 use function count;
 use Beffroi\Core\Application\Totp\ActiveTotp;
@@ -24,7 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * It offers setting one up only where the floor of the tenant admits a one-time code (issue #327), as the
  * login page offers the forms its tenant admits: a tenant that signs its users in by passkey refuses the
- * enrolment (TotpEnrolment), and a page that offered it anyway would be a button that always fails.
+ * enrolment (TotpEnrolment), and a page that offered it anyway would be a button that always fails. Nor
+ * does it offer one to a person of a federated domain (decision 0029), whom the enrolment refuses too.
  */
 final readonly class TwoFactorPage
 {
@@ -32,6 +34,7 @@ final readonly class TwoFactorPage
         private ActiveTotp $activeTotp,
         private QrCode $qrCode,
         private InteractionPages $pages,
+        private FederatedDomains $federated,
     ) {
     }
 
@@ -49,6 +52,8 @@ final readonly class TwoFactorPage
                 'totp' => $totp,
                 'backup_codes_left' => $totp === null ? 0 : count(array_filter($totp->backupCodes, static fn (BackupCode $code): bool => ! $code->isSpent())),
                 'admitted' => $user->tenant->loginFloor->admits([TotpCredential::method()]),
+                // decision 0029, beffroi/saml S-63: no authenticator app is set up for a person of a federated domain
+                'federated' => ! $this->federated->admitsLocalCredentials($user),
                 'error' => $error,
             ],
             $status,

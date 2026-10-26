@@ -6,7 +6,7 @@ The identities are disposable: the keys are the test keys of `tests/saml2-bindin
 
 ## SimpleSAMLphp 2.5.3.1, 30 September 2026
 
-Captured by the harness of `beffroi-php/saml2-model` (its `tests/saml2-model/Interop/simplesamlphp/`, section 4 of its README), in
+Captured by the harness of `beffroi-auth/saml2-model` (its `tests/saml2-model/Interop/simplesamlphp/`, section 4 of its README), in
 the exchange between SimpleSAMLphp's service provider `for-model` and the model's identity provider, run with
 `castor saml2-bindings-simplesamlphp --keep` on PHP 8.5.10 at 13:07 UTC, its documents issued between 13:07:34 and 13:07:35 UTC.
 Committed to the model by c2fa7dd (30 September 2026), and copied here byte for byte from its `tests/saml2-model/Fixture/real/` at

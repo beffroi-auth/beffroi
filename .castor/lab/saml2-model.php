@@ -114,6 +114,7 @@ function saml2_model_xmlsec1(array $files, string $certificate): void
     in_alpine(
         'apk add -q xmlsec libxml2-utils >/dev/null 2>&1 && xmlsec1 --version && sh tests/saml2-model/Fixture/oracle/verify-signatures.sh '
             . implode(' ', array_map(escapeshellarg(...), [$certificate, ...$files])),
+        ['tests/saml2-model/Fixture/oracle/verify-signatures.sh', $certificate, ...$files],
     );
 }
 
@@ -286,6 +287,7 @@ function saml2_model_simplesamlphp_verify(string $in, string $glob): void
     saml2_model_simplesamlphp_library(['php', 'verify.php', '/in', $glob], [$in => '/in:ro']);
     in_alpine(
         'apk add -q xmlsec libxml2-utils && sh ' . SAML2_MODEL_SIMPLESAMLPHP . '/xmlsec1-verify.sh ' . escapeshellarg($in) . ' ' . escapeshellarg($glob),
+        [SAML2_MODEL_SIMPLESAMLPHP . '/xmlsec1-verify.sh', $in],
     );
 }
 
@@ -391,6 +393,7 @@ function saml2_model_keycloak(
             in_alpine(
                 'apk add -q xmlsec libxml2-utils openssl >/dev/null 2>&1 && xmlsec1 --version && sh tests/saml2-model/Interop/keycloak/verify.sh '
                     . escapeshellarg($output),
+                ['tests/saml2-model/Interop/keycloak/verify.sh', $output],
             );
         }
     } finally {

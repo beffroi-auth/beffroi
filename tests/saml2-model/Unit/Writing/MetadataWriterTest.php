@@ -271,6 +271,63 @@ final class MetadataWriterTest extends TestCase
     }
 
     /**
+     * Section 6.6 step 2, SAML Metadata §2.3.2: the cacheDuration its consumer gives is written on the root as the
+     * xs:duration of its seconds.
+     */
+    #[Test]
+    public function itWritesTheCacheDurationAsADurationInSeconds(): void
+    {
+        // Given
+        $descriptor = new EntityDescriptor(
+            'https://idp.example.com/saml',
+            null,
+            self::identityProvider('https://idp.example.com/saml'),
+            cacheDuration: 86_400,
+        );
+
+        // When
+        $document = new MetadataWriter()->write($descriptor, null);
+
+        // Then
+        static::assertSame('PT86400S', Attributes::optional($this->reload($document)->root(), new Name(null, 'cacheDuration')));
+    }
+
+    /**
+     * Section 6.6 step 2: no cacheDuration given, none written.
+     */
+    #[Test]
+    public function itWritesNoCacheDurationWhenNoneIsGiven(): void
+    {
+        // When
+        $document = new MetadataWriter()->write($this->identityProviderDescriptor(), null);
+
+        // Then
+        static::assertNull(Attributes::optional($document->root(), new Name(null, 'cacheDuration')));
+    }
+
+    /**
+     * Section 6.5 step 3, M-15: the reader reads a document whose root carries a cacheDuration, and does not read the
+     * cacheDuration, which is its consumer's.
+     */
+    #[Test]
+    public function itsReaderReadsTheMetadataAndNotItsCacheDuration(): void
+    {
+        // Given
+        $document = new MetadataWriter()->write(new EntityDescriptor(
+            'https://idp.example.com/saml',
+            null,
+            self::identityProvider('https://idp.example.com/saml'),
+            cacheDuration: 86_400,
+        ), null);
+
+        // When
+        $read = $this->reader()->readTrusted($this->reload($document));
+
+        // Then
+        static::assertSame(['https://idp.example.com/saml', null], [$read->entityId, $read->cacheDuration]);
+    }
+
+    /**
      * Section 5.7: without Signing, the document holds no Signature.
      */
     #[Test]

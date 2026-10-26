@@ -1201,6 +1201,14 @@ final class ConfigurationClientRepositoryTest extends TestCase
                 ],
             'registers a request_object_signing_alg',
         ];
+        yield 'signed request objects required, and read unsigned' => [
+            $base
+                + [
+                    'require_signed_request_object' => true,
+                    'request_object_signing_alg' => 'none',
+                ],
+            'registers no request_object_signing_alg under which an unsigned one is read (RFC 9101 section 10.5)',
+        ];
         yield 'request_uri over plain http' => [
             $base
                 + [

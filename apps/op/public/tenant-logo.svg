@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  A placeholder mark for the tenant of the development stack (issue beffroi-php/beffroi#449), served from
+  A placeholder mark for the tenant of the development stack (issue beffroi-auth/beffroi#449), served from
   the origin of the application itself so that the policy of every page allows it under 'self'. It is here
   to show where a logo lands and how large a page draws it, and it is not a brand: a deployment points
   "beffroi.tenant.look.logo_uri" at whatever mark it owns. Two tones rather than currentColor, an image a

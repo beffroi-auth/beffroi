@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Http;
 
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Domain\Credential\PasskeyCredential;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\CanPageCredentialsInterface;
@@ -20,6 +21,7 @@ final readonly class PasskeysPage
         private AskedPage $asked,
         private AskedPeriod $period,
         private InteractionPages $pages,
+        private FederatedDomains $federated,
     ) {
     }
 
@@ -37,6 +39,8 @@ final readonly class PasskeysPage
                 'passkeys' => $this->credentials->pageOfCredentials($user, PasskeyCredential::class, $this->asked->asked(), $period),
                 'period' => $period,
                 'error' => $error,
+                // decision 0029, beffroi/saml S-63: no passkey is posed for a person of a federated domain
+                'federated' => ! $this->federated->admitsLocalCredentials($user),
             ],
             $status,
         );

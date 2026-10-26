@@ -60,6 +60,14 @@ use Beffroi\Bundle\Migrations\Version20261011120000;
 use Beffroi\Bundle\Migrations\Version20261011150000;
 use Beffroi\Bundle\Migrations\Version20261011160000;
 use Beffroi\Bundle\Migrations\Version20261011170000;
+use Beffroi\Bundle\Migrations\Version20261015120000;
+use Beffroi\Bundle\Migrations\Version20261015173400;
+use Beffroi\Bundle\Migrations\Version20261015200000;
+use Beffroi\Bundle\Migrations\Version20261020153500;
+use Beffroi\Bundle\Migrations\Version20261022120000;
+use Beffroi\Bundle\Migrations\Version20261022150000;
+use Beffroi\Bundle\Migrations\Version20261022180000;
+use Beffroi\Bundle\Migrations\Version20261023120000;
 use function implode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -130,6 +138,14 @@ final class MigrationTest extends DatabaseTestCase
         Version20261011150000::class,
         Version20261011160000::class,
         Version20261011170000::class,
+        Version20261015120000::class,
+        Version20261015173400::class,
+        Version20261015200000::class,
+        Version20261020153500::class,
+        Version20261022120000::class,
+        Version20261022150000::class,
+        Version20261022180000::class,
+        Version20261023120000::class,
     ];
 
     #[Test]
@@ -190,7 +206,7 @@ final class MigrationTest extends DatabaseTestCase
     }
 
     #[Test]
-    public function theMigrationsCreateTheThirtyTablesOfTheBundle(): void
+    public function theMigrationsCreateTheThirtyFiveTablesOfTheBundle(): void
     {
         // Given
         $connection = DriverManager::getConnection([
@@ -202,7 +218,7 @@ final class MigrationTest extends DatabaseTestCase
         $statements = self::statements($connection);
 
         // Then
-        static::assertCount(30, array_filter($statements, static fn (string $statement): bool => str_starts_with($statement, 'CREATE TABLE ')));
+        static::assertCount(35, array_filter($statements, static fn (string $statement): bool => str_starts_with($statement, 'CREATE TABLE ')));
     }
 
     /**
@@ -476,6 +492,19 @@ final class MigrationTest extends DatabaseTestCase
                         static fn (string $earlier): string => str_contains($earlier, $matches[1])
                             ? self::renamed($earlier, $matches[2], $matches[3])
                             : $earlier,
+                        $statements,
+                    );
+
+                    continue;
+                }
+                // a table a later migration renames, and the constraint of one, are those the mappings describe,
+                // wherever an earlier statement named them
+                if (
+                    preg_match('/^ALTER TABLE (\S+) RENAME TO (\S+)$/', $statement, $matches) === 1
+                    || preg_match('/^ALTER TABLE \S+ RENAME CONSTRAINT (\S+) TO (\S+)$/', $statement, $matches) === 1
+                ) {
+                    $statements = array_map(
+                        static fn (string $earlier): string => self::renamed($earlier, $matches[1], $matches[2]),
                         $statements,
                     );
 

@@ -3,7 +3,7 @@
   <saml:Subject>
     <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" NameQualifier="https://idp.example.com/saml" SPNameQualifier="https://sp.example.com/saml">_7a2f4c1d9e</saml:NameID>
     <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
-      <saml:SubjectConfirmationData NotOnOrAfter="2026-09-30T13:00:01Z" Recipient="https://sp.example.com/saml/acs" InResponseTo="_request" Address="192.0.2.1"/>
+      <saml:SubjectConfirmationData NotOnOrAfter="2026-09-30T13:03:01Z" Recipient="https://sp.example.com/saml/acs" InResponseTo="_request" Address="192.0.2.1"/>
     </saml:SubjectConfirmation>
   </saml:Subject>
   <saml:Conditions NotBefore="2026-09-30T11:59:28Z" NotOnOrAfter="2026-09-30T12:04:58Z">

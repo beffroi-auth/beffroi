@@ -1,9 +1,8 @@
 # Split configuration for jderusse/gitsplit. Each directory below is mirrored, read only, into
-# its own repository: the three packages of the identity provider, the SAML packages, and the
-# standalone application, which is deployed from a build of apps/op and never installed as a
-# dependency. A mirror carries the maintained
-# branches and the release tags listed under origins, and nothing else; the monorepo is where the
-# work happens.
+# its own repository: the packages of the identity provider, its SAML module among them, the
+# SAML packages, and the standalone application, which is deployed from a build of apps/op and
+# never installed as a dependency. A mirror carries the maintained branches and the release tags
+# listed under origins, and nothing else; the monorepo is where the work happens.
 #
 # The tag pattern is the one laminas/automatic-releases writes when a version milestone is
 # closed: the milestone title itself, without a "v".
@@ -16,19 +15,21 @@
 
 splits:
   - prefix: "src/core"
-    target: "https://${GH_TOKEN}@github.com/beffroi-php/core.git"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/core.git"
   - prefix: "src/oidc"
-    target: "https://${GH_TOKEN}@github.com/beffroi-php/oidc.git"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/oidc.git"
   - prefix: "src/symfony"
-    target: "https://${GH_TOKEN}@github.com/beffroi-php/symfony-bundle.git"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/symfony-bundle.git"
   - prefix: "src/xml-security"
-    target: "https://${GH_TOKEN}@github.com/beffroi-php/xml-security.git"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/xml-security.git"
   - prefix: "src/saml2-model"
-    target: "https://${GH_TOKEN}@github.com/beffroi-php/saml2-model.git"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/saml2-model.git"
   - prefix: "src/saml2-bindings"
-    target: "https://${GH_TOKEN}@github.com/beffroi-php/saml2-bindings.git"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/saml2-bindings.git"
+  - prefix: "src/saml"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/saml.git"
   - prefix: "apps/op"
-    target: "https://${GH_TOKEN}@github.com/beffroi-php/op.git"
+    target: "https://${GH_TOKEN}@github.com/beffroi-auth/op.git"
 
 origins:
   - ^\d+\.\d+\.x$

@@ -25,7 +25,7 @@ use function sort;
 use function str_starts_with;
 
 /**
- * Decision 0027 and the SOLID rule of `CLAUDE.md`: a value object a column holds whole writes its own
+ * Decision 0027 and the SOLID rule of `AGENTS.md`: a value object a column holds whole writes its own
  * document, and **no mapping of the bundle holds a Doctrine embeddable** but one. That one is the
  * authorization request an interaction parks (architecture §5.3), and what keeps it is not a preference.
  *
@@ -161,7 +161,7 @@ final class OneEmbeddableRemainsTest extends DatabaseTestCase
 
     /**
      * Two of those eight are handed a registry, which a type reading one document for the whole object
-     * would have to be handed too, and which is what the SOLID rule of `CLAUDE.md` refuses to gather in
+     * would have to be handed too, and which is what the SOLID rule of `AGENTS.md` refuses to gather in
      * one class.
      */
     #[Test]

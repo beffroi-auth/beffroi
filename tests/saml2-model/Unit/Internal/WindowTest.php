@@ -48,13 +48,15 @@ final class WindowTest extends TestCase
     }
 
     /**
-     * M-7: now plus maxBearerWindow, the latest a bearer NotOnOrAfter may be.
+     * M-7, section 7: now plus maxBearerWindow and the clock skew, the latest a bearer NotOnOrAfter may be, the skew
+     * added as to every instant ahead of now, since Entra ends its bearer window maxBearerWindow itself after the
+     * instant it issues from.
      */
     #[Test]
-    public function itGivesNowPlusTheBearerWindowAsItsLimit(): void
+    public function itGivesNowPlusTheBearerWindowAndTheSkewAsItsLimit(): void
     {
         // When / Then
-        static::assertSame('2026-09-30T12:15:00.500000', $this->window()->bearerLimit()->format('Y-m-d\TH:i:s.u'));
+        static::assertSame('2026-09-30T12:17:00.500000', $this->window()->bearerLimit()->format('Y-m-d\TH:i:s.u'));
     }
 
     private function window(): Window

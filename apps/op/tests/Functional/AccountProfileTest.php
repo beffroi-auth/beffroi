@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The page of what this provider holds of the signed-in person, which is this application's and not the
- * bundle's (issue beffroi-php/op#17), judged on the kernel this application deploys: the claims its own
+ * bundle's (issue beffroi-auth/op#17), judged on the kernel this application deploys: the claims its own
  * tenant opens, the form component it alone installs, and the stylesheet that makes the editing in place.
  *
  * What the bundle's own page does is judged by the suite of the bundle. What is here is what only this
@@ -37,7 +37,7 @@ final class AccountProfileTest extends BrowserTestCase
     }
 
     /**
-     * Issue beffroi-php/beffroi#452: what a person may change is what the tenant opens, and this tenant
+     * Issue beffroi-auth/beffroi#452: what a person may change is what the tenant opens, and this tenant
      * opens fourteen claims (config/packages/beffroi.yaml). The page is one list of what the record holds,
      * so they are offered in the order the record is read in and not in the order the tenant named them:
      * a line is where the reader expects the claim, whether they may change it or only read it.
@@ -71,7 +71,7 @@ final class AccountProfileTest extends BrowserTestCase
     }
 
     /**
-     * Issue beffroi-php/op#17: the message goes under the line it is about, which is the whole reason this
+     * Issue beffroi-auth/op#17: the message goes under the line it is about, which is the whole reason this
      * application installs a form component where the page of the bundle says one sentence for the page.
      * The refusal here is the claim's own, a name the zoneinfo database does not carry, and it is made on
      * the server: the page offers the set as suggestions, so its form can be sent with anything.
@@ -96,7 +96,7 @@ final class AccountProfileTest extends BrowserTestCase
     }
 
     /**
-     * Issue beffroi-php/op#17: what a person says of themselves on this page is what the use case of the
+     * Issue beffroi-auth/op#17: what a person says of themselves on this page is what the use case of the
      * core writes, the form of the component carrying it there and nothing else.
      */
     #[Test]
@@ -114,7 +114,7 @@ final class AccountProfileTest extends BrowserTestCase
     }
 
     /**
-     * Issue beffroi-php/op#17: the editing in place is a stylesheet and not a behaviour, so a browser that
+     * Issue beffroi-auth/op#17: the editing in place is a stylesheet and not a behaviour, so a browser that
      * runs nothing is served a field and a button that work. A script on this page would be a page that
      * needs one.
      */
@@ -134,7 +134,7 @@ final class AccountProfileTest extends BrowserTestCase
 
     /**
      * The form of one claim, submitted with the value given, and the page the redirection it answers with
-     * names (issue beffroi-php/beffroi#522).
+     * names (issue beffroi-auth/beffroi#522).
      */
     private function describe(string $claim, string $value): Crawler
     {

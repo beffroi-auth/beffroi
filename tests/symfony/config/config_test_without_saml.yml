@@ -1,0 +1,6 @@
+# A deployment whose tenant was a SAML identity provider and no longer is (beffroi/saml, spec/saml.md section 5.1):
+# the identity provider turned off after the tenant drew its SAML key, which leaves that key in the key directory
+# of the tenant, dormant, while everything else goes on (DisabledIdentityProviderTest).
+beffroi:
+    saml:
+        identity_provider: false

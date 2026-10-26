@@ -32,6 +32,7 @@ use Beffroi\Core\Domain\Event\PasskeyUsed;
 use Beffroi\Core\Domain\Event\PersonAskedForTheirArchive;
 use Beffroi\Core\Domain\Event\PersonDescribedThemselves;
 use Beffroi\Core\Domain\Event\PersonDroppedTheirArchive;
+use Beffroi\Core\Domain\Event\PersonProvisioned;
 use Beffroi\Core\Domain\Event\PersonTookTheirArchive;
 use Beffroi\Core\Domain\Event\PasswordRehashed;
 use Beffroi\Core\Domain\Event\PasswordUsed;
@@ -105,6 +106,8 @@ final class EventsLeaveTheProcessTest extends TestCase
             'alice',
             $user,
         )];
+        // the subject of the person and the name of the provider, and never what that provider said of them
+        yield 'a person an upstream provider created' => [new PersonProvisioned($now, $tenant, $user->subject, 'https://idp.acme.example/saml', $context)];
         yield 'a person who said something of themselves' => [new PersonDescribedThemselves($user, 'nickname', false, $now, $context)];
         yield 'a person who took something back' => [new PersonDescribedThemselves($user, 'nickname', true, $now, $context)];
         // the identifier of the archive and never the archive, which holds in the clear everything this

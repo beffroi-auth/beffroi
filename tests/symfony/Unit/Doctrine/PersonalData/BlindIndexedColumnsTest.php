@@ -36,9 +36,8 @@ final class BlindIndexedColumnsTest extends TestCase
     }
 
     /**
-     * RFC 5321 §2.4: the domain of an address is case-insensitive, while the local part is the business of
-     * the receiving server and case-sensitive to everyone else. So two addresses that differ only by the
-     * case of their domain share a tag, and two that differ by their local part do not.
+     * RFC 5321 §2.4: the domain of an address is case-insensitive, so two addresses that differ only by the
+     * case of their domain share a tag.
      */
     #[Test]
     public function anAddressDifferingOnlyByTheCaseOfItsDomainIsTheSameTag(): void
@@ -51,8 +50,19 @@ final class BlindIndexedColumnsTest extends TestCase
     }
 
     /**
-     * RFC 5321 §2.4: the local part is case-sensitive, so the projection leaves it alone.
+     * Issue #781: the address is folded whole, its local part as well, every server a person reads their
+     * mail on ignoring its case: two persons never hold one mailbox under two spellings of it.
      */
+    #[Test]
+    public function anAddressDifferingOnlyByTheCaseOfItsLocalPartIsTheSameTag(): void
+    {
+        // Given
+        $index = self::index('email');
+
+        // When / Then
+        static::assertSame($index->of('Ada@example.org'), $index->of('ada@example.org'));
+    }
+
     #[Test]
     public function anAddressDifferingByItsLocalPartIsADifferentTag(): void
     {
@@ -60,7 +70,7 @@ final class BlindIndexedColumnsTest extends TestCase
         $index = self::index('email');
 
         // When / Then
-        static::assertNotSame($index->of('Ada@example.org'), $index->of('ada@example.org'));
+        static::assertNotSame($index->of('ada@example.org'), $index->of('grace@example.org'));
     }
 
     /**

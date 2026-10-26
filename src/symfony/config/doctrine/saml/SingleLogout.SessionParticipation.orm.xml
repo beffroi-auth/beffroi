@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
+                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <!--
+      Each service provider's part in a session of the core (beffroi/saml, spec/saml.md S-26): one row per session
+      and service provider, written once from the event single sign-on announces, whatever the number of sign-ons,
+      and deleted with the session, as the authorization codes of a session are. What the logout the identity
+      provider starts reads to tell each service provider of an ended session (issue #735), by the session.
+
+      The service provider names an application, as the client of an authorization code does, and is in the clear.
+    -->
+    <entity name="Beffroi\Saml\Domain\SingleLogout\SessionParticipation" table="beffroi_saml_session_participant">
+        <unique-constraints>
+            <unique-constraint name="beffroi_saml_session_participant_once" columns="session_id,service_provider"/>
+        </unique-constraints>
+        <id name="id" type="uuid" column="id"/>
+        <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
+            <join-column name="tenant_id" referenced-column-name="id" nullable="false"/>
+        </many-to-one>
+        <many-to-one field="session" target-entity="Beffroi\Core\Domain\Session\AuthenticationSession">
+            <join-column name="session_id" referenced-column-name="id" nullable="false" on-delete="CASCADE"/>
+        </many-to-one>
+        <field name="serviceProvider" type="string" column="service_provider" length="1024"/>
+        <field name="signedInAt" type="datetime_immutable" column="signed_in_at"/>
+    </entity>
+</doctrine-mapping>

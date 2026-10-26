@@ -7,11 +7,13 @@ namespace Beffroi\Bundle\Doctrine\Repository;
 use Beffroi\Bundle\Doctrine\EntityManagers;
 use Beffroi\Bundle\Doctrine\PersonalData\BlindIndexedColumns;
 use Beffroi\Bundle\Doctrine\PersonalData\TenantBlindIndexes;
+use Beffroi\Core\Application\Identity\IdentityAlreadyLinkedException;
 use Beffroi\Core\Domain\Identity\LinkedIdentity;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Port\LinkedIdentitiesOfAPersonInterface;
 use Beffroi\Core\Port\LinkedIdentityRepositoryInterface;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 
 /**
@@ -69,8 +71,20 @@ final readonly class DoctrineLinkedIdentityRepository extends DoctrineRepository
         return $identities;
     }
 
+    /**
+     * The unique constraint on the pair is what refuses an identity another request linked between the lookup and
+     * this write, a first sign-in through an upstream provider racing another (beffroi/saml S-56): the violation
+     * becomes the exception of the core the unit answers, naming nothing. The failed flush closes the manager, which
+     * the registry replaces (EntityManagers).
+     *
+     * @throws IdentityAlreadyLinkedException when the table refuses the identity at its unique constraint
+     */
     public function save(LinkedIdentity $identity): void
     {
-        $this->store($identity);
+        try {
+            $this->store($identity);
+        } catch (UniqueConstraintViolationException $exception) {
+            throw IdentityAlreadyLinkedException::linkedMeanwhile($exception);
+        }
     }
 }

@@ -1,6 +1,7 @@
 #!/bin/sh
-# Entrypoint of the conformance suite server container: trusts the internal CA of the Caddy
-# instance serving the OP (mounted read-only from the caddy_data volume) and the self-signed
+# Entrypoint of the conformance suite server container: trusts the root of the certificate the OP
+# serves (the one the op container publishes in the caddy_data volume, mounted read-only: the mkcert
+# root of the machine or the internal CA of Caddy, docker/op/entrypoint.sh) and the self-signed
 # certificate of the suite's own nginx, then starts the suite exactly as the upstream image does
 # (gitlab.com/openid/conformance-suite, Dockerfile).
 #
@@ -10,15 +11,15 @@
 # conformance-redirector sidecar of compose.yaml forwards from the loopback of this container to nginx.
 set -eu
 
-CA=/caddy/caddy/pki/authorities/local/root.crt
+CA=/caddy/beffroi/root.crt
 for i in $(seq 1 60); do
 	[ -f "$CA" ] && break
-	echo "Waiting for the Caddy internal CA at $CA ($i/60)..."
+	echo "Waiting for the CA of Caddy at $CA ($i/60)..."
 	sleep 2
 done
 if [ -f "$CA" ]; then
 	keytool -importcert -noprompt -trustcacerts -alias caddy-local -file "$CA" -cacerts -storepass changeit \
-		&& echo "Caddy internal CA trusted by the JVM" \
+		&& echo "CA of Caddy trusted by the JVM" \
 		|| echo "Could not import the Caddy CA; the OP must then be reachable with a publicly trusted certificate" >&2
 else
 	echo "No Caddy CA found; the OP must be reachable with a publicly trusted certificate" >&2

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Passkey;
 
+use Beffroi\Core\Domain\Identity\UpstreamProvider;
+use Beffroi\Core\Domain\Identity\EmailDomain;
+use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Domain\Session\PhishingResistantHardware;
 use Beffroi\Core\Bridge\Random\PlatformRandomness;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -42,6 +47,8 @@ final class PasskeyEnrolmentTest extends TestCase
 
     private PasskeyEnrolment $enrolment;
 
+    private InMemoryUpstreamProviders $upstreamProviders;
+
     protected function setUp(): void
     {
         $this->alice = Fixtures::user();
@@ -49,9 +56,10 @@ final class PasskeyEnrolmentTest extends TestCase
         $this->registrar = new FakePasskeyRegistrar();
         $this->events = new RecordingEventDispatcher();
         $this->clock = new MockClock('2026-09-19T12:00:00+00:00');
+        $this->upstreamProviders = new InMemoryUpstreamProviders();
         $this->enrolment = new PasskeyEnrolment(
             $this->credentials,
-            new EnrolmentRefusal(),
+            new EnrolmentRefusal(new FederatedDomains($this->upstreamProviders)),
             new SymfonyUuidGenerator(),
             new PlatformRandomness(),
             $this->registrar,
@@ -245,5 +253,27 @@ final class PasskeyEnrolmentTest extends TestCase
 
         // Then
         static::assertSame([$passkey], $this->credentials->findByUser($carol));
+    }
+
+    /**
+     * Decision 0029, spec/saml.md S-63: no passkey is posed for a person of an e-mail domain the tenant federates to
+     * an upstream provider, through which alone they sign in.
+     */
+    #[Test]
+    public function aPasskeyIsPosedForNobodyOfAFederatedDomain(): void
+    {
+        // Given
+        $user = $this->alice;
+        $this->upstreamProviders->declare($user->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $user->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+        $options = $this->enrolment->begin($user);
+        $this->registrar->returns(FakePasskeyRegistrar::record($options, 'bound'));
+
+        // Then
+        $this->expectException(CredentialEnrolmentFailedException::class);
+        $this->expectExceptionMessageIs('A passkey is posed for nobody of an e-mail domain the tenant "acme" federates to an upstream provider, through which alone they sign in.');
+
+        // When
+        $this->enrolment->complete($user, 'YubiKey 5', $options, '{"id":"bound"}', Fixtures::context());
     }
 }

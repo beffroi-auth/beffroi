@@ -28,6 +28,7 @@ use Beffroi\Saml2\Model\Tests\Support\InMemoryReplayGuard;
 use Beffroi\Saml2\Model\Tests\Unit\Metadata\MetadataFixtures;
 use Beffroi\Saml2\Model\Validation\ExpectedResponse;
 use Beffroi\Saml2\Model\Validation\ResponseValidator;
+use Beffroi\Saml2\Model\Validation\TimeBounds;
 use Beffroi\Saml2\Model\Value\SamlId;
 use Beffroi\Xml\Core\Document;
 use Beffroi\Xml\Core\Serializer;
@@ -96,9 +97,9 @@ final class ResponseWriterFixtures
     }
 
     /**
-     * The assertion with the parts the profile requires only: an unspecified NameID, a confirmation without Address,
-     * Conditions without window holding one AudienceRestriction of one Audience, an authentication statement without
-     * SessionNotOnOrAfter, no attribute.
+     * The assertion with the parts the profile requires only: an unspecified NameID, a confirmation without Address
+     * whose window ends five minutes after the issue, Conditions without window holding one AudienceRestriction of one
+     * Audience, an authentication statement without SessionNotOnOrAfter, no attribute; a test names the end it changes.
      */
     public static function assertion(
         ?string $inResponseTo = self::REQUEST,
@@ -108,15 +109,22 @@ final class ResponseWriterFixtures
         ?string $id = null,
         string $issueInstant = self::NOW,
         ?Conditions $conditions = null,
+        string $bearerNotOnOrAfter = '2026-10-01T12:05:00Z',
+        ?string $sessionNotOnOrAfter = null,
     ): Assertion {
         return new Assertion(
             $id ?? SamlId::generate(),
             new DateTimeImmutable($issueInstant),
             new Issuer($issuer),
             new NameId('alice'),
-            new SubjectConfirmation($recipient, new DateTimeImmutable('2026-10-01T12:05:00Z'), $inResponseTo, null),
+            new SubjectConfirmation($recipient, new DateTimeImmutable($bearerNotOnOrAfter), $inResponseTo, null),
             $conditions ?? new Conditions(null, null, [[self::SERVICE_PROVIDER]], false),
-            new AuthnStatement(new DateTimeImmutable('2026-10-01T11:59:30Z'), $sessionIndex, null, self::CONTEXT_CLASS),
+            new AuthnStatement(
+                new DateTimeImmutable('2026-10-01T11:59:30Z'),
+                $sessionIndex,
+                $sessionNotOnOrAfter === null ? null : new DateTimeImmutable($sessionNotOnOrAfter),
+                self::CONTEXT_CLASS,
+            ),
             [],
         );
     }
@@ -192,6 +200,7 @@ final class ResponseWriterFixtures
             SamlLoader::create(),
             new FrozenClock(new DateTimeImmutable(self::NOW)),
             new InMemoryReplayGuard(),
+            new TimeBounds(),
         );
     }
 

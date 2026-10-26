@@ -436,7 +436,7 @@ final class Exchange
             $this->record('idp-logoutresponse-to-model', $xml);
         }
 
-        $response = new LogoutResponseValidator(SamlLoader::create(), $this->clock)->validate(
+        $response = new LogoutResponseValidator(SamlLoader::create(), $this->clock, new InMemoryReplayGuard())->validate(
             UnverifiedLogoutResponse::of(SamlLoader::create()->load($xml)),
             $idp,
             $this->serviceProviderRole(),
@@ -641,7 +641,7 @@ final class Exchange
             $this->record('sp-logoutrequest-to-model', $xml);
             $this->record('sp-logoutrequest-to-model-query', (string) parse_url($url, PHP_URL_QUERY), 'txt');
         }
-        $accepted = new LogoutRequestValidator(SamlLoader::create(), $this->clock)->validateAuthenticatedByBinding(
+        $accepted = new LogoutRequestValidator(SamlLoader::create(), $this->clock, new InMemoryReplayGuard())->validateAuthenticatedByBinding(
             UnverifiedLogoutRequest::of(SamlLoader::create()->load($xml)),
             $sp,
             $this->identityProviderRole(),

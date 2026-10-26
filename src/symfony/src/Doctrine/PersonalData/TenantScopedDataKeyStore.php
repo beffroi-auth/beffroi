@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Bundle\Doctrine\PersonalData;
 
 use Beffroi\Core\Domain\Tenant\Tenant;
-use Symfony\Component\KeyManagement\Ciphertext;
+use Symfony\Component\KeyManagement\DataKey;
 use Symfony\Component\KeyManagement\DataKeyHandle;
 use Symfony\Component\KeyManagement\RewrappableDataKeyStoreInterface;
 use Symfony\Component\KeyManagement\StoredDataKey;
@@ -55,9 +55,9 @@ final readonly class TenantScopedDataKeyStore implements RewrappableDataKeyStore
         return $this->store->get($reference);
     }
 
-    public function rewrap(string $reference, Ciphertext $wrapped, string $client): void
+    public function rewrap(StoredDataKey $row, DataKey $rewrapped, string $client): void
     {
-        $this->store->rewrap($reference, $wrapped, $client);
+        $this->store->rewrap($row, $rewrapped, $client);
     }
 
     public function wrappingContextOf(StoredDataKey $row): string

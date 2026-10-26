@@ -63,9 +63,10 @@ security:
             lazy: true
             provider: beffroi
             user_checker: Beffroi\Bundle\Security\UserChecker
-            # The three logins of the bundle, each an authenticator of its own: the form of the login
-            # page, the assertion that page posts, and the code posted by the code page, with one
-            # LoginSuccessListener for the three (architecture §5.4). Each hands what it reads to a use
+            # The four logins of the bundle, each an authenticator of its own: the form of the login
+            # page, the assertion that page posts, the code posted by the code page, and the response an
+            # upstream identity provider posts to the assertion consumer service (beffroi/saml S-52),
+            # with one LoginSuccessListener for the four (architecture §5.4). Each hands what it reads to a use
             # case of the core, where the order of a login is written once and nothing of it is written
             # a second time here (issue #130), which is why the form login of Symfony is not wired: it
             # would verify a hash the core has verified. The entry point is the login page.
@@ -74,6 +75,7 @@ security:
                 - Beffroi\Bundle\Security\PasswordLoginAuthenticator
                 - Beffroi\Bundle\Security\PasskeyLoginAuthenticator
                 - Beffroi\Bundle\Security\TotpLoginAuthenticator
+                - Beffroi\Bundle\Security\UpstreamAssertionAuthenticator
 
 # SQLite in a file of the cache directory (architecture §7): a kernel reboot between two requests keeps the
 # rows, a fresh schema is created by the tests that need one. The mappings and the types of the bundle are
@@ -188,6 +190,11 @@ beffroi:
     # subject is what wires it, here as in any deployment (architecture §5.6).
     web_push:
         subject: 'mailto:operator@op.test'
+    # The tenant of the tests is a SAML identity provider (beffroi/saml, spec/saml.md section 6.1): its key is
+    # drawn by the key commands under SAML-SIGNING, as every key of the tenant, and its metadata is served at
+    # /saml/metadata, WantAuthnRequestsSigned left at its default.
+    saml:
+        identity_provider: ~
     mutual_tls:
         # The host whose listener asks for a client certificate (RFC 8705 §5): the same application, the
         # aliases of the discovery document pointing at it.
@@ -820,6 +827,12 @@ services:
     test.beffroi.linked_identities:
         alias: Beffroi\Core\Port\LinkedIdentityRepositoryInterface
         public: true
+    test.beffroi.atomic_writes:
+        alias: Beffroi\Core\Port\AtomicWritesInterface
+        public: true
+    test.beffroi.user_provisioner:
+        alias: Beffroi\Core\Application\Identity\UserProvisioner
+        public: true
     test.beffroi.push_subscriptions:
         alias: Beffroi\Core\Port\PushSubscriptionRepositoryInterface
         public: true
@@ -844,6 +857,15 @@ services:
     test.beffroi.claim_history:
         alias: Beffroi\Core\Port\ClaimHistoryInterface
         public: true
+    test.beffroi.saml_accepted_metadata:
+        alias: Beffroi\Saml\Port\AcceptedMetadataRepositoryInterface
+        public: true
+    test.beffroi.saml_upstream_accepted_metadata:
+        alias: beffroi.saml.identity_providers.accepted_metadata
+        public: true
+    test.beffroi.saml_session_participants:
+        alias: Beffroi\Saml\Port\SessionParticipationRepositoryInterface
+        public: true
     test.beffroi.changes:
         alias: Beffroi\Core\Port\ChangesOfAPersonInterface
         public: true
@@ -855,6 +877,15 @@ services:
         public: true
     test.beffroi.groups_of_a_person:
         alias: Beffroi\Core\Port\GroupsOfAPersonInterface
+        public: true
+    test.beffroi.groups:
+        alias: Beffroi\Core\Port\GroupRepositoryInterface
+        public: true
+    test.beffroi.group_memberships:
+        alias: Beffroi\Core\Port\GroupMembershipRepositoryInterface
+        public: true
+    test.beffroi.upstream_memberships:
+        alias: Beffroi\Core\Application\Group\UpstreamMemberships
         public: true
     test.beffroi.archive_request:
         alias: Beffroi\Core\Application\Archive\ArchiveRequest
@@ -973,3 +1004,42 @@ services:
         decorates: beffroi_test.kms
         arguments: ['@.inner']
         public: true
+
+# The service providers of the tenant of the tests, declared for the environment "test" alone (the YAML loader
+# reads "when@<environment>"): an environment of its own that turns the identity provider off, as
+# config_test_without_saml.yml does, adds to this file and cannot take a declaration out of it, and the
+# configuration refuses service providers for a tenant that is no identity provider (spec/saml.md section 5.2).
+when@test:
+    beffroi:
+        saml:
+            # A SimpleSAMLphp service provider (spec/saml.md section 5.2): its metadata read from a file the tests
+            # write in the cache directory of the kernel, the one of their worker, by
+            # "beffroi:saml:service-provider:refresh"; its assertions encrypted, its metadata holding a key for it.
+            service_providers:
+                'https://localhost:8082/simplesaml/module.php/saml/sp/metadata/default-sp':
+                    metadata: '%kernel.cache_dir%/saml/simplesamlphp-sp-metadata.xml'
+                    attributes:
+                        'urn:oid:0.9.2342.19200300.100.1.3':
+                            claim: email
+                            friendly_name: mail
+                    encrypt_assertions: true
+                # The service provider of single sign-on (spec/saml.md section 6.4): its metadata a file of the suite, which
+                # publishes the test key of a service provider of saml2-model, the key its requests are signed with; two
+                # claims of the provider sent under their OID names.
+                'https://sp.example.org/saml':
+                    metadata: '%kernel.project_dir%/../saml/Fixture/metadata/sp-example-org-metadata.xml'
+                    attributes:
+                        'urn:oid:0.9.2342.19200300.100.1.3':
+                            claim: email
+                            friendly_name: mail
+                        'urn:oid:2.16.840.1.113730.3.1.241':
+                            claim: name
+                            friendly_name: displayName
+                # Entra's SAML federation of guests (issue #736, spec/saml.md section 7): its metadata the ones an
+                # administrator writes by hand, no key, its requests unsigned; the one claim it requires.
+                'https://login.microsoftonline.com/aaaabbbb-0000-cccc-1111-dddd2222eeee/':
+                    metadata: '%kernel.project_dir%/../saml/Fixture/metadata/entra-guest-federation-sp.xml'
+                    signs_authn_requests: false
+                    attributes:
+                        'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress':
+                            claim: email

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Passkey;
 
+use Beffroi\Core\Domain\Identity\UpstreamProvider;
+use Beffroi\Core\Domain\Identity\EmailDomain;
+use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use DateInterval;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
@@ -53,6 +58,8 @@ final class PasskeyAuthenticationTest extends TestCase
 
     private PublicKeyCredentialRequestOptions $options;
 
+    private InMemoryUpstreamProviders $upstreamProviders;
+
     protected function setUp(): void
     {
         $this->tenant = Fixtures::tenant();
@@ -64,6 +71,7 @@ final class PasskeyAuthenticationTest extends TestCase
         $this->ceremony = new FakePasskeyAuthenticator();
         $this->events = new RecordingEventDispatcher();
         $this->clock = new MockClock('2026-09-19T12:00:00+00:00');
+        $this->upstreamProviders = new InMemoryUpstreamProviders();
         $this->authentication = new PasskeyAuthentication(
             $this->credentials,
             new ActiveCredentials($this->credentials),
@@ -79,6 +87,7 @@ final class PasskeyAuthenticationTest extends TestCase
             new AuthenticationRefusal($this->clock, $this->events),
             $this->clock,
             $this->events,
+            new FederatedDomains($this->upstreamProviders),
         );
         $this->options = $this->authentication->requestOptions($this->tenant);
     }
@@ -283,6 +292,30 @@ final class PasskeyAuthenticationTest extends TestCase
             $failed = $this->events->of(AuthenticationFailed::class)[0];
             static::assertSame('hwk', $failed->method?->value);
             static::assertSame($this->alice, $failed->user);
+        }
+    }
+
+    /**
+     * Decision 0029, spec/saml.md S-63: a person of a domain the tenant federates signs in through its upstream
+     * provider and through nothing else, a passkey refused after the signature, as a revoked one is.
+     */
+    #[Test]
+    public function aPersonOfAFederatedDomainIsRefused(): void
+    {
+        // Given
+        $this->upstreamProviders->declare($this->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $this->alice->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+        $this->ceremony->verifies($this->passkey, Fixtures::authenticatorData());
+
+        // When
+        try {
+            $this->authentication->authenticate($this->tenant, $this->options, '{}', Fixtures::context($this->clock->now()));
+            static::fail('Authentication should have failed.');
+        } catch (AuthenticationFailedException $exception) {
+            // Then
+            static::assertSame(AuthenticationFailureReason::FederatedDomain, $exception->reason);
+            static::assertSame($this->alice, $this->events->of(AuthenticationFailed::class)[0]->user);
+            static::assertSame([], $this->sessions->findActiveByUser($this->alice, $this->clock->now()));
         }
     }
 

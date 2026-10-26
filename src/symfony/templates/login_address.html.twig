@@ -1,0 +1,29 @@
+{# The step of the address of the login page, of an interaction or of the login a page of the provider waits for, when
+   the tenant federates an e-mail domain to an upstream provider (decision 0029, beffroi/saml S-61): one field and
+   nothing else, no password, no passkey and no autofill of a passkey, since a person of a federated domain is offered
+   no local credential. What is typed decides where the browser goes, by its domain alone: the sign-on of the provider
+   of a federated domain, or the usual login page for any other address and for a username. The page is the same for
+   every visitor, so it says nothing of who holds an address. Overridable by an application under
+   templates/bundles/BeffroiBundle/. #}
+{% extends '@Beffroi/layout.html.twig' %}
+{% trans_default_domain 'beffroi' %}
+
+{% block title %}{{ 'login.title'|trans }}{% endblock %}
+
+{% block content %}
+    <p>{{ client is null ? 'login.prompt_alone'|trans : 'login.prompt'|trans({client: client.registration.presentation.name}) }}</p>
+    {% if step_up is not null %}
+        <p data-requirement="{{ requirement.value }}" data-acr="{{ step_up.classes|join(' ') }}">{{ client is null ? 'login.step_up_alone'|trans : 'login.step_up'|trans({client: client.registration.presentation.name}) }}</p>
+    {% elseif requirement is not null and requirement.value != 'no_session' %}
+        <p data-requirement="{{ requirement.value }}">{{ 'login.reauthentication'|trans }}</p>
+    {% endif %}
+    {% if refusal is not null %}
+        <p data-error="{{ refusal.code }}">{{ ('login.' ~ refusal.code)|trans }}</p>
+    {% endif %}
+    <form method="post" action="{{ path('beffroi_interaction_login_address', interaction is null ? {} : {interaction: interaction.id}) }}" data-step="address">
+        <input type="hidden" name="_token" value="{{ csrf_token('beffroi_login_address') }}">
+        <label for="address">{{ 'login.address'|trans }}</label>
+        <input type="text" id="address" name="_address" value="{{ address ?? '' }}" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+        <button type="submit">{{ 'login.continue'|trans }}</button>
+    </form>
+{% endblock %}

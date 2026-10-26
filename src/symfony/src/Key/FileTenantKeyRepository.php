@@ -45,6 +45,15 @@ use function usort;
  * The keys of a tenant as files (architecture §3.3), one JSON document per key under
  * "<storage>/<tenant slug>/<kid>.json", written through a sibling file renamed into place. What the key
  * is published for is what its algorithm says, so the document names the algorithm and nothing else.
+ *
+ * A file whose algorithm is dormant, the key of a capability the deployment turned off after the tenant
+ * drew it (DormantKeyAlgorithms), is read past: no method answers it, and it is read again as it was
+ * once the capability is turned back on.
+ *
+ * One material is the key of one algorithm: the "kid" is the thumbprint of the public half, so the key of
+ * another algorithm under the same "kid" is the same material, and it is refused rather than written over
+ * the file that holds it. For the keys the upstream SAML identity providers encrypt for, one algorithm per
+ * provider, that is what keeps the key of one provider from being the key of another (spec/saml.md S-64).
  */
 final readonly class FileTenantKeyRepository implements TenantKeyRepositoryInterface
 {
@@ -56,6 +65,7 @@ final readonly class FileTenantKeyRepository implements TenantKeyRepositoryInter
     public function __construct(
         private string $directory,
         private KeyAlgorithmsInterface $algorithms,
+        private DormantKeyAlgorithms $dormant = new DormantKeyAlgorithms(),
     ) {
     }
 
@@ -106,6 +116,15 @@ final readonly class FileTenantKeyRepository implements TenantKeyRepositoryInter
             throw new RuntimeException(sprintf('The key storage "%s" cannot be created.', $directory));
         }
         $path = $this->path($key->tenant, $key->kid);
+        $held = @file_get_contents($path);
+        if ($held !== false && self::algorithmOf($held) !== $key->algorithm->name()) {
+            throw new RuntimeException(sprintf(
+                'The key "%s" of tenant "%s" is held already, and not as a key of %s: one material is the key of one algorithm.',
+                $key->kid,
+                $key->tenant->slug,
+                $key->algorithm->name(),
+            ));
+        }
         $temporary = $path . '.' . bin2hex(random_bytes(8)) . '.tmp';
         $json = json_encode(
             [
@@ -146,7 +165,10 @@ final readonly class FileTenantKeyRepository implements TenantKeyRepositoryInter
             if ($json === false) {
                 throw new RuntimeException(sprintf('The key file "%s" cannot be read.', $path));
             }
-            $keys[] = $this->read($tenant, $path, $json);
+            $key = $this->read($tenant, $path, $json);
+            if ($key !== null) {
+                $keys[] = $key;
+            }
         }
         usort($keys, static fn (TenantKey $a, TenantKey $b): int => [$a->createdAt, $a->kid] <=> [$b->createdAt, $b->kid]);
 
@@ -156,8 +178,10 @@ final readonly class FileTenantKeyRepository implements TenantKeyRepositoryInter
     /**
      * A file that is not what this repository writes is a fault of the storage, not a missing key. The
      * transitions are replayed in order with their dates: the file holds facts, the key holds the rules.
+     *
+     * @return TenantKey|null null for the key of a dormant algorithm, which is left as it is
      */
-    private function read(Tenant $tenant, string $path, string $json): TenantKey
+    private function read(Tenant $tenant, string $path, string $json): ?TenantKey
     {
         try {
             $document = json_decode($json, true, 4, JSON_THROW_ON_ERROR);
@@ -174,6 +198,10 @@ final readonly class FileTenantKeyRepository implements TenantKeyRepositoryInter
             try {
                 $algorithm = $this->algorithms->named($document['algorithm']);
             } catch (UnsupportedAlgorithmException $exception) {
+                if ($this->dormant->holds($document['algorithm'])) {
+                    return null;
+                }
+
                 throw new RuntimeException(sprintf('The key file "%s" names an algorithm this provider is not wired with.', $path), 0, $exception);
             }
         }
@@ -218,6 +246,21 @@ final readonly class FileTenantKeyRepository implements TenantKeyRepositoryInter
         }
 
         return $key;
+    }
+
+    /**
+     * The algorithm a key file names, null when it names none or is not a key document.
+     */
+    private static function algorithmOf(string $json): ?string
+    {
+        try {
+            $document = json_decode($json, true, 4, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return null;
+        }
+        $algorithm = is_array($document) ? $document['algorithm'] ?? null : null;
+
+        return is_string($algorithm) ? $algorithm : null;
     }
 
     private static function date(string $path, mixed $value): DateTimeImmutable

@@ -2006,7 +2006,7 @@ final class AdversarialTest extends TestCase
                 throw new LogicException('A SAMLResponse is received as a LogoutResponse.');
             }
             $accepted = $received->validate(
-                new LogoutResponseValidator(SamlLoader::create(), $this->clockAt($case[1])),
+                new LogoutResponseValidator(SamlLoader::create(), $this->clockAt($case[1]), new InMemoryReplayGuard()),
                 $case[2],
                 $case[3],
                 $case[4],

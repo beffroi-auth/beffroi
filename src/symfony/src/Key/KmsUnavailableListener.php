@@ -64,9 +64,9 @@ final readonly class KmsUnavailableListener
     }
 
     /**
-     * The outage itself or what wrapped it on its way up.
+     * The outage itself or what wrapped it on its way up; null when $throwable is no outage of the KMS.
      */
-    private static function outageBehind(Throwable $throwable): ?KmsUnavailableException
+    public static function outageBehind(Throwable $throwable): ?KmsUnavailableException
     {
         for ($cause = $throwable; $cause !== null; $cause = $cause->getPrevious()) {
             if ($cause instanceof KmsUnavailableException) {

@@ -14,7 +14,7 @@ use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use function sprintf;
 
 /**
- * The form type a claim of the provider is edited with (issue beffroi-php/op#17): the one place the kinds
+ * The form type a claim of the provider is edited with (issue beffroi-auth/op#17): the one place the kinds
  * a claim may be are mapped onto the types of symfony/form.
  *
  * The bundle says what a claim is and never what a form is: its own pages are bare HTML with a form token,

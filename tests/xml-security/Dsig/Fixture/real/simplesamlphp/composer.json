@@ -1,5 +1,5 @@
 {
-    "name": "beffroi-php/xml-security-simplesamlphp-interop",
+    "name": "beffroi/xml-security-simplesamlphp-interop",
     "description": "The throwaway project that runs SimpleSAMLphp's own SAML 2 library against this namespace, in a container, never a dependency of the package",
     "type": "project",
     "license": "MIT",

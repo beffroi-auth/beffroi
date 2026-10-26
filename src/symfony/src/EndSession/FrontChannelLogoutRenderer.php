@@ -34,14 +34,16 @@ final readonly class FrontChannelLogoutRenderer implements LogoutChannelInterfac
     }
 
     /**
-     * @param string|null $continueTo the post_logout_redirect_uri of the request, when it named one
+     * @param list<AuthenticationSession> $sessions the sessions ended
+     * @param string|null $continueTo the post_logout_redirect_uri of the request, when it named one, or
+     *                                where a chain of SAML logout is resumed (beffroi/saml S-35)
      *
-     * @return Response|null null when no client of the session registered a URI, and the logout answers
+     * @return Response|null null when no client of the sessions registered a URI, and the logout answers
      *                       as it did before this page existed
      */
-    public function render(AuthenticationSession $session, ?string $continueTo): ?Response
+    public function render(array $sessions, ?string $continueTo): ?Response
     {
-        $page = $this->logout->pageFor($session, $continueTo);
+        $page = $this->logout->pageFor($sessions, $continueTo);
         if ($page === null) {
             return null;
         }

@@ -343,7 +343,7 @@ final class Exchange
         if ($received->relayState !== $variant->logoutRelayState) {
             throw new RuntimeException(sprintf('the receiver returned the RelayState %s', var_export($received->relayState, true)));
         }
-        $validator = new LogoutResponseValidator(SamlLoader::create(), $this->clock);
+        $validator = new LogoutResponseValidator(SamlLoader::create(), $this->clock, new InMemoryReplayGuard());
         $self = $this->serviceProvider($variant);
         if (! $variant->logoutSigned) {
             try {
@@ -493,7 +493,7 @@ final class Exchange
             throw new RuntimeException('for-bindings sent no LogoutRequest');
         }
         $accepted = $received->validate(
-            new LogoutRequestValidator(SamlLoader::create(), $this->clock),
+            new LogoutRequestValidator(SamlLoader::create(), $this->clock, new InMemoryReplayGuard()),
             $sp,
             $this->identityProvider(),
             BINDINGS . '/idp/slo',

@@ -8,10 +8,14 @@ use Beffroi\Core\Application\Archive\Chapter\ProfileChapter;
 use Beffroi\Core\Domain\Identity\Address;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Profile;
+use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use function array_keys;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Issue #453: the record itself, in the archive a person asks for. The names are those of OIDC Core §5.1,
@@ -52,6 +56,7 @@ final class ProfileChapterTest extends TestCase
                 'created_at',
                 'updated_at',
                 'disabled_at',
+                'source',
             ],
             array_keys($lines[0]),
         );
@@ -155,6 +160,52 @@ final class ProfileChapterTest extends TestCase
     {
         // When / Then
         static::assertCount(1, new ProfileChapter()->of(Fixtures::user()));
+    }
+
+    /**
+     * Decision 0002: the source that created the record is held of that person, sealed as a personal datum,
+     * so article 15 asks for it: the provider and what it holds.
+     */
+    #[Test]
+    public function theProviderThatCreatedTheRecordIsNamedWithWhatItHolds(): void
+    {
+        // Given
+        $user = User::create(
+            Uuid::v7(),
+            Fixtures::tenant(),
+            new Subject('ada-subject'),
+            'ada',
+            Fixtures::now(),
+            source: UserSource::upstream('https://idp.acme.example/saml', ['email', 'family_name']),
+        );
+
+        // When
+        $lines = new ProfileChapter()->of($user);
+
+        // Then
+        static::assertSame(
+            [
+                'provider' => 'https://idp.acme.example/saml',
+                'claims' => ['email', 'family_name'],
+            ],
+            $lines[0]['source'],
+        );
+    }
+
+    #[Test]
+    public function aRecordNoProviderCreatedNamesNone(): void
+    {
+        // When
+        $lines = new ProfileChapter()->of(Fixtures::user());
+
+        // Then
+        static::assertSame(
+            [
+                'provider' => null,
+                'claims' => [],
+            ],
+            $lines[0]['source'],
+        );
     }
 
     #[Test]

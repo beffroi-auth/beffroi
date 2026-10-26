@@ -8,7 +8,6 @@ use function array_map;
 use Beffroi\Core\Domain\Identity\LinkedIdentity;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Exception\InvalidArgumentException;
-use Symfony\Component\KeyManagement\BlindIndex\Projection\Email;
 use Symfony\Component\KeyManagement\BlindIndex\Projection\Verbatim;
 use function sprintf;
 
@@ -64,14 +63,14 @@ final readonly class BlindIndexedColumns
                 'usernameIndex',
                 new Verbatim(),
             ),
-            // An address has its domain folded and its local part left alone, which is what RFC 5321 says:
-            // the domain is case-insensitive, the local part is the receiving server's business and
-            // case-sensitive to everyone else.
+            // An address is folded whole, its local part as well as its domain: one mailbox, however its
+            // local part is written, so that no second person holds the mailbox of a first and no upstream
+            // provider has a person created with it verified (FoldedEmailAddress, issue #781).
             new BlindIndexedColumn(
                 User::class,
                 'email',
                 'emailIndex',
-                new Email(),
+                new FoldedEmailAddress(),
             ),
             // The pair a federated login recognises an identity by, and what the unique constraint of the
             // table is held on. Both byte for byte: what an upstream provider gave is compared as it gave

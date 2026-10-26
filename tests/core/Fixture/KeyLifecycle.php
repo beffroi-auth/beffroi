@@ -12,6 +12,7 @@ use Beffroi\Core\Application\Key\KeyTakeOver;
 use Beffroi\Core\Application\Key\NamedKey;
 use Beffroi\Core\Application\Key\RetirementWindow;
 use Beffroi\Core\Bridge\InMemory\InMemoryTenantKeyRepository;
+use Beffroi\Core\Domain\Key\RotationSchedule;
 use Beffroi\Core\Port\KeyBoundArtifactInterface;
 use Beffroi\Core\Port\KeyPairGeneratorInterface;
 use Psr\Clock\ClockInterface;
@@ -57,13 +58,19 @@ final readonly class KeyLifecycle
      * @param list<KeyBoundArtifactInterface>|null $artifacts the kinds of artifact bound to a key of the tenant; the two above when none is named
      * @param string|null $age how long a key works before a successor is staged for it
      * @param KeyPairGeneratorInterface|null $generator what draws the pairs; the two precomputed ones when none is named
+     * @param array<string, RotationSchedule> $families the schedule of the algorithms of that name, a family of their own; the staging delay and the age above for every other
      */
     public function __construct(
         ClockInterface $clock,
         ?array $artifacts = null,
         ?string $age = null,
         ?KeyPairGeneratorInterface $generator = null,
+        array $families = [],
     ) {
+        $schedules = new FixedRotationSchedules(
+            new RotationSchedule(new DateInterval(self::STAGING_DELAY), new DateInterval($age ?? self::AGE)),
+            $families,
+        );
         $this->keys = new InMemoryTenantKeyRepository();
         $this->events = new RecordingEventDispatcher();
         $this->window = new RetirementWindow(
@@ -77,7 +84,7 @@ final readonly class KeyLifecycle
             $this->keys,
             $generator ?? new PrecomputedKeyPairGenerator([Keys::pair(), Keys::otherPair()]),
             Keys::sealer(),
-            new DateInterval(self::STAGING_DELAY),
+            $schedules,
             $clock,
             $this->events,
         );
@@ -95,7 +102,7 @@ final readonly class KeyLifecycle
             $this->keys,
             $this->staging,
             $this->window,
-            new DateInterval($age ?? self::AGE),
+            $schedules,
             $clock,
         );
     }

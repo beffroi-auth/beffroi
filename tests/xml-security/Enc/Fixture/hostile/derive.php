@@ -32,9 +32,8 @@ $keyValue = static fn (string $text): string => '        <xenc:CipherValue>' . $
 
 // [what to replace, its replacement, whether the first is a regular expression]
 $cases = [
-    'content-aes128-cbc-refused' => [$content, $contentMethod(XMLENC . 'aes128-cbc')],
-    'content-aes256-cbc-refused' => [$content, $contentMethod(XMLENC . 'aes256-cbc')],
     'content-tripledes-cbc-refused' => [$content, $contentMethod(XMLENC . 'tripledes-cbc')],
+    'content-aes192-cbc-refused' => [$content, $contentMethod(XMLENC . 'aes192-cbc')],
     'content-aes192-gcm-refused' => [$content, $contentMethod(XMLENC11 . 'aes192-gcm')],
     'key-transport-rsa-1-5-refused' => [$key, $contentMethod(XMLENC . 'rsa-1_5')],
     'key-transport-kw-aes256-refused' => [$key, $contentMethod(XMLENC . 'kw-aes256')],

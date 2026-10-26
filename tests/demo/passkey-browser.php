@@ -10,8 +10,9 @@ declare(strict_types=1);
  * monorepo, in one process, so that the key pair generated at the enrolment signs the assertion.
  *
  * Reads one JSON object on stdin: "issuer", "cafile", "cookies" (name to value, the cookies the task
- * holds on the OP), "interaction" (the interaction the login page is asked for) and "name" (the name
- * of the passkey). Enrols a hardware key without a PIN on the account of the session the cookies bind
+ * holds on the OP), "interaction" (the interaction the login page is asked for), "name" (the name
+ * of the passkey) and "username" (what the step of the address is answered with, when the tenant
+ * federates a domain and the login page asks for an address first, beffroi/saml S-61). Enrols a hardware key without a PIN on the account of the session the cookies bind
  * (WebAuthn Level 3 §7.1), then signs in with it on the login page of the interaction (§7.2). Writes
  * one JSON object on stdout: "cookies" as the OP left them, "location" the login page sent the browser
  * to, "credential_id" of the passkey (base64url) and "sign_count" after the assertion.
@@ -67,13 +68,26 @@ final class PasskeyBrowser
     }
 
     /**
-     * §7.2 through the login page of the interaction: the token of the form, the request options, the
-     * assertion posted. Returns where the login page sends the browser.
+     * §7.2 through the login page of the interaction: the step of the address when the page asks for one
+     * first (beffroi/saml S-61), a username being of no domain and sent on to the usual page; then the
+     * token of the form, the request options, the assertion posted. Returns where the login page sends the
+     * browser.
      */
-    public function login(SoftwareAuthenticator $device, string $interaction): string
+    public function login(SoftwareAuthenticator $device, string $interaction, string $username): string
     {
         [$status, , $page] = $this->request('GET', '/login?interaction=' . rawurlencode($interaction));
         self::expect($status === 200, sprintf('the login page opens (got %d)', $status));
+        if (str_contains($page, 'data-step="address"')) {
+            $action = self::capture('/<form method="post" action="([^"]+)" data-step="address"/', $page, 'the login page asks for the address first');
+            $token = self::capture('/data-step="address".*?name="_token" value="([^"]+)"/s', $page, 'and carries the token of its form');
+            [$status] = $this->request('POST', $action, [
+                '_address' => $username,
+                '_token' => $token,
+            ]);
+            self::expect(in_array($status, [302, 303], true), sprintf('a username goes on to the usual login page (got %d)', $status));
+            [$status, , $page] = $this->request('GET', '/login?interaction=' . rawurlencode($interaction));
+            self::expect($status === 200, sprintf('which opens (got %d)', $status));
+        }
         $token = self::capture('/data-passkey="login".*?name="_csrf_token" value="([^"]+)"/s', $page, 'the login page offers the passkey');
         [$status, , $options] = $this->request('POST', '/login/passkey/options?interaction=' . rawurlencode($interaction));
         self::expect($status === 200, sprintf('the request options are given (got %d)', $status));
@@ -158,14 +172,15 @@ final class PasskeyBrowser
     }
 }
 
-/** @var array{issuer?: mixed, cafile?: mixed, cookies?: mixed, interaction?: mixed, name?: mixed} $input */
+/** @var array{issuer?: mixed, cafile?: mixed, cookies?: mixed, interaction?: mixed, name?: mixed, username?: mixed} $input */
 $input = (array) json_decode((string) stream_get_contents(\STDIN), true, 8, \JSON_THROW_ON_ERROR);
 $issuer = $input['issuer'] ?? null;
 $cafile = $input['cafile'] ?? null;
 $interaction = $input['interaction'] ?? null;
 $name = $input['name'] ?? null;
-if (! is_string($issuer) || ! is_string($cafile) || ! is_string($interaction) || ! is_string($name)) {
-    throw new RuntimeException('The input names no issuer, cafile, interaction or name.');
+$username = $input['username'] ?? null;
+if (! is_string($issuer) || ! is_string($cafile) || ! is_string($interaction) || ! is_string($name) || ! is_string($username)) {
+    throw new RuntimeException('The input names no issuer, cafile, interaction, name or username.');
 }
 $cookies = [];
 foreach ((array) ($input['cookies'] ?? []) as $cookieName => $value) {
@@ -179,7 +194,7 @@ foreach ((array) ($input['cookies'] ?? []) as $cookieName => $value) {
 $device = new SoftwareAuthenticator($issuer);
 $browser = new PasskeyBrowser($issuer, $cafile, $cookies);
 $browser->enrol($device, $name);
-$location = $browser->login($device, $interaction);
+$location = $browser->login($device, $interaction, $username);
 
 fwrite(
     \STDOUT,

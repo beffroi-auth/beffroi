@@ -1,0 +1,12 @@
+# A deployment whose configuration maps an attribute from a claim no claims provider serves (beffroi/saml, spec/saml.md
+# S-16, section 6.2 step 1): the compilation of its container passes, the claims of the provider being unknown to a
+# compiler pass, and the warmer that runs right after it fails the boot (UnservedClaimTest). The declarations of
+# config_test.yml are under "when@test", so this one is the only service provider of the environment.
+beffroi:
+    saml:
+        service_providers:
+            'https://sp.example.com/saml':
+                metadata: '/srv/saml/sp-metadata.xml'
+                attributes:
+                    'urn:oid:1.3.6.1.4.1.5923.1.1.1.6':
+                        claim: a_claim_no_provider_serves

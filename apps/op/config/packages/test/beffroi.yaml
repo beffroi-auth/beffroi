@@ -1,4 +1,4 @@
-# The one client the suite of this application walks a browser flow with (issue beffroi-php/beffroi#584).
+# The one client the suite of this application walks a browser flow with (issue beffroi-auth/beffroi#584).
 # Read in the test environment alone, as "config/services_test.yaml" is (MicroKernelTrait loads
 # "config/packages/{env}/"), and deployed nowhere: a deployment declares the clients it serves and this
 # one declares none, while a consent page cannot be read without a client that asks for consent.

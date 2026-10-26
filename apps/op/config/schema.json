@@ -805,6 +805,13 @@
                                 "$ref": "#/$defs/types/scalar",
                                 "description": "The key of that KMS the keys of the tenants are sealed under (backend-specific: the id of a sodium key, a Vault transit key name, an ARN); \"{tenant}\" stands for the slug of the tenant, one master key each."
                             },
+                            "data_key_secrets": {
+                                "$ref": "#/$defs/types/variable",
+                                "default": [
+                                    "%kernel.secret%"
+                                ],
+                                "description": "What binds each stored data key to its reference and its scope (StoredDataKey::bindingFor() of symfony/key-management): an HMAC keyed by the data key and by a secret the database does not hold, so that whoever writes the table cannot plant a key they wrapped themselves. The first one binds a new row and every one is accepted when a row is read, so a secret is rotated by writing the new one first, running \"beffroi:data-keys:rewrap\" for every tenant towards the client that already wraps its keys, which binds each row again under the first, then dropping the old one. Unless set, the secret of the kernel (\"kernel.secret\"), which is then rotated the same way: a row whose secret is no longer listed opens nothing, nor does anything sealed under its key."
+                            },
                             "storage": {
                                 "$ref": "#/$defs/types/scalar",
                                 "default": "%kernel.project_dir%/var/keys",
@@ -820,13 +827,13 @@
                                 "$ref": "#/$defs/types/integer_null",
                                 "minimum": 0,
                                 "default": null,
-                                "description": "How long a new key is published before it signs, in seconds (architecture §3.3, §9); unless set, jwks_max_age plus the 60 s refetch cooldown of oidc_login: the max-age is what a relying party with a warm cache needs to see the new key, the cooldown what one served by a shared HTTP cache needs to refetch it."
+                                "description": "How long a new key is published before it signs, in seconds (architecture §3.3, §9), for every family of keys but the SAML signing key, which has its own (\"saml.identity_provider.staging_delay\"); unless set, jwks_max_age plus the 60 s refetch cooldown of oidc_login: the max-age is what a relying party with a warm cache needs to see the new key, the cooldown what one served by a shared HTTP cache needs to refetch it."
                             },
                             "age": {
                                 "$ref": "#/$defs/types/integer",
                                 "minimum": 1,
                                 "default": 7776000,
-                                "description": "How long a key works before the planning stages a successor for it, in seconds, counted from its activation (architecture §3.3): ninety days by default, which is inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key and short enough that the rotation path is walked four times a year rather than first walked during an incident. It has to be longer than the window a retiring key holds the JWK Set open for, which is the longest lifetime of what a key of that use is bound to, or every rotation would leave a key behind; the rotation refuses an age that is not."
+                                "description": "How long a key works before the planning stages a successor for it, in seconds, counted from its activation (architecture §3.3), for every family of keys but the SAML signing key, which has its own (\"saml.identity_provider.age\"): ninety days by default, which is inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key and short enough that the rotation path is walked four times a year rather than first walked during an incident. It has to be longer than the window a retiring key holds the JWK Set open for, which is the longest lifetime of what a key of that use is bound to, or every rotation would leave a key behind; the rotation refuses an age that is not."
                             }
                         },
                         "additionalProperties": false,
@@ -1524,7 +1531,7 @@
                                 "require_signed_request_object": {
                                     "$ref": "#/$defs/types/boolean",
                                     "default": false,
-                                    "description": "A request of this client is only read from a request object it signed (OIDC Registration, require_signed_request_object; FAPI 2.0 Message Signing §5.3.1; FAPI-CIBA §5.2.2), whether the object arrives in the query, behind a request_uri, inside the record it pushed or in the body of a backchannel authentication request. An unsigned authorization request is refused on a page before its redirect URI is read, exactly as a request that was not pushed is; an unsigned backchannel one is refused invalid_request."
+                                    "description": "A request of this client is only read from a request object it signed (RFC 9101 §10.5, require_signed_request_object; FAPI 2.0 Message Signing §5.3.1; FAPI-CIBA §5.2.2), whether the object arrives in the query, behind a request_uri, inside the record it pushed or in the body of a backchannel authentication request. An unsigned authorization request is refused on a page before its redirect URI is read, exactly as a request that was not pushed is; an unsigned backchannel one is refused invalid_request."
                                 },
                                 "id_token_signed_response_alg": {
                                     "$ref": "#/$defs/types/scalar",
@@ -1624,7 +1631,7 @@
                                 "request_object_signing_alg": {
                                     "$ref": "#/$defs/types/scalar",
                                     "default": null,
-                                    "description": "The JWS algorithm the request objects of this client are signed with (OIDC Registration §2), among those the provider is wired with; left out, any of them verifies one. The value \"none\" is the named exception of decision 0006: the objects of that client carry no signature and are read all the same, which no FAPI client registers. A client that names an algorithm publishes its keys in jwks or behind a jwks_uri."
+                                    "description": "The JWS algorithm the request objects of this client are signed with (OIDC Registration §2), among those the provider is wired with; left out, any of them verifies one. The value \"none\" is the named exception of decision 0006: the objects of that client carry no signature and are read all the same, which no FAPI client registers and a client with require_signed_request_object cannot (RFC 9101 §10.5). A client that names an algorithm publishes its keys in jwks or behind a jwks_uri."
                                 },
                                 "backchannel_token_delivery_mode": {
                                     "$ref": "#/$defs/types/scalar",
@@ -1802,6 +1809,246 @@
                             "exempt_confidential_clients_from_pkce": false
                         },
                         "description": "How a client that nobody declared comes to exist here (RFC 7591, decision 0009). Absent, the tenant registers nobody, which is the default and what a deployment that writes nothing gets."
+                    },
+                    "saml": {
+                        "$ref": "#/$defs/types/object_null",
+                        "properties": {
+                            "identity_provider": {
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/$defs/types/object_null",
+                                        "properties": {
+                                            "enabled": {
+                                                "$ref": "#/$defs/types/boolean",
+                                                "default": false
+                                            },
+                                            "want_authn_requests_signed": {
+                                                "$ref": "#/$defs/types/boolean",
+                                                "default": true,
+                                                "description": "What the metadata says in WantAuthnRequestsSigned (SAML Metadata section 2.4.3): true asks every service provider to sign its requests, which is what a broker configured from the metadata does (spec/model.md section 6.9). Turned off, the requests of service providers that cannot sign are accepted where their configuration says so, and the logout of a broker that signs only when asked is lost."
+                                            },
+                                            "staging_delay": {
+                                                "$ref": "#/$defs/types/integer",
+                                                "minimum": 0,
+                                                "default": 604800,
+                                                "description": "How long a new SAML signing key is published in the metadata before it signs, in seconds (spec/saml.md S-12, section 7): seven days by default, seven times the cacheDuration of the metadata, so that a service provider whose refresh fails a few times still fetches the next certificate before it is used, and a calendar week for an administrator of a service provider that holds an uploaded certificate (Entra without the metadata URL it may be given, or one Microsoft cannot reach) to put the next one in place; AD FS, in the sample of its documentation, gives its partners five days. The keys of every other family keep \"keys.staging_delay\"."
+                                            },
+                                            "age": {
+                                                "$ref": "#/$defs/types/integer",
+                                                "minimum": 1,
+                                                "default": 31536000,
+                                                "description": "How long a SAML signing key works before the planning stages a successor for it, in seconds, counted from its activation (spec/saml.md S-12, section 7): 365 days by default, every rotation being a step for whoever pinned its certificate, and inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key. The keys of every other family keep \"keys.age\"."
+                                            },
+                                            "cache_duration": {
+                                                "$ref": "#/$defs/types/integer",
+                                                "minimum": 1,
+                                                "default": 86400,
+                                                "description": "How long a service provider may keep the metadata before it fetches it again, in seconds, written as its cacheDuration (SAML Metadata section 2.3.2, spec/saml.md S-12): one day by default, how often SimpleSAMLphp's metarefresh and a Shibboleth SP refresh it, and strictly shorter than \"staging_delay\", which the configuration refuses otherwise."
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": [
+                                            "boolean"
+                                        ]
+                                    }
+                                ],
+                                "default": {
+                                    "enabled": false,
+                                    "want_authn_requests_signed": true,
+                                    "staging_delay": 604800,
+                                    "age": 31536000,
+                                    "cache_duration": 86400
+                                },
+                                "description": "The tenant as a SAML identity provider (spec/saml.md section 6.1). Disabled, nothing of it is wired: it serves no metadata, and the tenant draws no SAML key unless its service provider is enabled, the key of both roles (S-40, S-41). Enabled, its key is drawn with \"beffroi:keys:generate --algorithm=SAML-SIGNING\" and rotates as every key of the tenant, by the figures of its own family below."
+                            },
+                            "service_provider": {
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/$defs/types/object_null",
+                                        "properties": {
+                                            "enabled": {
+                                                "$ref": "#/$defs/types/boolean",
+                                                "default": false
+                                            },
+                                            "entity_id": {
+                                                "$ref": "#/$defs/types/string_null",
+                                                "default": null,
+                                                "description": "The entity ID of the service provider (spec/saml.md S-38): the URL of its metadata when left out, as the identity provider is named by the URL of its own; another URI for a service provider its upstream identity providers already know by a name it keeps, absolute, at most 1024 characters, with no whitespace, control, format or invisible character (M-6). Never the entity ID of the identity provider of the tenant. Refused when the container is compiled, or at its first use when it or the issuer holds an environment variable."
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": [
+                                            "boolean"
+                                        ]
+                                    }
+                                ],
+                                "default": {
+                                    "enabled": false,
+                                    "entity_id": null
+                                },
+                                "description": "The tenant as a SAML service provider to the identity providers upstream of it (spec/saml.md section 6.9). Disabled, nothing of it is wired: its metadata answer that there are none. Enabled, it signs with the SAML signing key of the identity provider, drawn and rotated by the figures of \"identity_provider\" whichever role is enabled (S-40), and its metadata are served at /saml/sp/metadata."
+                            },
+                            "service_providers": {
+                                "$ref": "#/$defs/types/object_null",
+                                "additionalProperties": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "metadata": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "description": "Where the metadata are read from: an https URL, fetched without following a redirect, or the absolute path of a file of the deployment. Nothing else, a plain http URL included. The channel is what vouches for them unless metadata_signers pins who signs them."
+                                        },
+                                        "metadata_signers": {
+                                            "$ref": "#/$defs/types/array_null",
+                                            "items": {
+                                                "$ref": "#/$defs/types/scalar"
+                                            },
+                                            "description": "The certificates the metadata are signed by, each the base64 of its DER as an X509Certificate carries it, sixteen at most: the metadata are then verified under them and carry a validUntil (spec/saml.md S-5, S-6). Left empty, they are trusted by the channel they come through."
+                                        },
+                                        "attributes": {
+                                            "$ref": "#/$defs/types/object_null",
+                                            "additionalProperties": {
+                                                "$ref": "#/$defs/types/object_null",
+                                                "properties": {
+                                                    "claim": {
+                                                        "$ref": "#/$defs/types/scalar",
+                                                        "description": "The name of the claim, as the provider names it (OIDC Core section 5.1)."
+                                                    },
+                                                    "name_format": {
+                                                        "anyOf": [
+                                                            {
+                                                                "enum": [
+                                                                    "uri",
+                                                                    "basic",
+                                                                    "unspecified"
+                                                                ]
+                                                            },
+                                                            {
+                                                                "$ref": "#/$defs/types/param"
+                                                            }
+                                                        ],
+                                                        "default": "uri",
+                                                        "description": "The name format of the attribute (Core section 8.2): \"uri\", the default the SAML V2.0 interoperability profiles ask for, under which the name is an absolute URI; \"basic\"; or \"unspecified\"."
+                                                    },
+                                                    "friendly_name": {
+                                                        "$ref": "#/$defs/types/scalar",
+                                                        "default": null,
+                                                        "description": "A name a person reads (Core section 2.7.3.1), which nothing compares."
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "description": "The claims of the provider sent to this service provider, keyed by the name of the SAML attribute each one is sent as (Core section 2.7.3.1), 256 at most. A claim may be sent under several names."
+                                        },
+                                        "encrypt_assertions": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": false,
+                                            "description": "The assertions of this service provider are encrypted to a key of its metadata, which must then hold one for encryption, or the metadata are refused (spec/saml.md S-7)."
+                                        },
+                                        "signs_authn_requests": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": true,
+                                            "description": "This service provider signs its authentication requests. Turned off for one that cannot, Entra among them, whose unsigned requests are then the only ones accepted (issue #730); a provider that signs is refused while its metadata hold no key for signing (S-11); there is no switch for the tenant or for the deployment."
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "description": "The service providers of the tenant, keyed by entity ID, compared exactly with the one of their metadata (spec/saml.md S-5). Their metadata are read by \"beffroi:saml:service-provider:refresh\" and every hour after, refused when expired, older than the document accepted, or without a key for encryption where the declaration asks for encryption (S-6, S-7). Declared only for a tenant that is an identity provider."
+                            },
+                            "identity_providers": {
+                                "$ref": "#/$defs/types/object_null",
+                                "additionalProperties": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "metadata": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "description": "Where the metadata are read from: an https URL, fetched without following a redirect, or the absolute path of a file of the deployment. Nothing else, a plain http URL included. The channel is what vouches for them unless metadata_signers pins who signs them."
+                                        },
+                                        "metadata_signers": {
+                                            "$ref": "#/$defs/types/array_null",
+                                            "items": {
+                                                "$ref": "#/$defs/types/scalar"
+                                            },
+                                            "description": "The certificates the metadata are signed by, each the base64 of its DER as an X509Certificate carries it, sixteen at most: the metadata are then verified under them and carry a validUntil (spec/saml.md S-42, S-6). Left empty, they are trusted by the channel they come through."
+                                        },
+                                        "domains": {
+                                            "$ref": "#/$defs/types/array_null",
+                                            "items": {
+                                                "$ref": "#/$defs/types/scalar"
+                                            },
+                                            "minItems": 1,
+                                            "description": "The e-mail domains this identity provider answers for, one at least and 256 at most, each a name of the DNS read without regard to case, a name outside ASCII written as its A-label (spec/saml.md S-44). A domain is the whole part of an address after its \"@\" and nothing under it, and answers to one identity provider of the tenant: a domain two of them declare is refused."
+                                        },
+                                        "email_attribute": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "description": "The name of the attribute of an assertion that carries the e-mail address of a person (spec/saml.md S-45), \"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress\" for Entra."
+                                        },
+                                        "profile": {
+                                            "$ref": "#/$defs/types/object_null",
+                                            "additionalProperties": {
+                                                "$ref": "#/$defs/types/scalar"
+                                            },
+                                            "description": "The attributes of an assertion that fill the profile of a person, keyed by the name of the attribute, each naming the claim of OpenID Connect Core section 5.1 it fills, one attribute per claim (spec/saml.md S-45): a claim a person can describe themselves with in this deployment, refused otherwise when the deployment is built."
+                                        },
+                                        "subject_attribute": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": null,
+                                            "description": "The name of the attribute that names a person when the NameID of an assertion is not persistent (spec/saml.md S-45): a value the identity provider keeps for that person and never one the person changes, \"http://schemas.microsoft.com/identity/claims/objectidentifier\" for Entra rather than an address. Left out, a person is named by a persistent NameID only."
+                                        },
+                                        "require_encrypted_assertions": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": false,
+                                            "description": "An assertion of this identity provider arrives encrypted for the key it is given, or it is refused, whatever signs it (spec/saml.md S-67). The certificate it encrypts for is in the metadata of the service provider given to it alone, at /saml/sp/metadata/ followed by its entity ID in base64url, once its key is drawn with \"beffroi:keys:generate --algorithm=SAML-ENCRYPTION:\" and its entity ID (S-64, S-65)."
+                                        },
+                                        "address_parameter": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": null,
+                                            "description": "The query parameter of the single sign-on service of this identity provider that takes the address a person gave the login page, which it prefills its sign-in with: \"login_hint\" for Entra. One to 64 unreserved characters of RFC 3986, none of the parameters of the binding (SAMLRequest, SAMLResponse, SAMLEncoding, RelayState, SigAlg, Signature) in any case (spec/saml.md S-68). Left out, no address is sent. The address is a hint and nothing more: the person is who the signed assertion names."
+                                        },
+                                        "groups": {
+                                            "$ref": "#/$defs/types/object_null",
+                                            "properties": {
+                                                "attribute": {
+                                                    "$ref": "#/$defs/types/scalar",
+                                                    "description": "The name of the attribute that carries the groups."
+                                                },
+                                                "map": {
+                                                    "$ref": "#/$defs/types/object_null",
+                                                    "additionalProperties": {
+                                                        "$ref": "#/$defs/types/scalar"
+                                                    },
+                                                    "description": "The name of a group of the tenant, keyed by a value of the attribute, compared exactly, 256 values at most; the object IDs of the groups for Entra."
+                                                }
+                                            },
+                                            "additionalProperties": false,
+                                            "description": "The attribute of an assertion that carries the groups of a person, and the group of the tenant each of its values stands for (spec/saml.md S-45). A value the map does not name is no group, and no group is created from what an identity provider sends."
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "description": "The upstream identity providers of the tenant, keyed by entity ID, compared exactly with the one of their metadata (spec/saml.md S-42): identity providers whose assertions the service provider of the tenant receives. Their metadata are read by \"beffroi:saml:identity-provider:refresh\" and every hour after, refused when expired, older than the document accepted, without an identity provider role, without a key for signing, or with a single sign-on service that is not https (S-6, S-43). Declared only for a tenant that is a service provider."
+                            }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                            "identity_provider": {
+                                "enabled": false,
+                                "want_authn_requests_signed": true,
+                                "staging_delay": 604800,
+                                "age": 31536000,
+                                "cache_duration": 86400
+                            },
+                            "service_provider": {
+                                "enabled": false,
+                                "entity_id": null
+                            },
+                            "service_providers": [],
+                            "identity_providers": []
+                        },
+                        "description": "SAML 2.0 (beffroi/saml, decision 0013): the roles the tenant of this deployment plays."
                     }
                 },
                 "additionalProperties": false
@@ -4111,19 +4358,52 @@
                                         "default": null,
                                         "description": "Name of the client wrapping the data keys this store creates (must match an entry of \"clients\"); defaults to the default client."
                                     },
+                                    "allowed_clients": {
+                                        "$ref": "#/$defs/types/array_null",
+                                        "items": {
+                                            "$ref": "#/$defs/types/scalar"
+                                        },
+                                        "description": "Additional clients trusted to wrap and unwrap stored data keys. The store client is always trusted."
+                                    },
                                     "key_id": {
                                         "$ref": "#/$defs/types/scalar",
                                         "description": "Master key wrapping the data keys this store creates (backend-specific: alias, ARN, key URL, ...)."
+                                    },
+                                    "secret": {
+                                        "anyOf": [
+                                            {
+                                                "$ref": "#/$defs/types/array_null",
+                                                "items": {
+                                                    "$ref": "#/$defs/types/scalar"
+                                                }
+                                            },
+                                            {
+                                                "type": [
+                                                    "string"
+                                                ]
+                                            }
+                                        ],
+                                        "description": "Secret used to authenticate the stored data keys, defaults to the \"kernel.secret\" parameter. List several to rotate it: the first one signs, all of them verify."
                                     },
                                     "table": {
                                         "$ref": "#/$defs/types/scalar",
                                         "default": "key_management_data_keys",
                                         "description": "Name of the table holding the wrapped data keys."
                                     },
+                                    "read_self_contained": {
+                                        "$ref": "#/$defs/types/boolean",
+                                        "default": false,
+                                        "description": "Whether a payload carrying its own wrapped data key is still read, through the default client. On while migrating to the stored format, off afterwards: such a payload resolves no row, so nothing the store checks applies to it."
+                                    },
+                                    "bind_wrapping_context": {
+                                        "$ref": "#/$defs/types/boolean",
+                                        "default": false,
+                                        "description": "Whether the backend authenticates the reference and the scope of each data key as it wraps it. Off by default: not every backend accepts authenticated data, and turning it on needs the stored keys rewrapped."
+                                    },
                                     "max_age": {
                                         "$ref": "#/$defs/types/variable",
                                         "default": 2592000,
-                                        "description": "Seconds after which the current data key of a scope is retired in favour of a fresh one; the default of 30 days keeps what one key seals under the collision bound of the random 96-bit IV each payload carries. 0 retires the key on every call, null never retires it."
+                                        "description": "Seconds after which the current data key of a scope is retired; this does not enforce a usage limit. The default is 30 days; 0 forces rotation on every call and null disables retirement."
                                     }
                                 },
                                 "additionalProperties": false,
@@ -4148,7 +4428,7 @@
                                             },
                                             "additionalProperties": false
                                         },
-                                        "description": "Encrypted Doctrine DBAL types by name, declared when the kernel boots."
+                                        "description": "Encrypted Doctrine DBAL types by name."
                                     }
                                 },
                                 "patternProperties": {

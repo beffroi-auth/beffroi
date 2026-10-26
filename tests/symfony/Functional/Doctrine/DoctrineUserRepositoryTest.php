@@ -12,6 +12,7 @@ use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Profile;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,7 +20,7 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Architecture §3.4: users found by identifier, by subject and by username within a tenant.
+ * Architecture §3.4: users found by identifier, by subject, by username and by address within a tenant.
  */
 final class DoctrineUserRepositoryTest extends DatabaseTestCase
 {
@@ -112,6 +113,36 @@ final class DoctrineUserRepositoryTest extends DatabaseTestCase
         static::assertEquals(self::now()->modify('+1 hour'), $found->updatedAt);
     }
 
+    /**
+     * Issue #781: what the provider that created a person holds changes at its sign-ins, and the column
+     * follows.
+     */
+    #[Test]
+    public function whatItsSourceHoldsIsWrittenOnSave(): void
+    {
+        // Given
+        $user = User::create(
+            Uuid::v7(),
+            self::tenant(),
+            new Subject('alice-subject'),
+            'alice',
+            self::now(),
+            source: UserSource::upstream('https://idp.acme.example/saml', ['email', 'given_name']),
+        );
+        self::users()->save($user);
+        self::reload();
+        $found = self::users()->find($user->id) ?? static::fail('The user was not stored.');
+        $found->heldBy(UserSource::upstream('https://idp.acme.example/saml', ['email']), self::now()->modify('+1 hour'));
+        self::users()->save($found);
+        self::reload();
+
+        // When
+        $again = self::users()->find($user->id) ?? static::fail('The user was not stored.');
+
+        // Then
+        static::assertEquals(UserSource::upstream('https://idp.acme.example/saml', ['email']), $again->source);
+    }
+
     #[Test]
     public function aUserIsFoundBySubjectWithinTheTenant(): void
     {
@@ -139,6 +170,65 @@ final class DoctrineUserRepositoryTest extends DatabaseTestCase
 
         // Then
         static::assertTrue($bob->id->equals($found?->id));
+    }
+
+    /**
+     * Issue #781: the first sign-in through an upstream provider asks whether somebody holds the address it
+     * gave, on the blind index of the address, whose projection folds the domain and leaves the local part
+     * as it is written (RFC 5321 §2.4).
+     */
+    #[Test]
+    #[DataProvider('provideAddressesBobHolds')]
+    public function aUserIsFoundByAddressWithinTheTenant(string $address): void
+    {
+        // Given
+        self::user();
+        $bob = self::user('bob', 'bob-subject');
+        $bob->changeEmail(new EmailAddress('Bob@acme.example'), false, self::now());
+        self::users()->save($bob);
+        self::reload();
+
+        // When
+        $found = self::users()->findAllByEmail(self::tenant(), new EmailAddress($address));
+
+        // Then
+        static::assertCount(1, $found);
+        static::assertTrue($bob->id->equals($found[0]->id));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideAddressesBobHolds(): iterable
+    {
+        yield 'as it was written' => ['Bob@acme.example'];
+        yield 'its domain in another case' => ['Bob@ACME.Example'];
+        // one mailbox however its local part is written, so that no second person holds it under another
+        // spelling (issue #781)
+        yield 'its local part in another case' => ['bob@acme.example'];
+    }
+
+    /**
+     * Nothing says two persons may not share an address, so the lookup answers every one of them, and what
+     * asks reads no order into it.
+     */
+    #[Test]
+    public function everyPersonWhoHoldsAnAddressIsFound(): void
+    {
+        // Given
+        $alice = self::user();
+        $alice->changeEmail(new EmailAddress('Shared@acme.example'), false, self::now());
+        self::users()->save($alice);
+        $bob = self::user('bob', 'bob-subject');
+        $bob->changeEmail(new EmailAddress('shared@acme.example'), false, self::now());
+        self::users()->save($bob);
+        self::reload();
+
+        // When
+        $found = self::users()->findAllByEmail(self::tenant(), new EmailAddress('shared@acme.example'));
+
+        // Then
+        static::assertCount(2, $found);
     }
 
     /**
@@ -189,6 +279,9 @@ final class DoctrineUserRepositoryTest extends DatabaseTestCase
         ];
         yield 'a username in another case' => [
             static fn (UserRepositoryInterface $users): ?User => $users->findByUsername(self::tenant(), 'ALICE'),
+        ];
+        yield 'an unknown address' => [
+            static fn (UserRepositoryInterface $users): ?User => $users->findAllByEmail(self::tenant(), new EmailAddress('carol@example.com'))[0] ?? null,
         ];
         yield 'an unknown identifier' => [
             static fn (UserRepositoryInterface $users): ?User => $users->find(Uuid::v7()),

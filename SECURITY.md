@@ -4,7 +4,7 @@ Beffroi is an identity provider: a vulnerability here is a vulnerability in ever
 
 ## Reporting
 
-Report privately through [GitHub security advisories](https://github.com/beffroi-php/beffroi/security/advisories/new). Do not open a public issue, do not discuss it in a pull request.
+Report privately through [GitHub security advisories](https://github.com/beffroi-auth/beffroi/security/advisories/new). Do not open a public issue, do not discuss it in a pull request.
 
 You will get an acknowledgement within 72 hours, and a fix or a mitigation plan as fast as the severity requires. Credit is given in the advisory unless you prefer otherwise.
 

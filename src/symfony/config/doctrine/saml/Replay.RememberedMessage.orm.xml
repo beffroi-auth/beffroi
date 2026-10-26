@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
+                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <!--
+      The assertions of the upstream identity providers and the logout messages the model accepted (beffroi/saml,
+      spec/saml.md S-23, S-53, model.md M-11), shared by every worker of the deployment: a row per message under its
+      tenant, its key the SHA-256 of the tenant, the issuer and the ID,
+      inserted with ON CONFLICT DO NOTHING so that of two workers handed the same message one only is told it is new,
+      and kept until the window in which the model would accept the message again has closed, the rows past it being
+      deleted before each insertion.
+    -->
+    <entity name="Beffroi\Saml\Domain\Replay\RememberedMessage" table="beffroi_saml_remembered_message">
+        <indexes>
+            <index name="beffroi_saml_remembered_message_expiry" columns="expires_at"/>
+        </indexes>
+        <id name="key" type="string" column="message_key" length="64">
+            <options>
+                <option name="fixed">true</option>
+            </options>
+        </id>
+        <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
+            <join-column name="tenant_id" referenced-column-name="id" nullable="false"/>
+        </many-to-one>
+        <field name="expiresAt" type="datetime_immutable" column="expires_at"/>
+    </entity>
+</doctrine-mapping>

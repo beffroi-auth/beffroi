@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Controller;
 
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Bundle\Http\Account\AsksForARecentProofInterface;
 use Beffroi\Bundle\Http\AccountAccess;
 use Beffroi\Bundle\Http\RequestContextFactory;
@@ -38,6 +39,11 @@ final readonly class TotpEnrolmentBeginController implements AsksForARecentProof
 
     public const string ALREADY_ENROLLED = 'already_enrolled';
 
+    /**
+     * A person of a federated domain, for whom no authenticator app is set up (decision 0029, beffroi/saml S-63).
+     */
+    public const string FEDERATED_DOMAIN = 'federated_domain';
+
     public function __construct(
         private AccountAccess $account,
         private RequestContextFactory $contexts,
@@ -45,6 +51,7 @@ final readonly class TotpEnrolmentBeginController implements AsksForARecentProof
         private TotpProvisioningStore $provisionings,
         private WhatWasRefused $refusals,
         private InteractionPages $pages,
+        private FederatedDomains $federated,
     ) {
     }
 
@@ -64,6 +71,13 @@ final readonly class TotpEnrolmentBeginController implements AsksForARecentProof
             return $session;
         }
         $user = $session->user;
+        // before a secret is drawn: what the page offers nobody of a federated domain is refused to a post written by
+        // hand, which the enrolment of the core refuses too, and this says why
+        if (! $this->federated->admitsLocalCredentials($user)) {
+            $this->refusals->keep($request, self::FEDERATED_DOMAIN);
+
+            return $this->pages->afterTheForm(AccountTwoFactorController::ROUTE);
+        }
         try {
             $provisioning = $this->enrolment->begin($user);
         } catch (CredentialEnrolmentFailedException) {

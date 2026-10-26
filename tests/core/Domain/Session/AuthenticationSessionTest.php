@@ -15,6 +15,7 @@ use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Exception\LogicException;
 use Beffroi\Core\Tests\Fixture\Fixtures;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -111,6 +112,77 @@ final class AuthenticationSessionTest extends TestCase
 
         // Then
         static::assertSame('2', $session->authenticationContextClass()->value);
+    }
+
+    /**
+     * beffroi/saml S-57: a proof an upstream identity provider gave is dated by its AuthnInstant, the auth_time it
+     * leaves the session with, and not by the request that carried it.
+     */
+    #[Test]
+    public function aProofIsDatedWhenWhatProvedItSaysItWasGiven(): void
+    {
+        // Given
+        $session = Fixtures::session();
+        $authnInstant = Fixtures::now()->modify('+4 minutes');
+
+        // When
+        $session->recordProof(
+            new AuthenticationMethod(AuthenticationMethod::ONE_TIME_PASSWORD),
+            Fixtures::context(Fixtures::now()->modify('+5 minutes')),
+            $authnInstant,
+        );
+
+        // Then
+        static::assertEquals($authnInstant, $session->authenticatedAt());
+    }
+
+    /**
+     * beffroi/saml S-57: a proof dated after the request that carried it, an upstream clock ahead of ours, is dated by
+     * the request.
+     */
+    #[Test]
+    public function aProofIsNeverDatedAfterTheRequestThatCarriedIt(): void
+    {
+        // Given
+        $session = Fixtures::session();
+        $receivedAt = Fixtures::now()->modify('+5 minutes');
+
+        // When
+        $session->recordProof(
+            new AuthenticationMethod(AuthenticationMethod::ONE_TIME_PASSWORD),
+            Fixtures::context($receivedAt),
+            $receivedAt->modify('+1 minute'),
+        );
+
+        // Then
+        static::assertEquals($receivedAt, $session->authenticatedAt());
+    }
+
+    /**
+     * beffroi/saml S-57, SAML Core §2.7.2: the session ends no later than what an upstream identity provider allows,
+     * which shortens it and never lengthens it.
+     */
+    #[Test]
+    #[DataProvider('provideBounds')]
+    public function theSessionEndsNoLaterThanItsBound(string $bound, string $expiresAt): void
+    {
+        // Given
+        $session = Fixtures::session();
+
+        // When
+        $session->endNoLaterThan(Fixtures::now()->modify($bound));
+
+        // Then
+        static::assertEquals(Fixtures::now()->modify($expiresAt), $session->expiresAt);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideBounds(): iterable
+    {
+        yield 'a bound before its end' => ['+2 hours', '+2 hours'];
+        yield 'a bound after its end' => ['+20 hours', '+12 hours'];
     }
 
     #[Test]

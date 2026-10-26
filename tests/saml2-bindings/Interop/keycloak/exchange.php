@@ -384,7 +384,7 @@ final class Exchange
             throw new RuntimeException('the broker sent no LogoutRequest');
         }
         $accepted = $received->validate(
-            new LogoutRequestValidator(SamlLoader::create(), $this->clock),
+            new LogoutRequestValidator(SamlLoader::create(), $this->clock, new InMemoryReplayGuard()),
             $broker,
             $this->identityProvider(),
             BINDINGS_IDP_SLO,
@@ -564,7 +564,7 @@ final class Exchange
             throw new RuntimeException(sprintf('the receiver returned the RelayState %s', var_export($received->relayState, true)));
         }
         $response = $received->validate(
-            new LogoutResponseValidator(SamlLoader::create(), $this->clock),
+            new LogoutResponseValidator(SamlLoader::create(), $this->clock, new InMemoryReplayGuard()),
             $realmIdp,
             $this->serviceProvider(),
             BINDINGS_SP_SLO,

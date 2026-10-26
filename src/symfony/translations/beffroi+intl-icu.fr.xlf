@@ -205,6 +205,38 @@
         <source>login.passkey_only</source>
         <target>Ce fournisseur vous connecte avec votre passkey.</target>
       </trans-unit>
+      <trans-unit id="login.address" resname="login.address">
+        <source>login.address</source>
+        <target>Adresse e-mail</target>
+      </trans-unit>
+      <trans-unit id="login.continue" resname="login.continue">
+        <source>login.continue</source>
+        <target>Continuer</target>
+      </trans-unit>
+      <trans-unit id="login.address_unreadable" resname="login.address_unreadable">
+        <source>login.address_unreadable</source>
+        <target>Cette adresse ne peut pas être lue. Vérifiez-la, puis réessayez.</target>
+      </trans-unit>
+      <trans-unit id="login.other_address" resname="login.other_address">
+        <source>login.other_address</source>
+        <target>Utiliser une autre adresse</target>
+      </trans-unit>
+      <trans-unit id="account.federated_domain" resname="account.federated_domain">
+        <source>account.federated_domain</source>
+        <target>Votre organisation vous connecte : aucun mot de passe, aucune passkey ni aucune application d’authentification de ce compte ne vous connecte, et aucun n’y est ajouté.</target>
+      </trans-unit>
+      <trans-unit id="passkeys.error.federated_domain" resname="passkeys.error.federated_domain">
+        <source>passkeys.error.federated_domain</source>
+        <target>Votre organisation vous connecte : aucune passkey n’est ajoutée à ce compte.</target>
+      </trans-unit>
+      <trans-unit id="two_factor.error.federated_domain" resname="two_factor.error.federated_domain">
+        <source>two_factor.error.federated_domain</source>
+        <target>Votre organisation vous connecte : aucune application d’authentification n’est configurée pour ce compte.</target>
+      </trans-unit>
+      <trans-unit id="password.error.federated_domain" resname="password.error.federated_domain">
+        <source>password.error.federated_domain</source>
+        <target>Votre organisation vous connecte : aucun mot de passe n’est posé pour ce compte.</target>
+      </trans-unit>
       <trans-unit id="a71d2a8f04" resname="account.title">
         <source>account.title</source>
         <target>Votre compte</target>
@@ -997,6 +1029,10 @@
         <source>act.backup_codes.renewed</source>
         <target>Codes de secours renouvelés</target>
       </trans-unit>
+      <trans-unit id="act.person.provisioned" resname="act.person.provisioned">
+        <source>act.person.provisioned</source>
+        <target>Compte créé à votre première connexion par votre organisation</target>
+      </trans-unit>
       <trans-unit id="act.person.described_themselves" resname="act.person.described_themselves">
         <source>act.person.described_themselves</source>
         <target>Vos informations ont changé</target>
@@ -1528,6 +1564,54 @@
       <trans-unit id="act.enrolment_ticket.issued" resname="act.enrolment_ticket.issued">
         <source>act.enrolment_ticket.issued</source>
         <target>Un lien pour poser un moyen de connexion a été émis pour ce compte</target>
+      </trans-unit>
+      <trans-unit id="post_again.title" resname="post_again.title">
+        <source>post_again.title</source>
+        <target>Connexion en cours</target>
+      </trans-unit>
+      <trans-unit id="post_again.explanation" resname="post_again.explanation">
+        <source>post_again.explanation</source>
+        <target>Votre navigateur arrive d’un autre site sans votre session. Utilisez le bouton ci-dessous pour continuer.</target>
+      </trans-unit>
+      <trans-unit id="post_again.continue" resname="post_again.continue">
+        <source>post_again.continue</source>
+        <target>Continuer</target>
+      </trans-unit>
+      <trans-unit id="saml_post.title" resname="saml_post.title">
+        <source>saml_post.title</source>
+        <target>Retour vers l’application</target>
+      </trans-unit>
+      <trans-unit id="saml_post.explanation" resname="saml_post.explanation">
+        <source>saml_post.explanation</source>
+        <target>Votre navigateur vous renvoie vers l’application. Utilisez le bouton ci-dessous pour continuer.</target>
+      </trans-unit>
+      <trans-unit id="saml_post.continue" resname="saml_post.continue">
+        <source>saml_post.continue</source>
+        <target>Continuer</target>
+      </trans-unit>
+      <trans-unit id="saml_post.upstream.title" resname="saml_post.upstream.title">
+        <source>saml_post.upstream.title</source>
+        <target>Connexion avec votre organisation</target>
+      </trans-unit>
+      <trans-unit id="saml_post.upstream.explanation" resname="saml_post.upstream.explanation">
+        <source>saml_post.upstream.explanation</source>
+        <target>Votre navigateur vous envoie vers la connexion de votre organisation. Utilisez le bouton ci-dessous pour continuer.</target>
+      </trans-unit>
+      <trans-unit id="error.saml_request_refused" resname="error.saml_request_refused">
+        <source>error.saml_request_refused</source>
+        <target>L’application a envoyé une demande de connexion que ce fournisseur ne peut pas accepter. Recommencez depuis l’application.</target>
+      </trans-unit>
+      <trans-unit id="error.saml_logout_refused" resname="error.saml_logout_refused">
+        <source>error.saml_logout_refused</source>
+        <target>L’application a envoyé une demande de déconnexion que ce fournisseur ne peut pas accepter. Déconnectez-vous à nouveau depuis l’application.</target>
+      </trans-unit>
+      <trans-unit id="error.saml_assertion_refused" resname="error.saml_assertion_refused">
+        <source>error.saml_assertion_refused</source>
+        <target>La connexion avec votre organisation n’a pas abouti. Recommencez depuis l’application.</target>
+      </trans-unit>
+      <trans-unit id="error.saml_upstream_sign_on_refused" resname="error.saml_upstream_sign_on_refused">
+        <source>error.saml_upstream_sign_on_refused</source>
+        <target>La connexion avec votre organisation ne peut pas commencer ici. Recommencez depuis l’application.</target>
       </trans-unit>
     </body>
   </file>

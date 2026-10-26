@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Xml\Tests\PhpStan;
 
 use function array_map;
+use function implode;
 use function ltrim;
 use PhpParser\Node;
 use PhpParser\Node\Name;
@@ -18,10 +19,12 @@ use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 use function sprintf;
+use function str_starts_with;
 use function strtolower;
 
 /**
- * Section 8 of the specification: the classes and the constants never used, in the brick and in its consumers.
+ * Section 8 of the specification: the classes and the constants never used, in the brick and in its consumers, and
+ * those used in the files named only (OPENSSL_ZERO_PADDING in the decryptor of Enc, enc.md E-16).
  * ekino/phpstan-banned-code bans function names and whole node types; this rule reads every name written inside
  * a class, an enum, an interface or a trait, and every name a use statement imports.
  *
@@ -35,12 +38,27 @@ final class BannedNamesRule implements Rule
     private array $names = [];
 
     /**
-     * @param list<string> $names
+     * @var array<string, array{spelling: string, allowedIn: list<string>}> the confined names, lowercased
      */
-    public function __construct(array $names)
-    {
+    private array $confined = [];
+
+    /**
+     * @param list<string> $names
+     * @param list<array{name: string, allowedIn: list<string>}> $confined the names allowed in the files listed only
+     */
+    public function __construct(
+        array $names,
+        array $confined = [],
+        private readonly string $workingDirectory = '',
+    ) {
         foreach ($names as $name) {
             $this->names[strtolower(ltrim($name, '\\'))] = $name;
+        }
+        foreach ($confined as $name) {
+            $this->confined[strtolower(ltrim($name['name'], '\\'))] = [
+                'spelling' => $name['name'],
+                'allowedIn' => $name['allowedIn'],
+            ];
         }
     }
 
@@ -66,24 +84,49 @@ final class BannedNamesRule implements Rule
 
         $errors = [];
         foreach ($names as $name) {
-            $banned = $this->bannedSpelling($name);
-            if ($banned === null) {
+            $message = $this->refusal($name, $scope);
+            if ($message === null) {
                 continue;
             }
-            $errors[] = RuleErrorBuilder::message(sprintf(
-                '%s is never used: section 8 of the specification bans it.',
-                $banned,
-            ))
-                ->identifier('beffroi.bannedName')
-                ->line($name->getStartLine())
-                ->nonIgnorable()
-                ->build();
+            $errors[] = RuleErrorBuilder::message($message)->identifier('beffroi.bannedName')->line($name->getStartLine())->nonIgnorable()->build();
         }
 
         return $errors;
     }
 
-    private function bannedSpelling(Name $name): ?string
+    private function refusal(Name $name, Scope $scope): ?string
+    {
+        $banned = $this->spelling($name, $this->names);
+        if ($banned !== null) {
+            return sprintf('%s is never used: section 8 of the specification bans it.', $banned);
+        }
+        $confined = $this->spelling($name, $this->confined);
+        if ($confined === null) {
+            return null;
+        }
+        foreach ($confined['allowedIn'] as $path) {
+            if (str_starts_with($scope->getFile(), $this->workingDirectory . '/' . $path)) {
+                return null;
+            }
+        }
+
+        return sprintf(
+            '%s is used in %s only: section 8 of the specification confines it there.',
+            $confined['spelling'],
+            implode(', ', $confined['allowedIn']),
+        );
+    }
+
+    /**
+     * The entry of $entries that $name names, as written, resolved or namespaced.
+     *
+     * @template T
+     *
+     * @param array<string, T> $entries keyed by the lowercased name
+     *
+     * @return ?T
+     */
+    private function spelling(Name $name, array $entries): mixed
     {
         $candidates = [$name->toLowerString()];
         foreach (['resolvedName', 'namespacedName'] as $attribute) {
@@ -93,9 +136,8 @@ final class BannedNamesRule implements Rule
             }
         }
         foreach ($candidates as $candidate) {
-            $spelling = $this->names[$candidate] ?? null;
-            if ($spelling !== null) {
-                return $spelling;
+            if (isset($entries[$candidate])) {
+                return $entries[$candidate];
             }
         }
 

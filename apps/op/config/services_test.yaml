@@ -1,4 +1,4 @@
-# What the suite of this application reaches into (issue beffroi-php/beffroi#521), and nothing else: the
+# What the suite of this application reaches into (issue beffroi-auth/beffroi#521), and nothing else: the
 # kernel it boots is the kernel of a deployment, down to its database and its KMS, so this file adds no
 # behaviour and replaces no service. It names ports, because a private service nothing references is removed
 # from the compiled container, and a test writing the person a page is about has to reach the one that saves

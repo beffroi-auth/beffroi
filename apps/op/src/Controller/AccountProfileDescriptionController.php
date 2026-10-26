@@ -26,12 +26,12 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfToken;
 
 /**
- * A person says one thing of themselves on the page of this application (issue beffroi-php/op#17), the
+ * A person says one thing of themselves on the page of this application (issue beffroi-auth/op#17), the
  * claim being the one named in the URL: one form per claim, so nothing is read back out of a body to know
  * which was submitted.
  *
  * **It answers with a redirection whether the use case accepted or refused** (issue
- * beffroi-php/beffroi#481), so that a browser reloading the page it comes back to does not say the same
+ * beffroi-auth/beffroi#481), so that a browser reloading the page it comes back to does not say the same
  * thing of that person again. What was refused crosses that redirection in the session (WhatWasRefused),
  * and the page puts it back under the field it is about, which is what this application installs a form
  * component for.
@@ -102,7 +102,7 @@ final readonly class AccountProfileDescriptionController
      * nothing at all for a claim it offers no field for.
      *
      * Never the value that was refused: a refusal crosses a redirection in the session of the browser, and
-     * a session is a disk (issue beffroi-php/beffroi#481).
+     * a session is a disk (issue beffroi-auth/beffroi#481).
      */
     private function describe(Request $request, FormInterface $form, ClaimInterface $claim, User $user): ?string
     {
@@ -122,7 +122,7 @@ final readonly class AccountProfileDescriptionController
     /**
      * Whether what came back did not carry the token of the page it was rendered on, which is the one
      * refusal of this form that keeps its error page instead of crossing a redirection (issue
-     * beffroi-php/beffroi#481): a request without a token carries no state, so a browser repeating it gets
+     * beffroi-auth/beffroi#481): a request without a token carries no state, so a browser repeating it gets
      * the same answer and there is nothing for a page after a redirection to show.
      *
      * The component checks the token itself (config/packages/csrf.yaml) and says so on the form rather

@@ -1,6 +1,6 @@
 # What this application owes of Messenger, and nothing more: its transports. The three buses, their
 # middleware and where each marker is sent are the contract of the provider and the bundle prepends them
-# (Beffroi\Bundle\Messenger\MessengerContract, architecture §5.6, issue beffroi-php/beffroi#456): a
+# (Beffroi\Bundle\Messenger\MessengerContract, architecture §5.6, issue beffroi-auth/beffroi#456): a
 # deployment that wired them itself and got "dispatch_after_current_bus" or "doctrine_transaction" wrong
 # would break the asynchronous half of the provider, quietly.
 #

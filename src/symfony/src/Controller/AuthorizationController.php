@@ -8,6 +8,7 @@ use Beffroi\Bundle\Doctrine\TenantProvider;
 use Beffroi\Bundle\Http\AuthorizationRequestReaderInterface;
 use Beffroi\Bundle\Http\AuthorizationResponderInterface;
 use Beffroi\Bundle\Http\BrowserSession;
+use Beffroi\Bundle\Http\CrossSitePost;
 use Beffroi\Bundle\Http\InteractionLocale;
 use Beffroi\Bundle\Http\InteractionPages;
 use Beffroi\Bundle\Http\RequestContextFactory;
@@ -24,7 +25,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * is a page, one of the second goes back to the client (RFC 9700 §4.1). A request the client pushed
  * (RFC 9126 §2) arrives here as a reference, and one the client signed (RFC 9101 §6.1) as a JWT or as
  * the URL where it is published; the reader answers with what either of them carries, in place of the
- * query. The locale of the interaction is chosen here, once (architecture §5.7).
+ * query. The locale of the interaction is chosen here, once (architecture §5.7). A request posted from
+ * another site without the session cookie is posted again from the origin of the provider first
+ * (CrossSitePost), before anything reads it, so that a pushed request is not spent by the first post.
  */
 #[AsController]
 final readonly class AuthorizationController
@@ -39,12 +42,17 @@ final readonly class AuthorizationController
         private AuthorizationResponderInterface $responder,
         private InteractionPages $pages,
         private InteractionLocale $locale,
+        private CrossSitePost $crossSitePost,
     ) {
     }
 
     #[Route('/authorize', name: 'beffroi_interaction_authorize', methods: ['GET', 'POST'])]
     public function __invoke(Request $request): Response
     {
+        $again = $this->crossSitePost->postAgainWithItsUiLocales($request);
+        if ($again !== null) {
+            return $again;
+        }
         $tenant = $this->tenants->provide();
         try {
             $received = $this->requests->read($tenant, $request);

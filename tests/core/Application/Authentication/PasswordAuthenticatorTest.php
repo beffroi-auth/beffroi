@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Authentication;
 
+use Beffroi\Core\Domain\Identity\UpstreamProvider;
+use Beffroi\Core\Domain\Identity\EmailDomain;
+use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use function array_map;
 use DateInterval;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -67,6 +72,8 @@ final class PasswordAuthenticatorTest extends TestCase
 
     private PasswordAuthenticator $authenticator;
 
+    private InMemoryUpstreamProviders $upstreamProviders;
+
     protected function setUp(): void
     {
         $this->tenant = Fixtures::tenant();
@@ -80,6 +87,7 @@ final class PasswordAuthenticatorTest extends TestCase
         $this->events = new RecordingEventDispatcher();
         $this->attempts = new FakeAttemptLimiter(5);
         $this->clock = new MockClock('2026-09-15T12:00:00+00:00');
+        $this->upstreamProviders = new InMemoryUpstreamProviders();
         $this->authenticator = $this->authenticatorOn($hasher);
     }
 
@@ -104,6 +112,7 @@ final class PasswordAuthenticatorTest extends TestCase
                 new AuthenticationRefusal($this->clock, $this->events),
                 $this->clock,
                 $this->events,
+                new FederatedDomains($this->upstreamProviders),
             ),
             new SessionOpener(
                 $this->sessions,
@@ -341,6 +350,75 @@ final class PasswordAuthenticatorTest extends TestCase
             // Then
             static::assertSame(AuthenticationFailureReason::DisabledUser, $exception->reason);
         }
+    }
+
+    /**
+     * Decision 0029, spec/saml.md S-63: a person of a domain the tenant federates to an upstream provider signs in
+     * through it and through nothing else, whether their mailbox or their username is of that domain, and an address
+     * of theirs the rule of the domain does not read counts as one; refused after the password, as a disabled account
+     * is, so that the answer is the one of a wrong password.
+     */
+    #[Test]
+    #[DataProvider('provideFederatedPersons')]
+    public function aPersonOfAFederatedDomainWithTheRightPasswordIsRefused(?string $email, string $username): void
+    {
+        // Given
+        $this->upstreamProviders->declare($this->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        if ($email !== null) {
+            $this->alice->changeEmail(new EmailAddress($email), true, Fixtures::now());
+        }
+        $this->alice->rename($username, Fixtures::now());
+
+        // When
+        $exception = $this->failToAuthenticate($username, 'correct horse');
+
+        // Then
+        static::assertSame(AuthenticationFailureReason::FederatedDomain, $exception->reason);
+    }
+
+    /**
+     * @return iterable<string, array{string|null, string}>
+     */
+    public static function provideFederatedPersons(): iterable
+    {
+        yield 'by their mailbox' => ['alice@ACME.example', 'alice'];
+        yield 'by their username' => [null, 'alice@acme.example'];
+        yield 'by a username whose domain the rule does not read' => [null, 'alice@acme.example.'];
+    }
+
+    /**
+     * Decision 0029: the federated domain is read after the password, so that whoever does not know it cannot tell a
+     * person of a federated domain from a wrong password.
+     */
+    #[Test]
+    public function aPersonOfAFederatedDomainWithAWrongPasswordFailsLikeAnyWrongPassword(): void
+    {
+        // Given
+        $this->upstreamProviders->declare($this->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $this->alice->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+
+        // When
+        $exception = $this->failToAuthenticate('alice', 'wrong');
+
+        // Then
+        static::assertSame(AuthenticationFailureReason::InvalidCredential, $exception->reason);
+    }
+
+    /**
+     * Decision 0029: a person of another domain than the ones the tenant federates signs in with their password.
+     */
+    #[Test]
+    public function aPersonOfAnotherDomainSignsInWithTheirPassword(): void
+    {
+        // Given
+        $this->upstreamProviders->declare($this->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $this->alice->changeEmail(new EmailAddress('alice@eu.acme.example'), true, Fixtures::now());
+
+        // When
+        $session = $this->authenticator->authenticate($this->tenant, 'alice', 'correct horse', Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertInstanceOf(AuthenticationSession::class, $session);
     }
 
     /**

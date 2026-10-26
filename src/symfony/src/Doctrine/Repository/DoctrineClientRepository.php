@@ -17,8 +17,11 @@ use Beffroi\Oidc\Domain\Client\Registration\ClientRetention;
 use Beffroi\Oidc\Port\ClientInventoryInterface;
 use Beffroi\Oidc\Port\ClientSourceInterface;
 use Beffroi\Oidc\Port\ClientStoreInterface;
+use Beffroi\Oidc\Exception\UnreadableClientMetadataException;
 use Beffroi\Oidc\Port\UnusedClientsInterface;
 use function is_string;
+use Psr\Log\LoggerInterface;
+use function sprintf;
 
 /**
  * The clients this provider registered itself, in beffroi_client (RFC 7591 §3.2.1): a source of clients
@@ -49,6 +52,7 @@ final readonly class DoctrineClientRepository extends DoctrineRepository impleme
     public function __construct(
         EntityManagers $managers,
         private ClientMetadataReader $reader,
+        private LoggerInterface $logger,
     ) {
         parent::__construct($managers, ClientRecord::class);
     }
@@ -56,14 +60,18 @@ final readonly class DoctrineClientRepository extends DoctrineRepository impleme
     public function findByClientId(Tenant $tenant, string $clientId): ?Client
     {
         $record = $this->record($tenant, $clientId);
+        $registration = $record === null ? null : $this->registrationOf($record);
 
-        return $record === null ? null : new Client($tenant, $this->registrationOf($record), $record->secret);
+        return $record === null || $registration === null ? null : new Client($tenant, $registration, $record->secret);
     }
 
     public function registrationsIn(Tenant $tenant): iterable
     {
         foreach ($this->recordsIn($tenant) as $record) {
-            yield $this->registrationOf($record);
+            $registration = $this->registrationOf($record);
+            if ($registration !== null) {
+                yield $registration;
+            }
         }
     }
 
@@ -167,15 +175,30 @@ final readonly class DoctrineClientRepository extends DoctrineRepository impleme
     /**
      * The metadata read as a declaration is read, strictly and by the same reader: a member this
      * provider does not understand is refused here as it is there, so a row written by a version that
-     * read more than this one says so instead of serving a client nobody can account for.
+     * read more than this one, or before a rule this one holds its members to (the host of a URI it
+     * registered, RFC 3986 §3.2.2), says so instead of serving a client nobody can account for. It says
+     * so in the log, as an error, and names no client: the row is a client no longer registered, so that
+     * what it holds stops at its own requests, answered as those of a client nobody knows, and never
+     * reaches the pages of the sessions it took part in, which load its grants (ClientResolver), nor the
+     * questions about the set of clients of the tenant (RegisteredClients).
      *
      * What the registration policy of the tenant wrote is read in front of what the client sent
      * (decision 0017), from the row and never from the policy: a policy is read where a registration is
      * written, at the creation of RFC 7591 §3.1 and at the replacement of RFC 7592 §2.2, and never at
      * the authorization request that looks this client up.
      */
-    private function registrationOf(ClientRecord $record): ClientRegistration
+    private function registrationOf(ClientRecord $record): ?ClientRegistration
     {
-        return $this->reader->read($record->clientId, $record->asRegistered(), $record->secret !== null);
+        try {
+            return $this->reader->read($record->clientId, $record->asRegistered(), $record->secret !== null);
+        } catch (UnreadableClientMetadataException $refusal) {
+            $this->logger->error(sprintf(
+                'The client "%s" registered metadata this provider refuses now, and is served as no client: %s',
+                $record->clientId,
+                $refusal->getMessage(),
+            ));
+
+            return null;
+        }
     }
 }

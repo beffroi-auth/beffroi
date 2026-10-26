@@ -6,6 +6,7 @@ namespace Beffroi\Xml\Tests\Enc\Unit;
 
 use Beffroi\Xml\Core\Exception\RefusedXml;
 use Beffroi\Xml\Enc\Exception\AlgorithmUnavailable;
+use Beffroi\Xml\Enc\Exception\CoveringSignatureRequired;
 use Beffroi\Xml\Enc\Exception\DecryptionFailed;
 use Beffroi\Xml\Enc\Exception\EncryptionFailed;
 use Beffroi\Xml\Enc\Exception\EncryptionRefused;
@@ -52,6 +53,7 @@ final class ExceptionsTest extends TestCase
             MalformedEncryption::class,
             UnknownContentAlgorithm::class,
             UnknownKeyTransport::class,
+            CoveringSignatureRequired::class,
             AlgorithmUnavailable::class,
             DecryptionFailed::class,
             InvalidKey::class,

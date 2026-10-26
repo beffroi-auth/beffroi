@@ -21,10 +21,14 @@ use function trim;
  * The standard claims of OIDC Core §5.1 of a user (architecture §5.5), the whole of them every time: what
  * the command does not say is cleared, and a run that says nothing writes nothing rather than clearing
  * everything. Writes and prints what it wrote; reading a user is beffroi:user:show.
+ *
+ * What the source of the user holds is not the command's (decision 0002): a claim that upstream provider
+ * holds stays what it wrote when the command does not say it, and saying it otherwise is refused, naming
+ * the provider, without writing anything.
  */
 #[AsCommand(
     name: 'beffroi:user:profile',
-    description: 'Describe a user with the standard claims of OIDC Core section 5.1; what is not said is cleared, a run that says nothing writes nothing. To read a user, see beffroi:user:show.',
+    description: 'Describe a user with the standard claims of OIDC Core section 5.1; what is not said is cleared, except what the upstream provider that created the user holds, which is kept, and saying that otherwise is refused; a run that says nothing writes nothing. To read a user, see beffroi:user:show.',
 )]
 final readonly class UserProfileCommand
 {

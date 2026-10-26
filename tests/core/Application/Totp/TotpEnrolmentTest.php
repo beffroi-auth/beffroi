@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Totp;
 
+use Beffroi\Core\Domain\Identity\UpstreamProvider;
+use Beffroi\Core\Domain\Identity\EmailDomain;
+use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Bridge\Random\PlatformRandomness;
 use function array_unique;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -48,6 +53,8 @@ final class TotpEnrolmentTest extends TestCase
 
     private TotpEnrolment $enrolment;
 
+    private InMemoryUpstreamProviders $upstreamProviders;
+
     protected function setUp(): void
     {
         $this->alice = Fixtures::user();
@@ -55,9 +62,10 @@ final class TotpEnrolmentTest extends TestCase
         $this->hasher = new FakePasswordHasher();
         $this->events = new RecordingEventDispatcher();
         $this->clock = new MockClock('2026-09-20T12:00:15+00:00');
+        $this->upstreamProviders = new InMemoryUpstreamProviders();
         $this->enrolment = new TotpEnrolment(
             $this->credentials,
-            new EnrolmentRefusal(),
+            new EnrolmentRefusal(new FederatedDomains($this->upstreamProviders)),
             new SymfonyUuidGenerator(),
             new PlatformRandomness(),
             new BackupCodeSet(new PlatformRandomness(), $this->hasher),
@@ -304,5 +312,25 @@ final class TotpEnrolmentTest extends TestCase
 
         // When
         $this->enrolment->begin($carol);
+    }
+
+    /**
+     * Decision 0029, spec/saml.md S-63: no secret is drawn for a person of an e-mail domain the tenant federates to an
+     * upstream provider, through which alone they sign in.
+     */
+    #[Test]
+    public function aPersonOfAFederatedDomainIsShownNoSecretToScan(): void
+    {
+        // Given
+        $user = $this->alice;
+        $this->upstreamProviders->declare($user->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $user->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+
+        // Then
+        $this->expectException(CredentialEnrolmentFailedException::class);
+        $this->expectExceptionMessageIs('A one-time code is posed for nobody of an e-mail domain the tenant "acme" federates to an upstream provider, through which alone they sign in.');
+
+        // When
+        $this->enrolment->begin($user);
     }
 }

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Tests\Functional\Controller;
 
+use Beffroi\Bundle\Doctrine\EntityManagers;
+use Beffroi\Bundle\Doctrine\Repository\DoctrineClientRepository;
+use Beffroi\Bundle\Tests\Fixture\RecordedMessages;
 use Beffroi\Core\Port\PasswordHasherInterface;
+use Beffroi\Oidc\Application\Client\ClientMetadataReader;
 use Beffroi\Oidc\Domain\Client\Client;
 use Beffroi\Oidc\Domain\Client\ClientRecord;
 use Beffroi\Oidc\Domain\Client\ClientSecretInterface;
@@ -17,6 +21,7 @@ use Beffroi\Oidc\Domain\Secret\DrawnSecret;
 use Beffroi\Oidc\Tests\Fixture\ClientAssertions;
 use Beffroi\Oidc\Tests\Fixture\Secrets;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Response;
 use function array_map;
 use function base64_encode;
@@ -34,6 +39,8 @@ final class RegisteredClientFlowTest extends BrowserTestCase
     private const string SECRET = 'a-secret-the-provider-handed-it-of-at-least-32-characters';
 
     private const string REDIRECT_URI = 'https://registered.test/callback';
+
+    private const string STALE_REDIRECT_URI = 'https://registered.test;sandbox/callback';
 
     #[Test]
     public function aClientWrittenThroughTheStoreIsResolvedByItsIdentifier(): void
@@ -97,6 +104,92 @@ final class RegisteredClientFlowTest extends BrowserTestCase
         static::assertSame('Bearer', $tokens['token_type']);
         static::assertIsString($tokens['id_token']);
         static::assertIsString($tokens['access_token']);
+    }
+
+    /**
+     * RFC 7591 §2, RFC 3986 §3.2.2, architecture §4.1: a row the reader refuses now, a redirection URI registered
+     * before its host was held to a name or an address, names no client, so that the client is unusable rather
+     * than the pages that load what it was granted.
+     */
+    #[Test]
+    public function aClientWhoseRowNoLongerReadsIsNoClient(): void
+    {
+        // Given
+        $this->registerAHostThatCarriesADirective();
+
+        // When
+        $client = self::service('test.beffroi.clients', ClientRepositoryInterface::class)->findByClientId(self::tenant(), self::CLIENT_ID);
+
+        // Then
+        static::assertNull($client);
+    }
+
+    /**
+     * RFC 6749 §4.1.2.1: the authorization request of that client is the request of a client nobody knows,
+     * answered without a redirection.
+     */
+    #[Test]
+    public function aClientWhoseRowNoLongerReadsIsRefusedItsAuthorizationRequest(): void
+    {
+        // Given
+        $this->registerAHostThatCarriesADirective();
+
+        // When
+        $this->browser->request('GET', '/authorize', self::parameters([
+            'redirect_uri' => self::STALE_REDIRECT_URI,
+        ]));
+
+        // Then
+        $response = $this->browser->getResponse();
+        static::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+        static::assertFalse($response->headers->has('Location'));
+    }
+
+    /**
+     * OIDC Discovery §3, architecture §4.1: the document of the tenant reads what its clients registered, and is
+     * served whatever a row the reader refuses holds.
+     */
+    #[Test]
+    public function aClientWhoseRowNoLongerReadsLeavesTheDocumentOfTheTenantServed(): void
+    {
+        // Given
+        $this->registerAHostThatCarriesADirective();
+
+        // When
+        $this->browser->request('GET', '/.well-known/openid-configuration');
+
+        // Then
+        static::assertSame(Response::HTTP_OK, $this->browser->getResponse()->getStatusCode());
+    }
+
+    /**
+     * Architecture §4.1: the row that names no client says so, at the level an operator is alerted on, with the
+     * rule it breaks.
+     */
+    #[Test]
+    public function aClientWhoseRowNoLongerReadsIsLoggedAsAnError(): void
+    {
+        // Given
+        $this->registerAHostThatCarriesADirective();
+        $said = new RecordedMessages();
+        $repository = new DoctrineClientRepository(
+            self::service(EntityManagers::class, EntityManagers::class),
+            self::service(ClientMetadataReader::class, ClientMetadataReader::class),
+            $said,
+        );
+
+        // When
+        $repository->findByClientId(self::tenant(), self::CLIENT_ID);
+
+        // Then
+        static::assertSame(
+            [\sprintf(
+                'The client "%s" registered metadata this provider refuses now, and is served as no client: The URI "%s" registered for a client must name a host of letters, digits, hyphens and dots, or an IP address (RFC 3986 §3.2.2).',
+                self::CLIENT_ID,
+                self::STALE_REDIRECT_URI,
+            )],
+            $said->at(LogLevel::ERROR),
+        );
     }
 
     /**
@@ -277,6 +370,19 @@ final class RegisteredClientFlowTest extends BrowserTestCase
             'token_endpoint_auth_method' => $method,
             'scope' => 'openid profile',
         ], $secret);
+    }
+
+    /**
+     * A row written before the host of a URI a client registers was held to a name or an address.
+     */
+    private function registerAHostThatCarriesADirective(): void
+    {
+        $this->registerMembers([
+            'client_name' => 'A client that registered itself before the rule',
+            'redirect_uris' => [self::STALE_REDIRECT_URI],
+            'token_endpoint_auth_method' => 'client_secret_basic',
+            'scope' => 'openid profile',
+        ]);
     }
 
     /**

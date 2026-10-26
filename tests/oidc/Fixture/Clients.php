@@ -549,8 +549,8 @@ final class Clients
 
     /**
      * A client that sends its authorization requests in a JWT (RFC 9101 §4): it publishes the keys the
-     * signature is verified against and registers, or not, the algorithm it signs with and the URLs its
-     * objects are published at.
+     * signature is verified against and registers, or not, the algorithm it signs with, the URLs its
+     * objects are published at and that its requests are read from nothing else (§10.5).
      *
      * @param list<RequestUri> $requestUris
      */
@@ -559,6 +559,7 @@ final class Clients
         ?RequestObjectSigningInterface $signing = null,
         array $requestUris = [],
         string $clientId = 'jar-client',
+        bool $requiresSignedRequestObject = false,
     ): Client {
         return new Client(
             $tenant,
@@ -575,6 +576,7 @@ final class Clients
                 jwks: ClientAssertions::publishedKeys(),
                 requestObjectSigning: $signing ?? new AnyRegisteredAlgorithm(),
                 requestUris: $requestUris,
+                requiresSignedRequestObject: $requiresSignedRequestObject,
             ),
             new HashedClientSecret(new FakePasswordHasher()->hash(self::SECRET)),
         );

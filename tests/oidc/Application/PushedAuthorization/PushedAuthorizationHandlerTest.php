@@ -29,6 +29,7 @@ use Beffroi\Oidc\Domain\PushedAuthorization\PushedAuthorizationResponse;
 use Beffroi\Oidc\Domain\PushedAuthorization\RequestUri;
 use Beffroi\Oidc\Exception\InvalidClientException;
 use Beffroi\Oidc\Exception\InvalidRequestException;
+use Beffroi\Oidc\Exception\InvalidRequestObjectException;
 use Beffroi\Oidc\Exception\InvalidScopeException;
 use Beffroi\Oidc\Exception\OAuth2Exception;
 use Beffroi\Oidc\Exception\UnsupportedResponseTypeException;
@@ -240,6 +241,90 @@ final class PushedAuthorizationHandlerTest extends TestCase
             ],
             $this->storedRequest($response)->parameters,
         );
+    }
+
+    /**
+     * RFC 9101 §10.5, FAPI 2.0 Message Signing §5.3.1: a client whose requests are only read from a
+     * request object it signed cannot push one as form parameters.
+     */
+    #[Test]
+    public function aClientHeldToSignedObjectsIsRefusedARequestOfFormParameters(): void
+    {
+        // Given
+        $this->clients->save(Clients::sendingRequestObjects($this->tenant, requiresSignedRequestObject: true));
+
+        // Then
+        $this->expectException(InvalidRequestException::class);
+        $this->expectExceptionMessageIs('invalid_request: The client only starts an authorization request with a request object it signed (RFC 9101 section 10.5, require_signed_request_object).');
+
+        // When
+        $this->pushWith(self::basic('jar-client', Clients::SECRET), [
+            'redirect_uri' => 'https://jar.example/callback',
+        ]);
+    }
+
+    /**
+     * RFC 9101 §10.5, RFC 9126 §4: the record of a request such a client pushed in an object it signed
+     * says so, which is what the authorization endpoint reads the requirement from when the reference
+     * comes back.
+     */
+    #[Test]
+    public function theRecordOfARequestPushedInASignedObjectSaysSo(): void
+    {
+        // Given
+        $this->clients->save(Clients::sendingRequestObjects($this->tenant, requiresSignedRequestObject: true));
+        $object = RequestObjects::signed(RequestObjects::claims('jar-client', $this->tenant->issuer->value, $this->clock->now(), [
+            'response_type' => 'code',
+            'redirect_uri' => 'https://jar.example/callback',
+            'scope' => 'openid profile',
+            'code_challenge' => self::CHALLENGE,
+            'code_challenge_method' => 'S256',
+        ]));
+
+        // When
+        $response = $this->pushWith(self::basic('jar-client', Clients::SECRET), [
+            'request' => $object,
+            'redirect_uri' => null,
+            'scope' => null,
+            'response_type' => null,
+            'code_challenge' => null,
+            'code_challenge_method' => null,
+        ]);
+
+        // Then
+        static::assertTrue($this->storedRequest($response)->carriedBySignedObject);
+    }
+
+    /**
+     * RFC 9101 §10.5: a request object of such a client that uses "alg": "none" is refused, the
+     * registration of that client reading no object unsigned.
+     */
+    #[Test]
+    public function anUnsignedObjectOfAClientHeldToSignedObjectsIsRefused(): void
+    {
+        // Given
+        $this->clients->save(Clients::sendingRequestObjects($this->tenant, requiresSignedRequestObject: true));
+        $object = RequestObjects::unsigned(RequestObjects::claims('jar-client', $this->tenant->issuer->value, $this->clock->now(), [
+            'response_type' => 'code',
+            'redirect_uri' => 'https://jar.example/callback',
+            'scope' => 'openid profile',
+            'code_challenge' => self::CHALLENGE,
+            'code_challenge_method' => 'S256',
+        ]));
+
+        // Then
+        $this->expectException(InvalidRequestObjectException::class);
+        $this->expectExceptionMessageIs('invalid_request_object: The request object is not signed with the algorithm the client registered in request_object_signing_alg (OIDC Registration section 2).');
+
+        // When
+        $this->pushWith(self::basic('jar-client', Clients::SECRET), [
+            'request' => $object,
+            'redirect_uri' => null,
+            'scope' => null,
+            'response_type' => null,
+            'code_challenge' => null,
+            'code_challenge_method' => null,
+        ]);
     }
 
     /**

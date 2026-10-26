@@ -34,10 +34,10 @@ changed: **green both ways**, on PHP 8.5.11 and on PHP 8.4.25, the same outcome 
 | Its SAML library | `simplesamlphp/saml2-legacy` 4.20.3 on `robrichards/xmlseclibs` 3.1.5, what processes every message (`saml2-model`'s finding F-8) | the archive | 1 October 2026 |
 | PHP and Apache of the installation | PHP 8.4.26, Apache 2.4.68, Debian 13.7 | `php:8.4.26-apache@sha256:75325cceea4f9a8200f4e9e146e8155ec1b6466b2957b87accf0286b94547cbd` | 1 October 2026 |
 | The image | `saml2-bindings-simplesamlphp:2.5.3.1`, built locally from `installation/Dockerfile` | `compose.yaml` | 1 October 2026 |
-| This package | `src/` as of d891fbb, on `beffroi-php/saml2-model` `dev-main` at 9c833c5 and `beffroi-php/xml-security` `dev-main` at d7990c0 | the branch `story/8-simplesamlphp` | 1 October 2026 |
+| This package | `src/` as of d891fbb, on `beffroi-auth/saml2-model` `dev-main` at 9c833c5 and `beffroi-auth/xml-security` `dev-main` at d7990c0 | the branch `story/8-simplesamlphp` | 1 October 2026 |
 | PHP of the scripts | 8.5.10 and 8.4.25, curl 8.14.1, OpenSSL 3.5.7 | `ghcr.io/spomky-labs/phpqa:8.5` and `:8.4`, `PHP_VERSION` of castor | 1 October 2026 |
 | Docker, Compose, Castor | Docker 29.8.1, Compose 5.5.1, Castor 1.7.0 (macOS, Apple M4) | the machine that ran it | 1 October 2026 |
-| This package, played again | `src/` as of 82bfa1d, on `beffroi-php/saml2-model` `dev-main` at 6028dd7 and `beffroi-php/xml-security` `dev-main` at aece936, documentation only since 9c833c5 and d7990c0 (the name Beffroi) | the branch `story/11-sync` | 12 October 2026 |
+| This package, played again | `src/` as of 82bfa1d, on `beffroi-auth/saml2-model` `dev-main` at 6028dd7 and `beffroi-auth/xml-security` `dev-main` at aece936, documentation only since 9c833c5 and d7990c0 (the name Beffroi) | the branch `story/11-sync` | 12 October 2026 |
 | PHP of the scripts, played again | 8.5.11 and 8.4.25, curl 8.14.1, OpenSSL 3.5.7; Docker 29.8.2, Compose 5.5.1, Castor 1.7.0 | `ghcr.io/spomky-labs/phpqa:8.5` and `:8.4` as pulled on 12 October 2026 | 12 October 2026 |
 
 ## 1. The installation

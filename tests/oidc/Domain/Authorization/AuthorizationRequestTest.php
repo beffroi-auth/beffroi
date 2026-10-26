@@ -14,6 +14,7 @@ use Beffroi\Oidc\Domain\Client\Client;
 use Beffroi\Oidc\Domain\Client\RedirectUri;
 use Beffroi\Oidc\Domain\Scope\Scope;
 use Beffroi\Oidc\Tests\Fixture\Clients;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -85,5 +86,41 @@ final class AuthorizationRequestTest extends TestCase
         static::assertSame($this->client, $target->client);
         static::assertSame($this->redirectUri, $target->redirectUri);
         static::assertSame('af0ifjsldkj', $target->state);
+    }
+
+    /**
+     * OIDC Core §3.1.2.1 max_age: a session whose latest proof is older than max_age seconds exceeds it, "auth_time +
+     * max_age < now"; one exactly max_age seconds old, a younger one, and a request without max_age, do not
+     * (beffroi/saml, spec/saml.md S-49).
+     */
+    #[Test]
+    #[DataProvider('provideMaxAges')]
+    public function itSaysWhetherASessionExceedsItsMaxAge(?int $maxAge, bool $exceeded): void
+    {
+        // Given
+        $request = new AuthorizationRequest(
+            $this->client,
+            $this->redirectUri,
+            new Scopes([Scope::openid()]),
+            new CodeChallenge('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', new Sha256CodeChallengeMethod()),
+            'af0ifjsldkj',
+            'n-0S6_WzA2Mj',
+            maxAge: $maxAge,
+        );
+        $session = Fixtures::session(authenticatedAt: Fixtures::now()->modify('-60 seconds'));
+
+        // When / Then
+        static::assertSame($exceeded, $request->maxAgeExceededBy($session, Fixtures::now()));
+    }
+
+    /**
+     * @return iterable<string, array{?int, bool}>
+     */
+    public static function provideMaxAges(): iterable
+    {
+        yield 'a second shorter than the age of the session' => [59, true];
+        yield 'the age of the session' => [60, false];
+        yield 'a second longer' => [61, false];
+        yield 'none' => [null, false];
     }
 }

@@ -1,7 +1,8 @@
 {# The passkeys of the signed-in user (architecture §5.2), in the language of the browser: the list with
    the name, the dates and the state of each one, a button that revokes one, and the form that enrols a
    new one, hidden until the script of the bundle finds a browser that can create a passkey. "error" is
-   a code of PasskeyEnrolmentController, shown after a failed enrolment. Overridable by an application
+   a code of PasskeyEnrolmentController, shown after a failed enrolment. A person of a federated domain
+   ("federated", decision 0029) is offered no enrolment, and told why. Overridable by an application
    under templates/bundles/BeffroiBundle/. #}
 {% extends '@Beffroi/layout.html.twig' %}
 {% trans_default_domain 'beffroi' %}
@@ -17,16 +18,21 @@
    hidden until the script of the bundle finds a browser that can create a passkey, and the name it sends
    is the one this page gives a new one. #}
 {% block action %}
-    <form method="post" action="{{ path('beffroi_interaction_account_passkeys_enrol') }}" data-passkey="enrol" data-options-url="{{ path('beffroi_interaction_account_passkeys_options') }}" hidden>
-        <input type="hidden" name="_token" value="{{ csrf_token('beffroi_passkey_enrol') }}">
-        <input type="hidden" name="_passkey" value="">
-        <input type="hidden" name="name" value="{{ 'passkeys.new_default'|trans }}">
-        <button type="button" data-passkey-button>{{ 'passkeys.enrol'|trans }}</button>
-    </form>
+    {% if not federated %}
+        <form method="post" action="{{ path('beffroi_interaction_account_passkeys_enrol') }}" data-passkey="enrol" data-options-url="{{ path('beffroi_interaction_account_passkeys_options') }}" hidden>
+            <input type="hidden" name="_token" value="{{ csrf_token('beffroi_passkey_enrol') }}">
+            <input type="hidden" name="_passkey" value="">
+            <input type="hidden" name="name" value="{{ 'passkeys.new_default'|trans }}">
+            <button type="button" data-passkey-button>{{ 'passkeys.enrol'|trans }}</button>
+        </form>
+    {% endif %}
 {% endblock %}
 
 {% block content %}
     {{ include('@Beffroi/account/back.html.twig') }}
+    {% if federated %}
+        <p data-federated>{{ 'account.federated_domain'|trans }}</p>
+    {% endif %}
     {% if error is not null %}
         <p data-error="{{ error }}">{{ ('passkeys.error.' ~ error)|trans }}</p>
     {% endif %}

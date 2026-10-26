@@ -6,6 +6,7 @@ namespace Beffroi\Bundle\Tests\Unit\Http;
 
 use Beffroi\Oidc\Tests\Fixture\Secrets;
 use Beffroi\Bundle\Http\BrowserSession;
+use Beffroi\Bundle\Http\LoginAddresses;
 use Beffroi\Core\Bridge\InMemory\InMemoryAuthenticationSessionRepository;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\SessionEnd;
@@ -250,6 +251,26 @@ final class BrowserSessionTest extends TestCase
         // Then
         static::assertNull($this->browser->pending($request, $this->tenant, $interaction->id));
         static::assertFalse($request->getSession()->has(BrowserSession::INTERACTIONS_KEY));
+    }
+
+    /**
+     * beffroi/saml S-68: an interaction that is over takes with it the address the step of the address kept for a
+     * sign-on it never reached, which the HTTP session holds no longer than the interaction.
+     */
+    #[Test]
+    public function anInteractionThatIsOverTakesTheAddressKeptForItWithIt(): void
+    {
+        // Given
+        $interaction = $this->interaction();
+        $request = self::request();
+        $this->browser->begin($request->getSession(), $interaction);
+        new LoginAddresses()->sendOn($request->getSession(), $interaction, 'alice@example.org', Fixtures::now());
+
+        // When
+        $this->browser->forget($request->getSession(), $interaction);
+
+        // Then
+        static::assertSame([], $request->getSession()->get(LoginAddresses::SENT_SESSION_KEY));
     }
 
     /**

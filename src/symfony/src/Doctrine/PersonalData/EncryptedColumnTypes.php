@@ -27,7 +27,7 @@ use function substr;
  * column which seals and a column which does not are told apart by the type the mapping gives it and by
  * nothing kept beside it: the model says which of its fields is a personal datum and the walk of the
  * schema reads this class to hold the two together. They cannot be declared through `doctrine.dbal.types`
- * the way the other 26 types of the bundle are: that option names a class DoctrineBundle instantiates with
+ * the way the other 33 types of the bundle are: that option names a class DoctrineBundle instantiates with
  * no argument, and an encrypted type takes an encrypter, which is a service. What the bridge asks for
  * instead is an `EncryptedTypes` service whose `register()` runs while the bundles boot
  * (`BeffroiBundle::boot()`), early enough for the front controller, the console with its schema tool and
@@ -53,7 +53,7 @@ final readonly class EncryptedColumnTypes
 {
     /**
      * The prefix of every name this class derives, which is also what tells an encrypted type of the
-     * bundle from the 26 types that are not (`BeffroiBundle::DBAL_TYPES`).
+     * bundle from the 33 types that are not (`BeffroiBundle::DBAL_TYPES`).
      */
     public const string PREFIX = 'beffroi_encrypted_';
 
@@ -65,13 +65,13 @@ final readonly class EncryptedColumnTypes
      * (decision 0018).
      *
      * A family holds several types because a type seals one type: every column of `beffroi_user` shares one
-     * data key, and the four types below are four ways into it. What the count of keys per tenant is, is
+     * data key, and the six types below are six ways into it. What the count of keys per tenant is, is
      * therefore the count of families and not the count of types.
      *
      * @var array<string, list<string>>
      */
     public const array FAMILIES = [
-        'user' => ['string', 'text', 'beffroi_email_address', 'beffroi_address', 'beffroi_profile'],
+        'user' => ['string', 'text', 'beffroi_email_address', 'beffroi_address', 'beffroi_profile', 'beffroi_user_source'],
         'linked_identity' => ['string', 'json'],
         'passkey_credential' => ['string'],
         'push_subscription' => ['string', 'text'],
@@ -85,6 +85,8 @@ final readonly class EncryptedColumnTypes
         'personal_archive' => ['text'],
         'claim_change' => ['string', 'beffroi_request_context'],
         'disclosure' => ['beffroi_scopes', 'beffroi_claims_request', 'beffroi_authorization_details'],
+        'saml_service_provider' => ['text'],
+        'saml_upstream_identity_provider' => ['text'],
     ];
 
     /**

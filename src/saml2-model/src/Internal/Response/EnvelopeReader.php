@@ -28,9 +28,11 @@ use Dom\Element;
  * received one otherwise (step 3): Version 2.0, an ID (an NCName, which the loader checked, I-8), an IssueInstant
  * neither later than now plus the skew nor older than maxMessageAge (M-7); a Destination required when the response is
  * signed and equal to the URL of arrival whenever present (M-8, SAML Bindings §3.5.5.2, SAML Core §3.2.1); an Issuer
- * required when the response is signed (SAML Profiles §4.1.4.2 as corrected by E17) and the identity provider's entity
- * ID whenever present (M-8); the InResponseTo the consumer expects, or none for an unsolicited response (M-10). The
- * context is the assertion's, whose URL of arrival is the response's too.
+ * required when the response is signed (SAML Profiles §4.1.4.2 as corrected by E17; one holding a
+ * saml:EncryptedAssertion was required by the envelope, step 2) and the identity provider's entity ID whenever present
+ * (M-8); the InResponseTo the consumer expects, or none for an unsolicited response (M-10). The context is the
+ * assertion's, whose URL of arrival is the response's too. It reads nothing of the assertion, so that it runs before
+ * an encrypted one is decrypted (section 6.7).
  *
  * @internal outside the compatibility promise of section 5
  */

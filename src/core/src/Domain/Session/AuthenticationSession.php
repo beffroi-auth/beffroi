@@ -81,19 +81,33 @@ final class AuthenticationSession implements ClassifiedFieldsInterface
     }
 
     /**
-     * A re-authentication or a step-up: one more proof, dated now.
+     * A re-authentication or a step-up: one more proof, dated when the request arrived, or at $provenAt when what
+     * proved it dates it (the AuthnInstant of an upstream identity provider, beffroi/saml S-57), never later than the
+     * request; the newest proof of a method is kept (AuthenticationProofs::with()).
      */
-    public function recordProof(AuthenticationMethod $method, RequestContext $context): void
+    public function recordProof(AuthenticationMethod $method, RequestContext $context, ?DateTimeImmutable $provenAt = null): void
     {
         if ($this->endedAt !== null) {
             throw new LogicException('An ended session cannot receive a proof.');
         }
         if ($context->receivedAt < $this->establishedAt) {
-            throw new LogicException('A proof cannot predate the session.');
+            throw new LogicException('The request that carries a proof cannot predate the session.');
         }
-        $this->proofs = $this->proofs->with($method, $context->receivedAt);
+        $this->proofs = $this->proofs->with($method, $provenAt === null || $provenAt > $context->receivedAt ? $context->receivedAt : $provenAt);
         $this->lastSeenFrom = $context;
         $this->lastSeenAt = $context->receivedAt;
+    }
+
+    /**
+     * The instant an upstream identity provider allows the session it vouches for (the SessionNotOnOrAfter of SAML
+     * Core §2.7.2, beffroi/saml S-57): the session ends no later than that, and a bound later than its end changes
+     * nothing, so that the provider shortens a session and never lengthens one.
+     */
+    public function endNoLaterThan(DateTimeImmutable $notOnOrAfter): void
+    {
+        if ($notOnOrAfter < $this->expiresAt) {
+            $this->expiresAt = $notOnOrAfter;
+        }
     }
 
     /**

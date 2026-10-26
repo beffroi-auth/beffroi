@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Authentication;
 
+use Beffroi\Core\Domain\Identity\UpstreamProvider;
+use Beffroi\Core\Domain\Identity\EmailDomain;
+use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use DateInterval;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
@@ -61,6 +66,8 @@ final class LoginCompletionTest extends TestCase
 
     private LoginCompletion $completion;
 
+    private InMemoryUpstreamProviders $upstreamProviders;
+
     protected function setUp(): void
     {
         $this->tenant = Fixtures::tenant();
@@ -74,6 +81,7 @@ final class LoginCompletionTest extends TestCase
         $this->events = new RecordingEventDispatcher();
         $this->attempts = new FakeAttemptLimiter(5);
         $this->clock = new MockClock('2026-09-20T12:00:15+00:00');
+        $this->upstreamProviders = new InMemoryUpstreamProviders();
         // enrolled an hour ago: the step of its first code is long past
         $credentials->save(Totps::credential(
             $this->alice,
@@ -84,7 +92,12 @@ final class LoginCompletionTest extends TestCase
         // the password was typed a minute ago
         $this->login = PendingLogin::provenAt($this->alice->id, [AuthenticationMethod::password()], $this->clock->now()->modify('-1 minute'));
         $this->completion = new LoginCompletion(
-            new PendingLoginVerification($users, new AuthenticationRefusal($this->clock, $this->events), $this->clock),
+            new PendingLoginVerification(
+                $users,
+                new AuthenticationRefusal($this->clock, $this->events),
+                $this->clock,
+                new FederatedDomains($this->upstreamProviders),
+            ),
             new TotpAuthentication(
                 $credentials,
                 new ActiveTotp(new ActiveCredentials($credentials)),
@@ -231,6 +244,29 @@ final class LoginCompletionTest extends TestCase
         } catch (AuthenticationFailedException $exception) {
             // Then
             static::assertSame(AuthenticationFailureReason::ExpiredLogin, $exception->reason);
+            static::assertSame([], $this->attempts->attempts);
+            static::assertSame([], $this->sessions->findActiveByUser($this->alice, $this->clock->now()));
+        }
+    }
+
+    /**
+     * Decision 0029, spec/saml.md S-63: a login held for a person whose domain the tenant has federated since, or
+     * whose address has moved into one, completes nothing, and the code is not read.
+     */
+    #[Test]
+    public function aLoginOfAPersonOfAFederatedDomainIsRefusedBeforeTheCodeIsRead(): void
+    {
+        // Given
+        $this->upstreamProviders->declare($this->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $this->alice->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+
+        // When
+        try {
+            $this->completion->complete($this->tenant, $this->login, Totps::codeAt($this->clock->now()), Fixtures::context($this->clock->now()));
+            static::fail('The login should not have been completed.');
+        } catch (AuthenticationFailedException $exception) {
+            // Then
+            static::assertSame(AuthenticationFailureReason::FederatedDomain, $exception->reason);
             static::assertSame([], $this->attempts->attempts);
             static::assertSame([], $this->sessions->findActiveByUser($this->alice, $this->clock->now()));
         }

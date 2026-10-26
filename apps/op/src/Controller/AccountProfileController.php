@@ -21,7 +21,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * What this provider holds of the signed-in person, and what they may correct of it, edited in place
- * (issue beffroi-php/op#17).
+ * (issue beffroi-auth/op#17).
  *
  * **This page is the application's and not the bundle's**, which is why it answers the route name of the
  * bundle rather than adding one of its own: a deployment that installs the bundle is served bare HTML with
@@ -37,7 +37,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * It renders no script. The value a person reads is the field they type into, which is a stylesheet and
  * not a behaviour (assets/styles/app.css).
  *
- * What they have changed of their record is a page of its own (issue beffroi-php/beffroi#482), served by
+ * What they have changed of their record is a page of its own (issue beffroi-auth/beffroi#482), served by
  * the bundle: this page offers the way to it and reads none of it.
  */
 #[AsController]
@@ -68,10 +68,10 @@ final readonly class AccountProfileController
         }
         $user = $session->user;
         // what a form of this page was refused, if one was, shown this once: it crossed the redirection
-        // the form answered with and the page it was read by has taken it (issue beffroi-php/beffroi#481)
+        // the form answered with and the page it was read by has taken it (issue beffroi-auth/beffroi#481)
         $refusal = $this->refusals->take($request);
         $forms = [];
-        foreach ($this->claims->openedBy($user->tenant) as $open) {
+        foreach ($this->claims->openedTo($user) as $open) {
             $form = $this->claimForms->of($open, $user);
             if ($refusal?->field === $open->name()) {
                 // the message goes back under the line it is about, which is what this page has a form
@@ -89,7 +89,8 @@ final readonly class AccountProfileController
             // correct; how many of them are held is what the page says of the record itself
             'claims' => RecordedInformation::everyClaimOf($user),
             'held' => count(RecordedInformation::claimsOf($user)),
-            // one view per claim the tenant opens, in the order the claims are wired, each built once
+            // one view per claim the tenant opens and the source of the person does not hold, in the order
+            // the claims are wired, each built once
             // what was refused of it is on its field
             'forms' => $forms,
         ]);

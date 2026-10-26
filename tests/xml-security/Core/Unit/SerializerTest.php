@@ -29,10 +29,21 @@ use function substr;
 
 /**
  * Section 6.5, I-15: the whole document, formatOutput false, an XML declaration and UTF-8, whitespace kept, nothing
- * reformatted afterwards, and the four shapes that would not survive saveXml() then a parser refused first.
+ * reformatted afterwards, the four shapes that would not survive saveXml() then a parser refused first, and so are the
+ * shapes no parser accepts.
  */
 final class SerializerTest extends TestCase
 {
+    /** Where a built document can hold a string a consumer chose: what saveXml() writes as it is (section 13). */
+    private const array PLACES = [
+        'text',
+        'CDATA section',
+        'comment',
+        'processing instruction',
+        'attribute value',
+        'namespace name',
+    ];
+
     private Serializer $serializer;
 
     protected function setUp(): void
@@ -486,5 +497,322 @@ final class SerializerTest extends TestCase
             $bytes,
         );
         static::assertSame("1\n2\t3\r4", Loaded::document($bytes)->root()->getAttribute('v'));
+    }
+
+    /**
+     * §9.3 row 22, section 6.5, XML 1.0 §2.2: saveXml() writes a character outside the Char production as it is,
+     * wherever it sits, and no parser accepts it (measured, section 13).
+     */
+    #[Test]
+    #[DataProvider('provideCharactersOutsideTheCharProductionInEachPlace')]
+    public function itRefusesACharacterOutsideTheCharProduction(string $place, string $character): void
+    {
+        // Given
+        $document = self::documentHolding($place, 'a' . $character . 'b');
+
+        // Then
+        $this->expectException(SerializationFailed::class);
+        $this->expectExceptionMessageIs('The document holds a character outside the Char production of XML 1.0 §2.2, which no parser accepts (section 6.5).');
+
+        // When
+        $this->serializer->serialize($document);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideCharactersOutsideTheCharProductionInEachPlace(): iterable
+    {
+        $characters = [
+            'U+0001' => "\u{1}",
+            'U+0008' => "\u{8}",
+            'U+000B' => "\u{B}",
+            'U+001F' => "\u{1F}",
+            'U+FFFE' => "\u{FFFE}",
+            'U+FFFF' => "\u{FFFF}",
+        ];
+        foreach (self::PLACES as $place) {
+            foreach ($characters as $name => $character) {
+                yield $name . ' in ' . $place => [$place, $character];
+            }
+        }
+    }
+
+    /**
+     * §9.3 row 22, section 6.5, XML 1.0 §2.2: a comment outside the root is scanned too.
+     */
+    #[Test]
+    public function itRefusesACharacterOutsideTheCharProductionOutsideTheRoot(): void
+    {
+        // Given
+        $document = new DocumentFactory()->create(new Name('urn:a', 'a'));
+        $root = $document->root();
+        $xml = $root->ownerDocument;
+        static::assertNotNull($xml);
+        $xml->insertBefore($xml->createComment("a\u{1}b"), $root);
+
+        // Then
+        $this->expectException(SerializationFailed::class);
+        $this->expectExceptionMessageIs('The document holds a character outside the Char production of XML 1.0 §2.2, which no parser accepts (section 6.5).');
+
+        // When
+        $this->serializer->serialize($document);
+    }
+
+    /**
+     * §9.3 row 22, section 6.5, XML 1.0 §2.2: bytes that are not UTF-8, a surrogate encoded on its own among them,
+     * are written as they are, wherever they sit, and no parser accepts them (measured, section 13).
+     */
+    #[Test]
+    #[DataProvider('provideBytesThatAreNotUtf8InEachPlace')]
+    public function itRefusesBytesThatAreNotUtf8(string $place, string $bytes): void
+    {
+        // Given
+        $document = self::documentHolding($place, 'a' . $bytes . 'b');
+
+        // Then
+        $this->expectException(SerializationFailed::class);
+        $this->expectExceptionMessageIs('The document holds bytes that are not UTF-8, which no parser accepts (section 6.5).');
+
+        // When
+        $this->serializer->serialize($document);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideBytesThatAreNotUtf8InEachPlace(): iterable
+    {
+        $sequences = [
+            'an overlong slash, C0 AF' => "\xC0\xAF",
+            'a surrogate, ED A0 80' => "\xED\xA0\x80",
+            'a lone continuation byte, 80' => "\x80",
+            'a truncated sequence, E2 82' => "\xE2\x82",
+        ];
+        foreach (self::PLACES as $place) {
+            foreach ($sequences as $name => $sequence) {
+                yield $name . ' in ' . $place => [$place, $sequence];
+            }
+        }
+    }
+
+    /**
+     * Section 6.5, XML 1.0 §2.2: the characters at each bound of the Char production are written and load again.
+     */
+    #[Test]
+    #[DataProvider('provideCharactersAtTheBoundsOfTheCharProduction')]
+    public function itSerializesACharacterAtABoundOfTheCharProduction(string $character): void
+    {
+        // Given
+        $document = self::documentHolding('text', 'a' . $character . 'b');
+
+        // When
+        $bytes = $this->serializer->serialize($document);
+
+        // Then
+        static::assertSame('a' . $character . 'b', Loaded::document($bytes)->root()->textContent);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideCharactersAtTheBoundsOfTheCharProduction(): iterable
+    {
+        yield 'U+0009' => ["\u{9}"];
+        yield 'U+000A' => ["\u{A}"];
+        yield 'U+0020' => ["\u{20}"];
+        yield 'U+D7FF' => ["\u{D7FF}"];
+        yield 'U+E000' => ["\u{E000}"];
+        yield 'U+FFFD' => ["\u{FFFD}"];
+        yield 'U+10000' => ["\u{10000}"];
+        yield 'U+10FFFF' => ["\u{10FFFF}"];
+    }
+
+    /**
+     * §9.3 row 22, section 6.5, measured: the DOM truncates a value at a NUL byte when it is set, before the brick
+     * sees it, so what is serialized is what the node holds and is well-formed; the serializer accepts it.
+     */
+    #[Test]
+    #[DataProvider('providePlaces')]
+    public function itSerializesWhatTheDomKeptOfAValueHoldingANulByte(string $place): void
+    {
+        // Given
+        $document = self::documentHolding($place, "a\0b");
+
+        // When
+        $bytes = $this->serializer->serialize($document);
+
+        // Then
+        static::assertSame($bytes, $this->serializer->serialize(self::documentHolding($place, 'a')));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function providePlaces(): iterable
+    {
+        foreach (self::PLACES as $place) {
+            yield $place => [$place];
+        }
+    }
+
+    /**
+     * §9.3 row 22, section 6.5, XML 1.0 §2.5: a comment holding two adjacent hyphens, or ending with one, is written
+     * as it is, inside the root or outside it, and no parser accepts it.
+     */
+    #[Test]
+    #[DataProvider('provideCommentsTheProductionForbids')]
+    public function itRefusesACommentTheProductionForbids(string $data, bool $outsideTheRoot): void
+    {
+        // Given
+        $document = new DocumentFactory()->create(new Name('urn:a', 'a'));
+        $root = $document->root();
+        $xml = $root->ownerDocument;
+        static::assertNotNull($xml);
+        $comment = $xml->createComment($data);
+        if ($outsideTheRoot) {
+            $xml->insertBefore($comment, $root);
+        } else {
+            $root->appendChild($comment);
+        }
+
+        // Then
+        $this->expectException(SerializationFailed::class);
+        $this->expectExceptionMessageIs('A comment holds two adjacent hyphens or ends with one, which XML 1.0 §2.5 forbids (section 6.5).');
+
+        // When
+        $this->serializer->serialize($document);
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function provideCommentsTheProductionForbids(): iterable
+    {
+        yield 'two hyphens inside' => ['a--b', false];
+        yield 'a hyphen at the end' => ['a-', false];
+        yield 'a hyphen alone' => ['-', false];
+        yield 'two hyphens inside, outside the root' => ['a--b', true];
+        yield 'a hyphen at the end, outside the root' => ['a-', true];
+    }
+
+    /**
+     * Section 6.5, XML 1.0 §2.5: a hyphen that neither follows another nor ends the comment is allowed.
+     */
+    #[Test]
+    public function itSerializesACommentHoldingSingleHyphens(): void
+    {
+        // Given
+        $document = self::documentHolding('comment', '-a-b');
+
+        // When
+        $bytes = $this->serializer->serialize($document);
+
+        // Then
+        static::assertSame("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<a xmlns=\"urn:a\"><!---a-b--></a>", $bytes);
+    }
+
+    /**
+     * §9.3 row 22, section 6.5, XML 1.0 §2.6: the target xml is reserved whatever its case, and saveXml() writes it
+     * as it is, inside the root or outside it.
+     */
+    #[Test]
+    #[DataProvider('provideReservedTargets')]
+    public function itRefusesAProcessingInstructionWithTheReservedTarget(string $target, bool $outsideTheRoot): void
+    {
+        // Given
+        $document = new DocumentFactory()->create(new Name('urn:a', 'a'));
+        $root = $document->root();
+        $xml = $root->ownerDocument;
+        static::assertNotNull($xml);
+        $instruction = $xml->createProcessingInstruction($target, 'a');
+        if ($outsideTheRoot) {
+            $xml->insertBefore($instruction, $root);
+        } else {
+            $root->appendChild($instruction);
+        }
+
+        // Then
+        $this->expectException(SerializationFailed::class);
+        $this->expectExceptionMessageIs('A processing instruction has the target xml, which XML 1.0 §2.6 reserves (section 6.5).');
+
+        // When
+        $this->serializer->serialize($document);
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function provideReservedTargets(): iterable
+    {
+        yield 'xml' => ['xml', false];
+        yield 'XML' => ['XML', false];
+        yield 'XmL' => ['XmL', false];
+        yield 'xml, outside the root' => ['xml', true];
+    }
+
+    /**
+     * Section 6.5, XML 1.0 §2.6: a target that only starts with xml is not the reserved one.
+     */
+    #[Test]
+    public function itSerializesAProcessingInstructionWhoseTargetStartsWithXml(): void
+    {
+        // Given
+        $document = new DocumentFactory()->create(new Name('urn:a', 'a'));
+        $root = $document->root();
+        $xml = $root->ownerDocument;
+        static::assertNotNull($xml);
+        $root->appendChild($xml->createProcessingInstruction('xml-stylesheet', 'a'));
+
+        // When
+        $bytes = $this->serializer->serialize($document);
+
+        // Then
+        static::assertSame("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<a xmlns=\"urn:a\"><?xml-stylesheet a?></a>", $bytes);
+    }
+
+    /**
+     * §9.3 row 22, section 6.5, XML 1.0 §2.6: a processing instruction whose data came to hold the sequence that
+     * ends one, which createProcessingInstruction() refuses but appendData() does not.
+     */
+    #[Test]
+    public function itRefusesAProcessingInstructionWhoseDataHoldsTheEndMarker(): void
+    {
+        // Given
+        $document = new DocumentFactory()->create(new Name('urn:a', 'a'));
+        $root = $document->root();
+        $xml = $root->ownerDocument;
+        static::assertNotNull($xml);
+        $instruction = $xml->createProcessingInstruction('pi', 'a?');
+        $root->appendChild($instruction);
+        $instruction->appendData('>b');
+
+        // Then
+        $this->expectException(SerializationFailed::class);
+        $this->expectExceptionMessageIs('A processing instruction holds the sequence that ends one, which XML 1.0 §2.6 forbids (section 6.5).');
+
+        // When
+        $this->serializer->serialize($document);
+    }
+
+    /**
+     * A document built by the factory whose root holds $value in one place.
+     */
+    private static function documentHolding(string $place, string $value): Document
+    {
+        $document = new DocumentFactory()->create(new Name('urn:a', 'a'));
+        $root = $document->root();
+        $xml = $root->ownerDocument;
+        static::assertNotNull($xml);
+        match ($place) {
+            'text' => $root->appendChild($xml->createTextNode($value)),
+            'CDATA section' => $root->appendChild($xml->createCDATASection($value)),
+            'comment' => $root->appendChild($xml->createComment($value)),
+            'processing instruction' => $root->appendChild($xml->createProcessingInstruction('pi', $value)),
+            'attribute value' => $root->setAttribute('v', $value),
+            default => $root->appendChild($xml->createElementNS('urn:x:' . $value, 'x:e')),
+        };
+
+        return $document;
     }
 }

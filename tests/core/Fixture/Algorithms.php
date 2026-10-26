@@ -17,7 +17,12 @@ use Beffroi\Core\Bridge\JwtLibrary\JoseContentEncryptionAlgorithms;
 use Beffroi\Core\Bridge\JwtLibrary\JoseEncryptionAlgorithms;
 use Beffroi\Core\Bridge\JwtLibrary\Algorithm\Vapid;
 use Beffroi\Core\Bridge\JwtLibrary\JoseApplicationServerAlgorithms;
+use Beffroi\Core\Bridge\JwtLibrary\JoseAlgorithmRegistryInterface;
 use Beffroi\Core\Bridge\JwtLibrary\JoseKeyAlgorithms;
+use function array_map;
+use Beffroi\Core\Bridge\JwtLibrary\JoseKeyFamily;
+use Beffroi\Core\Domain\Key\RotationSchedule;
+use DateInterval;
 use Beffroi\Core\Bridge\JwtLibrary\JoseKeyEncryptionAlgorithms;
 use Beffroi\Core\Bridge\JwtLibrary\JoseMessageSealingAlgorithms;
 use Beffroi\Core\Bridge\JwtLibrary\JoseSignatureAlgorithms;
@@ -179,11 +184,27 @@ final class Algorithms
      */
     public static function everyUse(): JoseKeyAlgorithms
     {
-        return self::$everyUse ??= new JoseKeyAlgorithms([
+        return self::$everyUse ??= self::readAsOne([
             self::all(),
             self::keyEncryption(),
             self::applicationServer(),
             self::messageSealing(),
         ]);
+    }
+
+    /**
+     * The registries given read as one, each a family of keys rotating by the staging delay and the age of
+     * KeyLifecycle.
+     *
+     * @param non-empty-list<JoseAlgorithmRegistryInterface> $registries
+     */
+    public static function readAsOne(array $registries): JoseKeyAlgorithms
+    {
+        $schedule = new RotationSchedule(new DateInterval(KeyLifecycle::STAGING_DELAY), new DateInterval(KeyLifecycle::AGE));
+
+        return new JoseKeyAlgorithms(array_map(
+            static fn (JoseAlgorithmRegistryInterface $registry): JoseKeyFamily => new JoseKeyFamily($registry, $schedule),
+            $registries,
+        ));
     }
 }

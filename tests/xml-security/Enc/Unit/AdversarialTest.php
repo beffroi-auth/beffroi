@@ -74,7 +74,7 @@ final class AdversarialTest extends TestCase
      */
     public static function provideRefusedAttempts(): iterable
     {
-        $content = 'The content algorithm is not AES-128-GCM or AES-256-GCM (E-1).';
+        $content = 'The content algorithm is not AES-128-GCM, AES-256-GCM, AES-128-CBC or AES-256-CBC (E-1).';
         $notOaep = 'The key transport is not RSA-OAEP: PKCS#1 v1.5, key wrapping and key agreement are refused by name (E-1).';
         $type = 'The Type of an EncryptedData is Element: the plaintext is a whole element or nothing (E-5).';
         $base64 = 'A CipherValue holds a character outside the base64 alphabet or is empty (E-7).';

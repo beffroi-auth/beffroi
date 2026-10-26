@@ -1,13 +1,13 @@
 # beffroi/saml2-model
 
-Part of [beffroi/framework](https://github.com/beffroi-php/beffroi), developed in `src/saml2-model` of that monorepo; this repository is its
+Part of [beffroi/framework](https://github.com/beffroi-auth/beffroi), developed in `src/saml2-model` of that monorepo; this repository is its
 read-only split. Issues and pull requests go to the monorepo.
 
 The SAML 2.0 model for PHP: the `samlp:`, `saml:` and `md:` objects of the Web Browser SSO and Single Logout
 profiles, read strictly, validated against the rules of the profiles in code rather than in options, and written, on
-the safe DOM and the XML Signature of [`beffroi/xml-security`](https://github.com/beffroi-php/xml-security). It
+the safe DOM and the XML Signature of [`beffroi/xml-security`](https://github.com/beffroi-auth/xml-security). It
 reads an assertion only in what a signature covers, takes a peer's keys from its metadata only, and knows no HTTP:
-the bindings are [`beffroi/saml2-bindings`](https://github.com/beffroi-php/saml2-bindings).
+the bindings are [`beffroi/saml2-bindings`](https://github.com/beffroi-auth/saml2-bindings).
 
 [`spec/model.md`](spec/model.md) is the law of the package: the code conforms to it, or the document changes first.
 This file is its short version.
@@ -47,8 +47,28 @@ $accepted->coverage;                                   // SignatureCoverage::Ass
 ```
 
 `validate()` refuses with a `MessageRefused` naming its rule, `SignatureRequired`, `AudienceMismatch`,
-`OutsideValidityWindow`, `Replayed` and the others of section 5.8, and lets the refusals of `Core` and `Dsig`
+`OutsideValidityWindow`, `Replayed` and the others of section 5.8, and lets the refusals of `Core`, `Dsig` and `Enc`
 through as they are. `ExpectedResponse::unsolicited()` accepts a response to no request, when your policy does.
+
+An assertion encrypted for your service provider, a `saml:EncryptedAssertion` under AES-GCM, or AES-CBC in a response
+the identity provider signed, and RSA-OAEP, is read with the key you give with that identity provider: the key whose
+encryption certificate you gave it, and no other provider, `Enc`'s `DecryptionKeyInterface`, which a key management
+service can implement without handing the key over:
+
+```php
+use Beffroi\Xml\Enc\PrivateDecryptionKey;
+
+$accepted = $validator->validate($response, $idp->withDecryptionKey(PrivateDecryptionKey::fromPem($pem)), $expected);
+```
+
+The signature of the response is verified before anything is decrypted, every cryptographic failure is `Enc`'s one
+`DecryptionFailed`, and the decrypted assertion needs its own signature or the response's, since anyone can encrypt
+for your key (section 6.7). AES-CBC, which Entra, ADFS and SimpleSAMLphp encrypt under, authenticates nothing: it is
+opened only under the signature of the response, which covers the ciphertext, and refused by name in an unsigned
+response, so that the identity provider signs the response too (decision 0013); every refusal after a CBC decryption is
+that one `DecryptionFailed`. Give each identity provider its own key: a key two of them share lets one carry the
+other's ciphertext under its own signature and read what the decryption answers (section 5.5). A provider given
+without a key has its encrypted assertion refused by name.
 
 ## Validating a request and writing a response, identity provider side
 
@@ -90,7 +110,8 @@ namespace, signs through `Dsig`'s `Signer`, and returns a `Document`: serializin
 by the binding. `writeFailure()` writes a response whose status is not `Success`. `AuthnRequestWriter`,
 `LogoutRequestWriter` and `LogoutResponseWriter` write the other messages, signed for HTTP-POST, unsigned for
 HTTP-Redirect, whose binding signs the query string; `LogoutRequestValidator` and `LogoutResponseValidator` read them,
-with the same two methods as `AuthnRequestValidator`.
+with the same two methods as `AuthnRequestValidator`, and take the replay port as `ResponseValidator` does: a logout
+message they accepted is `Replayed` when it comes again inside its window (M-11).
 
 ## Reading and writing metadata
 
@@ -134,7 +155,7 @@ Each is code, never an option, and has its tests; `TraceabilityTest` fails when 
 
 | | |
 |---|---|
-| M-1 | An assertion is read from what `Dsig` verified, never from the document as it arrived. |
+| M-1 | An assertion is read from what `Dsig` verified, or from the decryption of a ciphertext it verified, never from the document as it arrived. |
 | M-2 | Every assertion is covered by a signature, its own or the response's; every signature a message carries as a direct child verifies. |
 | M-3 | A peer's keys come from its metadata; the `KeyInfo` of a message is never read. |
 | M-4 | One assertion per response, found as a direct child; one subject, one bearer confirmation, one statement of each kind. |
@@ -144,7 +165,7 @@ Each is code, never an option, and has its tests; `TraceabilityTest` fails when 
 | M-8 | `Issuer`, `Audience`, `Recipient` and `Destination` are compared byte for byte with what the consumer states. |
 | M-9 | An assertion goes only to an assertion consumer service the service provider's metadata lists. |
 | M-10 | `InResponseTo` answers the request the consumer names, or is absent when it accepts an unsolicited response. |
-| M-11 | A verified assertion is accepted once, through the replay port. |
+| M-11 | A verified assertion, and an accepted logout message, is accepted once, through the replay port. |
 | M-12 | A `NameID` follows the rules of its format, read whole, comments and all, never trimmed. |
 | M-13 | A failure status, an unknown condition, an unsupported element: each is a refusal. |
 | M-14 | One loader and one ID space for SAML, XML Signature and XML Encryption. |
@@ -184,9 +205,9 @@ suite on PHP 8.5 and on PHP 8.4.
 
 ## Security
 
-See the [security policy](https://github.com/beffroi-php/beffroi/blob/0.0.x/SECURITY.md) of the monorepo: private reporting, an advisory and a CVE for
+See the [security policy](https://github.com/beffroi-auth/beffroi/blob/0.0.x/SECURITY.md) of the monorepo: private reporting, an advisory and a CVE for
 every fix.
 
 ## License
 
-MIT, see the [LICENSE](https://github.com/beffroi-php/beffroi/blob/0.0.x/LICENSE) of the monorepo.
+MIT, see the [LICENSE](https://github.com/beffroi-auth/beffroi/blob/0.0.x/LICENSE) of the monorepo.

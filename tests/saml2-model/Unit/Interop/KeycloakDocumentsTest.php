@@ -164,6 +164,7 @@ final class KeycloakDocumentsTest extends TestCase
         $accepted = new LogoutRequestValidator(
             SamlLoader::create(),
             new FrozenClock(new DateTimeImmutable('2026-09-30T13:02:34.236Z')),
+            new InMemoryReplayGuard(),
         )->validate($request, $this->broker(), $this->modelIdentityProvider(), self::MODEL_IDP_SLO);
 
         // Then
@@ -250,6 +251,7 @@ final class KeycloakDocumentsTest extends TestCase
         $accepted = new LogoutResponseValidator(
             SamlLoader::create(),
             new FrozenClock(new DateTimeImmutable('2026-09-30T13:02:34.450Z')),
+            new InMemoryReplayGuard(),
         )->validate(
             $response,
             $this->realmIdp(),

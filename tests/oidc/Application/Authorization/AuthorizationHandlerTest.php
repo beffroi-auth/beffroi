@@ -17,6 +17,8 @@ use function array_map;
 use DateInterval;
 use DateTimeImmutable;
 use Beffroi\Core\Bridge\InMemory\InMemoryCredentialRepository;
+use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Credential\PasskeyCredential;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\AuthenticationContextClass;
@@ -37,6 +39,7 @@ use Beffroi\Oidc\Application\Authorization\AuthorizationHandler;
 use Beffroi\Oidc\Application\Consent\ConsentGranting;
 use Beffroi\Oidc\Application\Consent\RequiredConsent;
 use Beffroi\Oidc\Application\Authorization\IdTokenHintVerifier;
+use Beffroi\Oidc\Application\Claims\AssignedSubjectIdentifiers;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryAuthorizationCodeRepository;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryPushedAuthorizationRecordRepository;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryConsentRepository;
@@ -72,6 +75,9 @@ use Beffroi\Oidc\Tests\Fixture\FakeJwsVerifier;
 use Beffroi\Oidc\Tests\Fixture\Logins;
 use Beffroi\Oidc\Tests\Fixture\Methods;
 use Beffroi\Oidc\Tests\Fixture\Requests;
+use Beffroi\Oidc\Tests\Fixture\Subjects;
+use function json_encode;
+use const JSON_THROW_ON_ERROR;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -86,6 +92,8 @@ final class AuthorizationHandlerTest extends TestCase
     private const string BOB_HINT = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjFlOWdkazcifQ.Ym9i.c2lnbmF0dXJl';
 
     private const string FORGED_HINT = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjFlOWdkazcifQ.Zm9yZ2Vk.c2lnbmF0dXJl';
+
+    private const string PAIRWISE_HINT = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjFlOWdkazcifQ.cGFpcndpc2U.c2lnbmF0dXJl';
 
     private Tenant $tenant;
 
@@ -110,6 +118,8 @@ final class AuthorizationHandlerTest extends TestCase
     private InMemoryCredentialRepository $credentials;
 
     private RecordingEventDispatcher $events;
+
+    private AssignedSubjectIdentifiers $subjects;
 
     private AuthorizationHandler $handler;
 
@@ -140,6 +150,9 @@ final class AuthorizationHandlerTest extends TestCase
         $this->credentials = new InMemoryCredentialRepository();
         $this->credentials->save(Fixtures::password($this->alice));
         $this->events = new RecordingEventDispatcher();
+        $users = new InMemoryUserRepository();
+        $users->save($this->alice);
+        $this->subjects = Subjects::bothKinds($users);
         $jws = new FakeJwsVerifier();
         $jws->knows($this->tenant, self::ALICE_HINT, '{"iss":"https://id.acme.example","sub":"alice-subject","aud":"oidc-demo"}');
         $jws->knows($this->tenant, self::BOB_HINT, '{"iss":"https://id.acme.example","sub":"bob-subject","aud":"oidc-demo"}');
@@ -180,6 +193,7 @@ final class AuthorizationHandlerTest extends TestCase
                 $logins ?? Logins::passwordAndPasskey(),
                 $this->credentials,
                 $hints ?? new IdTokenHintVerifier(new FakeJwsVerifier()),
+                $this->subjects,
             ),
             $codes,
             $this->clock,
@@ -686,6 +700,44 @@ final class AuthorizationHandlerTest extends TestCase
 
         // When
         $decision = $this->handler->begin($this->request(idTokenHint: self::BOB_HINT), $this->session(), $this->context);
+
+        // Then
+        $this->loginRequired($decision, LoginRequirement::DifferentUser);
+    }
+
+    /**
+     * OIDC Core §3.1.2.1 id_token_hint, §8.1: a client of pairwise subjects holds the identifier of its sector,
+     * and its hint names the user of the session all the same, read back for that client (issue #838).
+     */
+    #[Test]
+    public function itGrantsWhenTheSessionIsTheUserOfTheIdTokenHintOfAPairwiseClient(): void
+    {
+        // Given
+        $client = Clients::pairwise($this->tenant);
+        $this->consents->save(new Consent(Uuid::v7(), $this->alice, $client, new Scopes([Scope::openid()]), Fixtures::now()));
+        $handler = $this->handlerWith(hints: $this->hintOf($client, $this->subjects->resolve($this->alice, $client)));
+
+        // When
+        $decision = $handler->begin(Requests::authorization($client, idTokenHint: self::PAIRWISE_HINT), $this->session(), $this->context);
+
+        // Then
+        $this->granted($decision);
+    }
+
+    /**
+     * OIDC Core §8: what a "sub" means is decided by the kind its client registered, so the subject the core
+     * keeps names nobody to a client of pairwise subjects, and the user of the session is not the one hinted.
+     */
+    #[Test]
+    public function theSubjectTheCoreKeepsInTheHintOfAPairwiseClientRequiresALogin(): void
+    {
+        // Given
+        $client = Clients::pairwise($this->tenant);
+        $this->consents->save(new Consent(Uuid::v7(), $this->alice, $client, new Scopes([Scope::openid()]), Fixtures::now()));
+        $handler = $this->handlerWith(hints: $this->hintOf($client, $this->alice->subject));
+
+        // When
+        $decision = $handler->begin(Requests::authorization($client, idTokenHint: self::PAIRWISE_HINT), $this->session(), $this->context);
 
         // Then
         $this->loginRequired($decision, LoginRequirement::DifferentUser);
@@ -1912,6 +1964,21 @@ final class AuthorizationHandlerTest extends TestCase
             claims: $claims === null ? null : ClaimsRequest::fromJson($claims),
             acrValues: $acrValues,
         );
+    }
+
+    /**
+     * The verifier of a hint this provider issued to that client about that "sub", PAIRWISE_HINT.
+     */
+    private function hintOf(Client $client, Subject $subject): IdTokenHintVerifier
+    {
+        $jws = new FakeJwsVerifier();
+        $jws->knows($this->tenant, self::PAIRWISE_HINT, json_encode([
+            'iss' => 'https://id.acme.example',
+            'sub' => $subject->value,
+            'aud' => $client->registration->clientId,
+        ], JSON_THROW_ON_ERROR));
+
+        return new IdTokenHintVerifier($jws);
     }
 
     /**

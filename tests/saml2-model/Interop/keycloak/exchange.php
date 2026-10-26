@@ -266,7 +266,7 @@ $page = $browser->followRedirects($browser->get(BASE . '/realms/sp/protocol/open
 [$action, $fields] = samlForm($page, 'SAMLRequest');
 $action === MODEL_IDP_SLO || fail("The broker posted its LogoutRequest to $action.");
 $bytes = keep('broker', 'logout-request', base64_decode($fields['SAMLRequest'], true) ?: fail('SAMLRequest is not base64.'), 'HTTP-POST to ' . $action . ', fields ' . implode(' ', array_keys($fields)));
-$acceptedLogout = new LogoutRequestValidator($loader, $clock)->validate(UnverifiedLogoutRequest::of($loader->load($bytes)), $brokerSp, $modelIdp, MODEL_IDP_SLO);
+$acceptedLogout = new LogoutRequestValidator($loader, $clock, new InMemoryReplayGuard())->validate(UnverifiedLogoutRequest::of($loader->load($bytes)), $brokerSp, $modelIdp, MODEL_IDP_SLO);
 $logoutRequest = $acceptedLogout->request;
 echo "  accepted by LogoutRequestValidator::validate(): {$acceptedLogout->authentication->name}, ID {$logoutRequest->id}, NameID "
     . "{$logoutRequest->nameId->value}, SessionIndex " . implode(' ', $logoutRequest->sessionIndexes) . "\n";
@@ -325,7 +325,7 @@ $page = $browser->followRedirects($browser->post($slo, ['SAMLRequest' => base64_
 [$action, $fields] = samlForm($page, 'SAMLResponse');
 $action === MODEL_SP_SLO || fail("Realm idp posted its LogoutResponse to $action.");
 $bytes = keep('idp', 'logout-response', base64_decode($fields['SAMLResponse'], true) ?: fail('SAMLResponse is not base64.'), 'HTTP-POST to ' . $action . ', fields ' . implode(' ', array_keys($fields)));
-$acceptedLogoutResponse = new LogoutResponseValidator($loader, $clock)->validate(
+$acceptedLogoutResponse = new LogoutResponseValidator($loader, $clock, new InMemoryReplayGuard())->validate(
     UnverifiedLogoutResponse::of($loader->load($bytes)),
     $realmIdp,
     $modelSp,

@@ -1,5 +1,5 @@
 {# What this provider holds of the signed-in person, and what they may correct of it, edited in place
-   (issue beffroi-php/op#17). It overrides the page of the bundle by its name, which is what §5.2 provides
+   (issue beffroi-auth/op#17). It overrides the page of the bundle by its name, which is what §5.2 provides
    for, and the controllers of this application answer its two routes: the bundle serves the same thing as
    bare HTML with a form token, and this is what it looks like written with symfony/form.
 
@@ -7,7 +7,7 @@
    changes here, and what it holds of the person. One line per claim in that second one, read where it is
    held and written where the tenant opens it: the same claim is not read in one list and offered in
    another, so somebody corrects what they are reading. What they have changed of it is a page of its own
-   (beffroi-php/beffroi#482), and the way there is what this page offers.
+   (beffroi-auth/beffroi#482), and the way there is what this page offers.
 
    Edited in place, and with no script: the value a person reads is the field they type into, and the
    button that saves it appears when the line is touched. That is a stylesheet (assets/styles/app.css) and
@@ -54,7 +54,7 @@
                             {{ form_label(form.value) }}
                             {{ form_widget(form.value) }}
                             {# A set of several hundred is typed into with the whole set suggested
-                               (beffroi-php/beffroi#479). No type of the component renders a datalist and
+                               (beffroi-auth/beffroi#479). No type of the component renders a datalist and
                                these pages run no script, so the page renders it beside the field and the
                                field names it. #}
                             {% if field.isPicked %}

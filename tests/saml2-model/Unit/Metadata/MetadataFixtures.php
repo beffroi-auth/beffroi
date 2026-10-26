@@ -21,7 +21,7 @@ final class MetadataFixtures
     /**
      * The base64 of the certificate of a test key, on one line, as an X509Certificate carries it.
      *
-     * @param 'idp'|'sp'|'rsa-1024' $key
+     * @param 'idp'|'sp'|'idp-b'|'rsa-1024' $key
      */
     public static function certificate(string $key): string
     {
@@ -29,12 +29,13 @@ final class MetadataFixtures
     }
 
     /**
-     * @param 'idp'|'sp'|'rsa-1024' $key
+     * @param 'idp'|'sp'|'idp-b'|'rsa-1024' $key
      */
     public static function certificatePem(string $key): string
     {
         return self::bytes(match ($key) {
             'idp' => 'keys/idp-signing-certificate.pem',
+            'idp-b' => 'keys/idp-b-signing-certificate.pem',
             'sp' => 'keys/sp-signing-certificate.pem',
             'rsa-1024' => 'hostile/metadata-rsa-1024-certificate-refused.pem',
         });

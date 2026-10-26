@@ -37,10 +37,10 @@ package now reads (section 4, "Played again on 12 October 2026"). Section 6 hold
 |---|---|---|---|
 | Keycloak | 26.7.4, `quay.io/keycloak/keycloak:26.7.4`, manifest `sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c`, published on 16 September 2026, the highest release of the registry on 30 September 2026 (`saml2-model`'s README says how it was chosen) | `compose.yaml`, the image by its manifest | run 1 October 2026 |
 | Mode | `start-dev`: HTTP, the H2 database inside the container, the realms imported at its first start from `realms/`, their keys generated then | `compose.yaml` | 1 October 2026 |
-| This package | `src/` as of d891fbb, on `beffroi-php/saml2-model` `dev-main` at 9c833c5 and `beffroi-php/xml-security` `dev-main` at d7990c0 | the branch `story/9-keycloak` | 1 October 2026 |
+| This package | `src/` as of d891fbb, on `beffroi-auth/saml2-model` `dev-main` at 9c833c5 and `beffroi-auth/xml-security` `dev-main` at d7990c0 | the branch `story/9-keycloak` | 1 October 2026 |
 | PHP of the scripts | 8.5.10 and 8.4.25, curl 8.14.1, OpenSSL 3.5.7 | `ghcr.io/spomky-labs/phpqa:8.5` and `:8.4`, `PHP_VERSION` of castor | 1 October 2026 |
 | Docker, Compose, Castor | Docker 29.8.1, Compose 5.5.1, Castor 1.7.0 (macOS, Darwin 25.6, Apple M4) | the machine that ran it | 1 October 2026 |
-| This package, played again | `src/` as of 82bfa1d, on `beffroi-php/saml2-model` `dev-main` at 6028dd7 and `beffroi-php/xml-security` `dev-main` at aece936, documentation only since 9c833c5 and d7990c0 (the name Beffroi) | the branch `story/11-sync` | 12 October 2026 |
+| This package, played again | `src/` as of 82bfa1d, on `beffroi-auth/saml2-model` `dev-main` at 6028dd7 and `beffroi-auth/xml-security` `dev-main` at aece936, documentation only since 9c833c5 and d7990c0 (the name Beffroi) | the branch `story/11-sync` | 12 October 2026 |
 | PHP of the scripts, played again | 8.5.11 and 8.4.25, curl 8.14.1, OpenSSL 3.5.7; Docker 29.8.2, Compose 5.5.1, Castor 1.7.0 | `ghcr.io/spomky-labs/phpqa:8.5` and `:8.4` as pulled on 12 October 2026 | 12 October 2026 |
 
 ## 1. The installation

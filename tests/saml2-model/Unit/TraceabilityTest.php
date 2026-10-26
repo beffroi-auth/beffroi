@@ -28,14 +28,14 @@ final class TraceabilityTest extends TestCase
     }
 
     /**
-     * Section 4: M-1 to M-17, each cited by a test docblock.
+     * Section 4: M-1 to M-18, each cited by a test docblock.
      */
     #[Test]
     public function everyInvariantIsCitedByATest(): void
     {
         // Given
         $invariants = $this->traceability->invariants();
-        static::assertCount(17, $invariants);
+        static::assertCount(18, $invariants);
 
         // When
         $uncited = array_diff($invariants, $this->traceability->citedInvariants());
@@ -52,7 +52,7 @@ final class TraceabilityTest extends TestCase
     {
         // Given
         $rows = $this->traceability->tableRows('### 9.2 Hostile corpus');
-        static::assertCount(36, $rows);
+        static::assertCount(51, $rows);
 
         // When
         $uncited = array_diff(array_keys($rows), $this->traceability->citedRows('9.2'));
@@ -69,7 +69,7 @@ final class TraceabilityTest extends TestCase
     {
         // Given
         $rows = $this->traceability->tableRows('### 9.3 Behaviour corpus');
-        static::assertCount(19, $rows);
+        static::assertCount(26, $rows);
 
         // When
         $uncited = array_diff(array_keys($rows), $this->traceability->citedRows('9.3'));

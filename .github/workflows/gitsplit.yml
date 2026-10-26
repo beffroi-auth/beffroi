@@ -43,17 +43,15 @@ name: gitsplit
 # here. "latest" of an image nobody has rebuilt in five years was a pin
 # without a name; this is the same pin with its name on it.
 #
-# That one pull is authenticated when the repository holds DOCKERHUB_USERNAME
-# and DOCKERHUB_TOKEN (issue #543), because an anonymous pull cannot be
+# That one pull is authenticated when the run is given DOCKERHUB_USERNAME
+# and DOCKERHUB_TOKEN, secrets of this repository (issue #543), because an anonymous pull cannot be
 # answered at all on an address of the pool that is already spent, and the
 # entry cannot be filled on an address like that: the first two runs of the
 # cache were refused on two runners. Authenticated, the pull is counted against
-# the account instead, and what it is asked for is once a week at most. There is
-# no second source to read the image from rather than a credential: it is not an
-# official image, so mirror.gcr.io answers "not found" for it and
-# public.ecr.aws carries docker/library and nothing else. A repository that
-# holds no credential says so in the run and pulls anonymously, which is what
-# this workflow has always done.
+# the account instead, and what it is asked for is once a week at most. Docker
+# Hub, GitHub's registry and GitLab's are the only registries this repository
+# reads, and the image is on Docker Hub alone. A run given no credential says so
+# and pulls anonymously, which is what this workflow has always done.
 
 on:
   push:
@@ -78,7 +76,7 @@ env:
 
 jobs:
   gitsplit:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     steps:
       - name: "Checkout"
         uses: "actions/checkout@v7"
@@ -106,7 +104,7 @@ jobs:
           if [ -n "${DOCKERHUB_TOKEN}" ]; then
             printf '%s' "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
           else
-            echo "::warning title=The pull that fills the cache is anonymous::This repository holds no DOCKERHUB_USERNAME and DOCKERHUB_TOKEN, so the pull below is counted against the address of the runner, which is shared and may be spent. It is the pull every later run is spared by the cache entry it writes."
+            echo "::warning title=The pull that fills the cache is anonymous::This run is given no DOCKERHUB_USERNAME and DOCKERHUB_TOKEN, so the pull below is counted against the address of the runner, which is shared and may be spent. It is the pull every later run is spared by the cache entry it writes."
           fi
           docker pull "${GITSPLIT_IMAGE}"
           docker tag "${GITSPLIT_IMAGE}" "${GITSPLIT_LOADED}"

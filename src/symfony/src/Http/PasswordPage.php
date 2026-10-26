@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Http;
 
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Bundle\Http\Account\BreachedPasswordDemand;
 use Beffroi\Core\Application\Credential\ActivePassword;
 use Beffroi\Core\Domain\Credential\PasswordLength;
@@ -36,6 +37,9 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
  * is read beside it. The form declares that number and the core refuses below it, and they are one number
  * rather than two that must agree.
  *
+ * **A person of a federated domain is offered no form** (decision 0029): they sign in through their
+ * organisation, and a password they held before is replaced by nobody (PasswordChange).
+ *
  * **A person who holds no password reads that they hold none.** Somebody who signs in by passkey alone
  * has nothing to replace here, and this page does not offer to set a first one: posing a password is an
  * enrolment, and an enrolment proves something first.
@@ -61,6 +65,7 @@ final readonly class PasswordPage
         private ActivePassword $activePassword,
         private BreachedPasswordDemand $demands,
         private InteractionPages $pages,
+        private FederatedDomains $federated,
     ) {
     }
 
@@ -77,6 +82,8 @@ final readonly class PasswordPage
             'password' => $password,
             'demanded' => $this->demands->isMade($httpSession, $password),
             'refusal' => $refusal,
+            // decision 0029, beffroi/saml S-63: the password of a person of a federated domain is replaced by nobody
+            'federated' => ! $this->federated->admitsLocalCredentials($user),
             'minimum' => PasswordLength::under($user->tenant->loginFloor)->minimum,
             'floor' => PlainPassword::MINIMUM_STRENGTH,
             'rungs' => self::RUNG_KEYS,

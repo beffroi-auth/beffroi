@@ -241,7 +241,7 @@ final class SecurityHeadersTest extends BrowserTestCase
     }
 
     /**
-     * Issue beffroi-php/beffroi#584: the consent page extends the layout of this application, so it is
+     * Issue beffroi-auth/beffroi#584: the consent page extends the layout of this application, so it is
      * served the policy written here like every other page of the plane and not one of its own, which
      * would be a page served without the directives above. What it adds to that policy is read on the
      * page itself: the host serving the logo of the asking client in the "img-src", that client in the

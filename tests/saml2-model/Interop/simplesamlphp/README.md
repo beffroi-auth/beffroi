@@ -30,7 +30,7 @@ model's writers and validators, both ways, on the running installation (section 
 | PHP and Apache of the installation | PHP 8.4.26, Apache 2.4.68, Debian 13.7 | `php:8.4.26-apache@sha256:75325cceea4f9a8200f4e9e146e8155ec1b6466b2957b87accf0286b94547cbd` | 30 September 2026 |
 | Docker, Compose, curl of the capture | Docker 29.8.1, Compose 5.5.1, curl 8.7.1 (macOS) | the machine that ran it | 30 September 2026 |
 | xmlsec1 | 1.3.7 (OpenSSL) | `apk add xmlsec` in `alpine:3.22` (3.22.6) | 30 September 2026 |
-| The model in the exchange | this repository, `src/` as of `e11e945`, on `beffroi-php/xml-security` `dev-main` at `d7990c060cd0` | the branch `story/11-simplesamlphp` and `composer.lock` | 30 September 2026 |
+| The model in the exchange | this repository, `src/` as of `e11e945`, on `beffroi-auth/xml-security` `dev-main` at `d7990c060cd0` | the branch `story/11-simplesamlphp` and `composer.lock` | 30 September 2026 |
 | PHP of the exchange | 8.5.10 and 8.4.25, curl 8.14.1 | `ghcr.io/spomky-labs/phpqa:8.5` and `:8.4`, `PHP_VERSION` of castor | 30 September 2026 |
 | Castor | 1.7.0 | the machine that ran it | 30 September 2026 |
 

@@ -262,14 +262,14 @@ final class AttributeStatementReaderTest extends TestCase
     }
 
     /**
-     * §9.2 row 29, section 6.7: saml:EncryptedAttribute, until sub-spike 9e.
+     * §9.2 row 29, section 6.7: saml:EncryptedAttribute, refused by name.
      */
     #[Test]
     public function itRefusesAnEncryptedAttribute(): void
     {
         // Given
         $document = $this->document('hostile/assertion-encrypted-attribute-refused.xml');
-        $message = 'The attribute statement holds a saml:EncryptedAttribute, which the package does not support until sub-spike 9e (section 6.7).';
+        $message = 'The attribute statement holds a saml:EncryptedAttribute, which the package does not support (section 6.7).';
 
         // Then
         $this->expectException(Unsupported::class);

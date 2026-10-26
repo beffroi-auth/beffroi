@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Authentication;
 
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use function count;
 use Beffroi\Core\Application\Authentication\AuthenticationFailedException;
 use Beffroi\Core\Application\Authentication\AuthenticationRefusal;
@@ -85,6 +87,7 @@ final class TheOrderOfAPasswordLoginTest extends TestCase
                 new AuthenticationRefusal($clock, $this->events),
                 $clock,
                 $this->events,
+                new FederatedDomains(new InMemoryUpstreamProviders()),
             ),
             new SessionOpener(
                 new InMemoryAuthenticationSessionRepository(),

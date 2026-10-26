@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    The suite of this application (issue beffroi-php/beffroi#521). It boots the kernel of "apps/op", the one a
+    The suite of this application (issue beffroi-auth/beffroi#521). It boots the kernel of "apps/op", the one a
     deployment runs, against the database and the KMS that kernel needs: what is judged here is the pages and
     the configuration of the application, the rules of the provider being the three suites of the monorepo
     (.ci-tools/phpunit.xml.dist).

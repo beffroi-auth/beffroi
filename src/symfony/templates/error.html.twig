@@ -17,7 +17,7 @@
    and not a variable a page is rendered with. #}
 {% set beffroi_refusal = true %}
 
-{% set explained_errors = ['unknown_interaction', 'interaction_expired', 'interaction_completed', 'invalid_csrf_token', 'invalid_request', 'login_required', 'no_login_to_begin', 'too_many_requests', 'enrolment_ticket_refused'] %}
+{% set explained_errors = ['unknown_interaction', 'interaction_expired', 'interaction_completed', 'invalid_csrf_token', 'invalid_request', 'login_required', 'no_login_to_begin', 'too_many_requests', 'enrolment_ticket_refused', 'saml_request_refused', 'saml_logout_refused', 'saml_upstream_sign_on_refused', 'saml_assertion_refused'] %}
 
 {% block title %}{{ 'error.title'|trans }}{% endblock %}
 

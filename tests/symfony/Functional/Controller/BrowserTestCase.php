@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Bundle\Tests\Functional\Controller;
 
 use Beffroi\Oidc\Tests\Fixture\Secrets;
+use function array_filter;
 use function base64_decode;
 use function base64_encode;
 use Closure;
@@ -49,6 +50,7 @@ use const PHP_URL_QUERY;
 use function rtrim;
 use function sprintf;
 use function str_starts_with;
+use function strtolower;
 use function strtr;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\BrowserKit\Cookie;
@@ -476,6 +478,72 @@ abstract class BrowserTestCase extends DatabaseTestCase
      * The session cookie the browser will send: the one the kernel set, which carries a domain, over the
      * one a test wrote without one before any request, once a login migrated the session behind it.
      */
+    /**
+     * What a browser sends when a page of another site posts a form here: "Sec-Fetch-Site: cross-site", and none of the
+     * cookies of this provider that "SameSite=Lax" or "Strict" keeps from a cross-site post (RFC 6265bis, "SameSite"
+     * cookies), the ones that say "SameSite=None" going with it. The cookies held back are given back afterwards, as the
+     * browser still holds them.
+     *
+     * @param string $body the body as the other site encoded it, which the provider reads as it came
+     * @param array<string, string|null> $server what replaces the headers of a cross-site post, null removing one
+     */
+    protected function postedFromAnotherSite(string $uri, string $body, array $server = []): void
+    {
+        $jar = $this->browser->getCookieJar();
+        $heldBack = [];
+        foreach ($jar->all() as $cookie) {
+            if (strtolower((string) $cookie->getSameSite()) !== 'none') {
+                $heldBack[] = $cookie;
+                $jar->expire($cookie->getName(), $cookie->getPath(), $cookie->getDomain());
+            }
+        }
+        $this->postedFromAnotherSiteWithTheCookie($uri, $body, $server);
+        foreach ($heldBack as $cookie) {
+            $jar->set($cookie);
+        }
+    }
+
+    /**
+     * The same post from a browser that sends the cookies of this provider with it all the same, a browser that does
+     * not apply "SameSite" or a cookie that does not say "Lax".
+     *
+     * @param string $body the body as the other site encoded it, which the provider reads as it came
+     * @param array<string, string|null> $server what replaces the headers of a cross-site post, null removing one
+     */
+    protected function postedFromAnotherSiteWithTheCookie(string $uri, string $body, array $server = []): void
+    {
+        parse_str($body, $fields);
+        $this->browser->request(
+            'POST',
+            $uri,
+            $fields,
+            [],
+            array_filter(
+                $server
+                + [
+                    'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+                    'HTTP_SEC_FETCH_SITE' => 'cross-site',
+                ],
+                static fn (?string $value): bool => $value !== null,
+            ),
+            $body,
+        );
+    }
+
+    /**
+     * The page of CrossSitePost submitted from the origin of the provider, with the cookies of the browser.
+     */
+    protected function postedAgain(): void
+    {
+        $this->browser->submit(
+            $this->browser->getCrawler()->filter('form')->form(),
+            [],
+            [
+                'HTTP_SEC_FETCH_SITE' => 'same-origin',
+            ],
+        );
+    }
+
     private function sessionCookie(string $name): ?Cookie
     {
         $found = null;

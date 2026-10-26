@@ -21,7 +21,9 @@ use Beffroi\Oidc\Domain\Client\ClientJwks;
 use Beffroi\Oidc\Domain\Client\ClientUri;
 use Beffroi\Oidc\Domain\Client\RedirectUri;
 use Beffroi\Oidc\Domain\Client\RequestUri;
+use Beffroi\Oidc\Domain\Client\RequestObject\AnyRegisteredAlgorithm;
 use Beffroi\Oidc\Domain\Client\RequestObject\OneRegisteredAlgorithm;
+use Beffroi\Oidc\Domain\Client\RequestObject\RequestObjectSigningInterface;
 use Beffroi\Oidc\Domain\Client\RequestObject\UnsignedRequestObjects;
 use Beffroi\Oidc\Domain\Scope\Scope;
 use Beffroi\Oidc\Exception\InvalidArgumentException;
@@ -837,5 +839,64 @@ final class ClientRegistrationTest extends TestCase
 
         // Then
         static::assertTrue($client->requestObjectSigning->acceptsUnsigned());
+    }
+
+    /**
+     * RFC 9101 §10.5: the provider rejects a request object of a client held to signed ones when it uses
+     * "alg": "none", so such a client registers nothing under which an unsigned object is read. With the
+     * two together, an object nobody signed would meet a requirement that says signed.
+     */
+    #[Test]
+    public function aClientHeldToSignedRequestObjectsRegistersNothingThatReadsThemUnsigned(): void
+    {
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('The client "unsigned-client" has its requests read only from a request object it signed (require_signed_request_object), and therefore registers no request_object_signing_alg under which an unsigned one is read (RFC 9101 section 10.5).');
+
+        // When
+        new ClientRegistration(
+            'unsigned-client',
+            new ClientPresentation('Client that signs nothing'),
+            Methods::none(),
+            false,
+            [new RedirectUri('https://jar.example/callback')],
+            Shapes::jwt(),
+            requestObjectSigning: new UnsignedRequestObjects(),
+            requiresSignedRequestObject: true,
+        );
+    }
+
+    /**
+     * RFC 9101 §10.5, OIDC Registration §2: a client held to signed request objects registers the one
+     * algorithm it signs them with, or no algorithm and has them read under any the provider verifies.
+     */
+    #[Test]
+    #[DataProvider('provideSignedRequestObjectRegistrations')]
+    public function aClientHeldToSignedRequestObjectsRegistersWhatReadsThemSigned(RequestObjectSigningInterface $requestObjectSigning): void
+    {
+        // When
+        $client = new ClientRegistration(
+            'jar-client',
+            new ClientPresentation('Client that signs its requests'),
+            Methods::none(),
+            false,
+            [new RedirectUri('https://jar.example/callback')],
+            Shapes::jwt(),
+            jwks: ClientAssertions::publishedKeys(),
+            requestObjectSigning: $requestObjectSigning,
+            requiresSignedRequestObject: true,
+        );
+
+        // Then
+        static::assertTrue($client->requiresSignedRequestObject);
+    }
+
+    /**
+     * @return iterable<string, array{RequestObjectSigningInterface}>
+     */
+    public static function provideSignedRequestObjectRegistrations(): iterable
+    {
+        yield 'no algorithm, any the provider verifies' => [new AnyRegisteredAlgorithm()];
+        yield 'one algorithm' => [new OneRegisteredAlgorithm(Algorithms::es256())];
     }
 }

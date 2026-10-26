@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Credential;
 
+use Beffroi\Core\Domain\Identity\UpstreamProvider;
+use Beffroi\Core\Domain\Identity\EmailDomain;
+use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
+use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
 use Beffroi\Core\Application\Credential\ActivePassword;
 use Beffroi\Core\Application\Credential\BreachedPasswordRefusal;
@@ -51,6 +56,8 @@ final class PasswordChangeTest extends TestCase
 
     private PasswordChange $change;
 
+    private InMemoryUpstreamProviders $upstreamProviders;
+
     protected function setUp(): void
     {
         $this->alice = Fixtures::user();
@@ -59,6 +66,7 @@ final class PasswordChangeTest extends TestCase
         $this->events = new RecordingEventDispatcher();
         $this->clock = new MockClock('2026-09-15T13:00:00+00:00');
         $this->breaches = BreachedPasswordsOfARecord::holding([self::BREACHED]);
+        $this->upstreamProviders = new InMemoryUpstreamProviders();
         $this->change = $this->changeAsking($this->breaches);
     }
 
@@ -303,6 +311,29 @@ final class PasswordChangeTest extends TestCase
         );
     }
 
+    /**
+     * Decision 0029, spec/saml.md S-63: a password a person held before their e-mail domain was federated is replaced
+     * by nobody, posing a new one being posing a local credential for them.
+     */
+    #[Test]
+    public function aPasswordOfAPersonOfAFederatedDomainIsReplacedByNobody(): void
+    {
+        // Given
+        $this->passwordInUse();
+        $user = $this->alice;
+        $this->upstreamProviders->declare($user->tenant, new UpstreamProvider('https://idp.acme.example/saml', [new EmailDomain('acme.example')]));
+        $user->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+
+        // When
+        try {
+            $this->change->change($user, self::IN_USE, Fixtures::plainPassword('another horse battery staple'), Fixtures::context());
+            static::fail('The password was replaced.');
+        } catch (PasswordChangeRefusedException $exception) {
+            // Then
+            static::assertSame(PasswordChangeRefusal::FederatedDomain, $exception->refusal);
+        }
+    }
+
     private function changeAsking(BreachedPasswordsOfARecord $breaches): PasswordChange
     {
         return new PasswordChange(
@@ -312,6 +343,7 @@ final class PasswordChangeTest extends TestCase
             new BreachedPasswordRefusal($breaches),
             $this->clock,
             $this->events,
+            new FederatedDomains($this->upstreamProviders),
         );
     }
 

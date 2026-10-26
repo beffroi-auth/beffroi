@@ -47,6 +47,15 @@ final class DocumentTest extends TestCase
         );
     }
 
+    #[Test]
+    public function aMemberThatIsABooleanIsRead(): void
+    {
+        // When / Then
+        static::assertFalse(new Document([
+            'is_passive' => false,
+        ])->nullableBool('is_passive'));
+    }
+
     /**
      * A whole JSON number decodes as an integer, and a number is what the member asked for.
      */
@@ -123,6 +132,12 @@ final class DocumentTest extends TestCase
                 'asn' => '3215',
             ])->nullableInt('asn'),
             'The member "asn" must be an integer or absent.',
+        ];
+        yield 'a string where a boolean was read' => [
+            static fn (): ?bool => new Document([
+                'is_passive' => 'false',
+            ])->nullableBool('is_passive'),
+            'The member "is_passive" must be a boolean or absent.',
         ];
         yield 'a string where a number was read' => [
             static fn (): ?float => new Document([

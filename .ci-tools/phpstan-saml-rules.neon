@@ -1,0 +1,13 @@
+# The rules of .ci-tools/phpstan-saml.neon, pointed at the fixture alone: tests/saml/PhpStan/Fixture/ holds every form
+# section 8 of src/saml/spec/saml.md bans, one line each, and the lines that must pass, and `castor phpstan-saml-rules`
+# compares what this analysis reports to what the fixture says it should. It is no analysis of the package: the package's
+# own (phpstan-saml.neon) excludes the fixture, which is code written to be refused.
+includes:
+	- phpstan-saml.neon
+
+parameters:
+	tmpDir: %currentWorkingDirectory%/.ci-tools/cache/phpstan-saml-rules
+	paths!:
+		- %currentWorkingDirectory%/tests/saml/PhpStan/Fixture
+	excludePaths!:
+		analyse: []

@@ -23,6 +23,7 @@ use DateTimeImmutable;
 use LogicException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Beffroi\Saml2\Model\Tests\Support\InMemoryReplayGuard;
 
 /**
  * Section 9.4: the logout messages of tests/saml2-model/Fixture/real/, bytes as received, validated with a clock frozen at their
@@ -268,11 +269,11 @@ final class LogoutRealDocumentsTest extends TestCase
 
     private function requestValidator(string $now): LogoutRequestValidator
     {
-        return new LogoutRequestValidator(SamlLoader::create(), new FrozenClock(new DateTimeImmutable($now)));
+        return new LogoutRequestValidator(SamlLoader::create(), new FrozenClock(new DateTimeImmutable($now)), new InMemoryReplayGuard());
     }
 
     private function responseValidator(string $now): LogoutResponseValidator
     {
-        return new LogoutResponseValidator(SamlLoader::create(), new FrozenClock(new DateTimeImmutable($now)));
+        return new LogoutResponseValidator(SamlLoader::create(), new FrozenClock(new DateTimeImmutable($now)), new InMemoryReplayGuard());
     }
 }

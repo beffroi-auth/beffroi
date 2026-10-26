@@ -1,0 +1,14 @@
+# A deployment whose configuration has an attribute of an upstream identity provider fill a claim the profile of a
+# person does not hold, "givenName" written for "given_name" (beffroi/saml, spec/saml.md S-45, section 6.10 step 1):
+# the compilation of its container passes, the claims of the profile being unknown to a compiler pass, and the warmer
+# that runs right after it fails the boot (MisspeltProfileClaimTest), rather than a sign-in that would fill nothing.
+beffroi:
+    saml:
+        service_provider: ~
+        identity_providers:
+            'https://idp.example.org/saml':
+                metadata: '/srv/saml/idp-metadata.xml'
+                domains: ['example.org']
+                email_attribute: 'mail'
+                profile:
+                    givenName: givenName

@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Beffroi\Bundle\Tests\Functional\Controller;
 
+use function array_filter;
 use function base64_encode;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\AuthenticationSessionRepositoryInterface;
 use Beffroi\Core\Port\TenantKeyRepositoryInterface;
 use Beffroi\Core\Tests\Fixture\Algorithms;
+use Beffroi\Oidc\Domain\Secret\DrawnSecret;
+use Beffroi\Oidc\Domain\Token\RefreshToken;
+use Beffroi\Oidc\Port\RefreshTokenRepositoryInterface;
+use function count;
+use const DATE_ATOM;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,6 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class EndSessionControllerTest extends BrowserTestCase
 {
+    use TokensOfASession;
+
     /**
      * §4: a logout request from a browser that holds no session is honoured as is.
      */
@@ -143,6 +151,82 @@ final class EndSessionControllerTest extends BrowserTestCase
         static::assertSame(Response::HTTP_FOUND, $response->getStatusCode());
         static::assertSame('https://demo.test/', $response->headers->get('Location'));
         self::assertInteractionHeaders($response);
+    }
+
+    /**
+     * Issue #741, decision 0006: the tokens issued under the session the endpoint ends are revoked with it,
+     * on the event every end of a session announces and not by the endpoint itself.
+     */
+    #[Test]
+    public function aLogoutRevokesTheTokensIssuedUnderTheSession(): void
+    {
+        // Given
+        self::signingKey();
+        $session = $this->signIn(self::user('alice'));
+        $tokens = self::tokensIssuedIn($session);
+        $idToken = $this->idTokenOfTheBoundBrowser();
+
+        // When
+        $this->browser->request('GET', '/logout', [
+            'id_token_hint' => $idToken,
+            'post_logout_redirect_uri' => 'https://demo.test/',
+        ]);
+
+        // Then
+        self::assertTheTokensAreRevoked($tokens);
+    }
+
+    /**
+     * Issue #741, S-25, RFC 6749 §5.2: a refresh token saved under the session after its tokens were revoked, which a
+     * refresh in flight when the session ended does, is refused at its first use, and that use revokes what the
+     * session still holds, dated by the end of the session, once the event it announces is handled.
+     */
+    #[Test]
+    public function aRefreshTokenSavedAfterTheRevocationIsRevokedAtItsFirstUse(): void
+    {
+        // Given
+        self::signingKey();
+        $session = $this->signIn(self::user('alice'));
+        $idToken = $this->idTokenOfTheBoundBrowser();
+        $this->browser->request('GET', '/logout', [
+            'id_token_hint' => $idToken,
+            'post_logout_redirect_uri' => 'https://demo.test/',
+        ]);
+        self::reload();
+        $late = self::tokensIssuedIn(self::sessions()->find($session->id) ?? static::fail('The session is gone.'))['refresh'];
+
+        // When
+        $this->browser->request(
+            'POST',
+            '/token',
+            [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $late,
+            ],
+            server: [
+                'HTTP_AUTHORIZATION' => 'Basic ' . base64_encode('oidc-demo:demo-secret-of-at-least-32-characters-long'),
+            ],
+        );
+
+        // Then
+        $error = self::json($this->browser->getResponse())['error'] ?? null;
+        self::reload();
+        $refreshTokens = self::service('test.beffroi.refresh_tokens', RefreshTokenRepositoryInterface::class);
+        static::assertSame(
+            [
+                'the error' => 'invalid_grant',
+                'the refresh tokens of the session left active' => 0,
+                'the late one revoked at' => self::sessions()->find($session->id)?->endedAt?->format(DATE_ATOM),
+            ],
+            [
+                'the error' => $error,
+                'the refresh tokens of the session left active' => count(array_filter(
+                    $refreshTokens->findBySession($session->id),
+                    static fn (RefreshToken $token): bool => ! $token->isRevoked(),
+                )),
+                'the late one revoked at' => $refreshTokens->findByTokenHash(DrawnSecret::digestOf($late))?->revokedAt?->format(DATE_ATOM),
+            ],
+        );
     }
 
     /**
@@ -313,6 +397,11 @@ final class EndSessionControllerTest extends BrowserTestCase
         $this->signIn($user);
 
         return $this->idTokenOfTheBoundBrowser();
+    }
+
+    private static function sessions(): AuthenticationSessionRepositoryInterface
+    {
+        return self::service('test.beffroi.sessions', AuthenticationSessionRepositoryInterface::class);
     }
 
     /**

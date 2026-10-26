@@ -22,8 +22,9 @@ concurrency:
 # that older versions can be re-added by listing them (see the "tests" job). The SAML packages are
 # the exception: their suites run on PHP 8.4 too, in a job of their own ("saml_php84").
 #
-# Every job with "container:" pulls the phpqa image on a fresh runner (735 MB compressed, 3.3 GB
-# extracted) before its first step, out of reach of actions/cache. The quality checks therefore
+# Every job runs on the self-hosted runner of the organisation ("kloude"). Every job with "container:"
+# pulls the phpqa image (735 MB compressed, 3.3 GB extracted) before its first step when the runner
+# does not hold it already, out of reach of actions/cache. The quality checks therefore
 # share one job: one pull and one Composer install instead of one of each per tool. The steps run
 # to the end whatever the outcome of the previous ones, so that every tool reports its verdict.
 #
@@ -43,9 +44,13 @@ concurrency:
 # workflow, and nothing here reads their result, so no merge waits on them.
 
 jobs:
+  # Two self-hosted runners on kloude, one job at a time each: "kloude-light" (3 CPU, 6 GB) takes the jobs that wait
+  # mostly on the network and the disk, "kloude" (6 CPU, 8 GB) the quality tools, the suite with its coverage and the
+  # mutation testing, which use every core they are given (Rector's parallel workers time out on three), and the
+  # conformance suite of "conformance.yml", which needs the memory.
   pre_checks:
     name: "0️⃣ Pre-checks"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     steps:
       - uses: actions/checkout@v7
       - name: "Check file permissions"
@@ -66,7 +71,7 @@ jobs:
   quality:
     name: "1️⃣ Quality (PHPStan, Mago, Rector, composer.json, licenses, Deptrac)"
     needs: [pre_checks]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude]
     container:
       image: ghcr.io/spomky-labs/phpqa:8.5
     steps:
@@ -103,7 +108,8 @@ jobs:
       # nothing, 6.2 s with one source file changed, on one machine). It compresses to 2.3 MB, so the
       # 10 GB a repository is given is not spent on entries nobody reads.
       # One result cache per analysis: the identity provider's packages, then each SAML package under its own
-      # configuration (castor phpstan runs the four).
+      # configuration, beffroi/saml among them (castor phpstan runs the five, then proves the bans of beffroi/saml on
+      # their fixture, a sixth run of one file whose result is read as it is made and not kept).
       - uses: actions/cache@v6
         with:
           path: |
@@ -111,6 +117,7 @@ jobs:
             .ci-tools/cache/phpstan-xml-security/resultCache.php
             .ci-tools/cache/phpstan-saml2-model/resultCache.php
             .ci-tools/cache/phpstan-saml2-bindings/resultCache.php
+            .ci-tools/cache/phpstan-saml/resultCache.php
           key: "phpstan-${{ steps.tools.outputs.phpstan }}-${{ hashFiles('.ci-tools/phpstan*.neon') }}-${{ github.sha }}"
           restore-keys: "phpstan-${{ steps.tools.outputs.phpstan }}-${{ hashFiles('.ci-tools/phpstan*.neon') }}-"
       - name: "Static Analysis (PHPStan)"
@@ -143,7 +150,7 @@ jobs:
   tests:
     name: "2️⃣ Tests (PHP ${{ matrix.php-version }})"
     needs: [pre_checks]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude]
     container:
       image: ghcr.io/spomky-labs/phpqa:${{ matrix.php-version }}
     continue-on-error: ${{ matrix.experimental }}
@@ -170,12 +177,13 @@ jobs:
       # TEST_TOKEN the kernel reads (issue #529). Measured on sixteen cores, 47 s against 239 s.
       - run: castor phpunit --processes=auto
       # The XML coverage and the JUnit report feed the mutation testing job, which does not run the tests again.
-      - uses: actions/upload-artifact@v7
+      # They go through the cache of Actions, keyed by the run, and not as an artifact: artifacts count against
+      # the storage of the account (500 MB on the Free plan, about 65 MB per run), the cache is an allowance of
+      # its own (10 GB per repository).
+      - uses: actions/cache/save@v6
         with:
-          name: coverage-php${{ matrix.php-version }}
           path: .ci-tools/coverage
-          retention-days: 1
-          if-no-files-found: error
+          key: coverage-php${{ matrix.php-version }}-${{ github.run_id }}
 
   saml_php84:
     name: "5️⃣ SAML packages (PHP 8.4)"
@@ -184,7 +192,7 @@ jobs:
     # does not run: their specifications ask for a green corpus on 8.4 and on 8.5, and what differs between the two
     # is theirs (the PSS schemes PHP 8.5 gives openssl_sign() and openssl_verify(), spec/dsig.md section 13). Their
     # suites only, without coverage: nothing reads it.
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     container:
       image: ghcr.io/spomky-labs/phpqa:8.4
     steps:
@@ -195,7 +203,7 @@ jobs:
           composer-options: --optimize-autoloader
       - name: "libxml and OpenSSL of this build"
         run: castor libxml
-      - run: castor phpunit -- --no-coverage --testsuite xml-security,saml2-model,saml2-bindings
+      - run: castor phpunit -- --no-coverage --testsuite xml-security,saml2-model,saml2-bindings,saml
 
   oracle:
     name: "6️⃣ Oracles (xmlsec1, OpenSSL)"
@@ -210,9 +218,22 @@ jobs:
     # URL, and every message inflated by Python's zlib to the document the writer wrote. Two images, hence Docker on
     # the runner rather than a job container; "castor xml-security-oracle", "castor saml2-model-oracle" and
     # "castor saml2-bindings-oracle" are the same on a workstation.
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     steps:
       - uses: actions/checkout@v7
+      # Docker Hub under the account the secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN of this repository name,
+      # so that the pulls below are counted against it and not against the address of the runner, which the pool
+      # shares; a run given no secret pulls anonymously and says so.
+      - name: "Docker Hub, under the account of the repository"
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
+            printf '%s' "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
+          else
+            echo "::warning title=Docker Hub, anonymously::This run is given no DOCKERHUB_USERNAME and DOCKERHUB_TOKEN, so its pulls of Docker Hub are counted against the address of the runner, which is shared and may be spent."
+          fi
       - name: "Sign, encrypt and write with every scheme and algorithm of the build"
         run: >-
           docker run --rm -v "$PWD:/project" -w /project -e HOME=/tmp ghcr.io/spomky-labs/phpqa:8.5
@@ -262,7 +283,7 @@ jobs:
     # bridges, and what judges them runs on the development stack (VaultTransitCustodyTest,
     # AwsKmsCustodyTest, skipped without their DSN; "castor dump-search", whose backend list carries the
     # one that cannot be played yet with its issue).
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     container:
       image: ghcr.io/spomky-labs/phpqa:8.5
     steps:
@@ -287,7 +308,7 @@ jobs:
     # the commit before it (the pull request just merged). A schedule has neither and runs none of this; the whole
     # source, which takes hours with the functional tests covering most of it, is "mutation.yml".
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && endsWith(github.ref, '.x') && github.event.before != '0000000000000000000000000000000000000000')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude]
     container:
       image: ghcr.io/spomky-labs/phpqa:8.5
     steps:
@@ -300,20 +321,38 @@ jobs:
           dependency-versions: highest
           composer-options: --optimize-autoloader
       # The coverage of the tests job, same image, same checkout, same paths: Infection reads it as is.
-      - uses: actions/download-artifact@v8
+      - uses: actions/cache/restore@v6
         with:
-          name: coverage-php8.5
           path: .ci-tools/coverage
-      # Infection counts the two cores of the runner and keeps one for itself; both can run mutants.
-      # The files the specifications of the SAML packages hold to no escaped mutant, whole, on every run; then the
-      # lines added or modified over the whole source.
-      # A coverage of its own, the three SAML suites under Xdebug, rather than the one the tests job measured with pcov
+          key: coverage-php8.5-${{ github.run_id }}
+          fail-on-cache-miss: true
+      # Infection takes every core of the runner but one (kloude-sysbox has eight), the job running alone on it.
+      # The files the specifications of the SAML packages hold to no escaped mutant, whole: on every push to a
+      # maintenance branch, and on a pull request whose diff reaches those packages, their suites or what decides the
+      # pass, a quarter of an hour that a pull request elsewhere has no reason to wait for. Then the lines added or
+      # modified over the whole source.
+      # A coverage of its own, the suites of the SAML packages under Xdebug, rather than the one the tests job measured with pcov
       # (see infect() in .castor/stack/qa.php).
+      - name: "Whether the pull request reaches the SAML packages"
+        id: saml
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          if git diff --quiet "$(git merge-base "$BASE" HEAD)" HEAD -- \
+            src/xml-security src/saml2-model src/saml2-bindings src/saml \
+            tests/xml-security tests/saml2-model tests/saml2-bindings tests/saml \
+            .castor/stack/qa.php infection.json.dist .github/workflows/ci.yml; then
+            echo "reached=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "reached=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: "The files of section 9 of the SAML packages, no escaped mutant"
-        run: castor infect --strict --threads=2
+        if: github.event_name != 'pull_request' || steps.saml.outputs.reached == 'true'
+        run: castor infect --strict --threads=max
       - name: "Mutations of the pull request"
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        run: castor infect --diff --reuse-coverage --base="origin/${{ github.base_ref }}" --threads=2
+        run: castor infect --diff --reuse-coverage --base="origin/${{ github.base_ref }}" --threads=max
       - name: "Mutations of the push"
         if: ${{ !cancelled() && github.event_name == 'push' }}
-        run: castor infect --diff --reuse-coverage --base="${{ github.event.before }}" --threads=2
+        run: castor infect --diff --reuse-coverage --base="${{ github.event.before }}" --threads=max

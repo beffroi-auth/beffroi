@@ -5,7 +5,8 @@
             "src/oidc/src",
             "src/xml-security/src",
             "src/saml2-model/src",
-            "src/saml2-bindings/src"
+            "src/saml2-bindings/src",
+            "src/saml/src"
         ]
     },
     "timeout": 600,

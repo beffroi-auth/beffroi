@@ -92,27 +92,116 @@ final class EnvelopeTest extends TestCase
         ];
         yield 'Responder with an assertion' => [
             'hostile/response-status-responder-with-assertion-refused.xml',
-            'The samlp:Response has a status other than Success and holds a saml:Assertion (M-13).',
+            'The samlp:Response has a status other than Success and holds a saml:Assertion or a saml:EncryptedAssertion (M-13).',
         ];
         yield 'Success without assertion' => [
             'hostile/response-success-without-assertion-refused.xml',
-            'The samlp:Response has the status Success and holds no saml:Assertion (M-13).',
+            'The samlp:Response has the status Success and holds no saml:Assertion or saml:EncryptedAssertion (M-13).',
         ];
         yield 'two assertions' => [
             'hostile/response-two-assertions-without-issuer-refused.xml',
-            'The samlp:Response holds more than one saml:Assertion (M-4).',
+            'The samlp:Response holds more than one saml:Assertion or saml:EncryptedAssertion (M-4).',
         ];
     }
 
     /**
-     * §9.2 row 29, section 6.7: a saml:EncryptedAssertion is refused by name until sub-spike 9e.
+     * §9.3 row 23, M-4, section 6.1 step 2, section 6.7: the one saml:EncryptedAssertion of a response of Success, kept
+     * as its assertion and said to be encrypted, nothing decrypted yet.
      */
     #[Test]
-    public function itRefusesAnEncryptedAssertion(): void
+    public function itKeepsAnEncryptedAssertion(): void
     {
         // Given
-        $document = $this->document('hostile/response-encrypted-assertion-refused.xml');
-        $message = 'The response holds a saml:EncryptedAssertion, which the package does not support until sub-spike 9e (section 6.7).';
+        $response = $this->document('encrypted/response-encrypted-signed-assertion-accepted.xml')->root();
+
+        // When
+        $envelope = Envelope::of($response);
+
+        // Then
+        static::assertSame(
+            [Children::one($response, new Name(Saml::ASSERTION, 'EncryptedAssertion')), true],
+            [$envelope->assertion, $envelope->encrypted],
+        );
+    }
+
+    /**
+     * M-4, section 6.1 step 2: an assertion in clear is not said to be encrypted.
+     */
+    #[Test]
+    public function itSaysAnAssertionInClearIsNotEncrypted(): void
+    {
+        // Given
+        $response = $this->document('behaviour/response-signed-assertion-accepted.xml')->root();
+
+        // When
+        $envelope = Envelope::of($response);
+
+        // Then
+        static::assertFalse($envelope->encrypted);
+    }
+
+    /**
+     * §9.2 rows 42 and 43, M-4, M-5, M-8, M-13, section 6.7, SAML Profiles §4.1.4.2 as corrected by E17: a
+     * saml:EncryptedAssertion holding no xenc:EncryptedData or two, two of them, one next to a saml:Assertion or in a
+     * failure, and a response holding one without its own Issuer, refused before any key is touched.
+     */
+    #[Test]
+    #[DataProvider('provideMalformedEncryptedAssertions')]
+    public function itRefusesAMalformedEncryptedAssertion(string $fixture, string $message): void
+    {
+        // Given
+        $document = $this->document($fixture);
+
+        // Then
+        $this->expectException(MalformedMessage::class);
+        $this->expectExceptionMessageIs($message);
+        self::assertCarriesNothingOf($message, $document);
+
+        // When
+        Envelope::of($document->root());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideMalformedEncryptedAssertions(): iterable
+    {
+        yield 'no xenc:EncryptedData' => [
+            'encrypted/response-encrypted-assertion-empty-refused.xml',
+            'The saml:EncryptedAssertion holds no xenc:EncryptedData (M-4).',
+        ];
+        yield 'two xenc:EncryptedData' => [
+            'encrypted/response-encrypted-assertion-two-encrypted-data-refused.xml',
+            'The saml:EncryptedAssertion holds more than one xenc:EncryptedData (M-4).',
+        ];
+        yield 'two saml:EncryptedAssertion' => [
+            'encrypted/response-encrypted-two-encrypted-assertions-refused.xml',
+            'The samlp:Response holds more than one saml:Assertion or saml:EncryptedAssertion (M-4).',
+        ];
+        yield 'next to a saml:Assertion' => [
+            'encrypted/response-encrypted-next-to-an-assertion-refused.xml',
+            'The samlp:Response holds more than one saml:Assertion or saml:EncryptedAssertion (M-4).',
+        ];
+        yield 'in a failure' => [
+            'encrypted/response-encrypted-in-a-failure-refused.xml',
+            'The samlp:Response has a status other than Success and holds a saml:Assertion or a saml:EncryptedAssertion (M-13).',
+        ];
+        yield 'a response without its own Issuer' => [
+            'encrypted/response-encrypted-without-issuer-refused.xml',
+            'The response holds a saml:EncryptedAssertion and has no saml:Issuer (M-8).',
+        ];
+    }
+
+    /**
+     * §9.2 row 44, section 6.7, enc.md section 12: an xenc:EncryptedKey next to the xenc:EncryptedData, the sibling
+     * form, refused by name before any key is touched.
+     */
+    #[Test]
+    public function itRefusesAnEncryptedKeyNextToTheEncryptedData(): void
+    {
+        // Given
+        $document = $this->document('encrypted/response-encrypted-key-as-a-sibling-refused.xml');
+        $message = 'The saml:EncryptedAssertion holds an xenc:EncryptedKey next to its xenc:EncryptedData, a form the package does not support (section 6.7).';
 
         // Then
         $this->expectException(Unsupported::class);

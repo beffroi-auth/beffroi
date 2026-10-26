@@ -12,6 +12,8 @@ use Beffroi\Bundle\Key\FileTenantKeyRepository;
 use Beffroi\Bundle\Tests\Functional\Doctrine\DatabaseTestCase;
 use Beffroi\Core\Application\Key\KeyRetirement;
 use Beffroi\Core\Application\Key\KeyStaging;
+use Beffroi\Core\Domain\Key\RotationSchedule;
+use Beffroi\Core\Tests\Fixture\FixedRotationSchedules;
 use Beffroi\Core\Application\Key\KeyTakeOver;
 use Beffroi\Core\Application\Key\NamedKey;
 use Beffroi\Core\Application\Key\RetirementWindow;
@@ -153,7 +155,7 @@ final class SealedKeyProviderTest extends DatabaseTestCase
             $keys,
             self::service('test.beffroi.key_pair_generator', KeyPairGeneratorInterface::class),
             self::service('test.beffroi.key_sealer', KeySealerInterface::class),
-            new DateInterval('PT6M'),
+            new FixedRotationSchedules(new RotationSchedule(new DateInterval('PT6M'), new DateInterval('P90D'))),
             $clock,
             $events,
         );

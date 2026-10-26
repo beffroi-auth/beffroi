@@ -23,7 +23,8 @@ use Symfony\Component\Uid\Uuid;
 /**
  * The cookie side of architecture §3.2: the AuthenticationSession the browser is bound to, and the
  * interactions it began, which only it may resume (§4.3). The list of interactions is bounded, the oldest
- * forgotten first.
+ * forgotten first. An interaction forgotten takes with it what the step of the address kept for it
+ * (LoginAddresses, beffroi/saml S-68), the address of a sign-on it never reached among it.
  */
 final readonly class BrowserSession
 {
@@ -37,6 +38,7 @@ final readonly class BrowserSession
         private AuthenticationSessionRepositoryInterface $sessions,
         private InteractionRepositoryInterface $interactions,
         private ClockInterface $clock,
+        private LoginAddresses $addresses = new LoginAddresses(),
     ) {
     }
 
@@ -107,6 +109,7 @@ final readonly class BrowserSession
 
     public function forget(SessionInterface $httpSession, Interaction $interaction): void
     {
+        $this->addresses->forget($httpSession, $interaction);
         $ids = array_values(array_filter(self::pendingIds($httpSession), static fn (string $id): bool => $id !== $interaction->id));
         if ($ids === []) {
             $httpSession->remove(self::INTERACTIONS_KEY);

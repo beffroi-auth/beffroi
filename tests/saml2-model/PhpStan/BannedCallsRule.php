@@ -19,6 +19,7 @@ use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 use function array_any;
+use function implode;
 use function rtrim;
 use function sprintf;
 use function str_ends_with;
@@ -27,8 +28,8 @@ use function strtolower;
 
 /**
  * Section 8 of the specification: the methods of the Dom API and the functions never called, in src/ and in tests/.
- * The model confines none of them to a file, as xml-security confines createFromString() to its Loader: here each is
- * banned everywhere. A function name ending with * bans the prefix (every openssl_* function). A method of a class of
+ * Each is banned everywhere, but a confined method, called in the files named only whatever its receiver:
+ * decryptCovered() of Enc, which the model's reader alone calls (enc.md E-15). A function name ending with * bans the prefix (every openssl_* function). A method of a class of
  * this package is not the Dom method of the same name (ResponseValidator::validate() is not Dom\Document::validate()),
  * so a call whose receiver is known to be one is let through. A dynamic call or a dynamic instantiation would escape
  * the rule, so both are refused too. ekino/phpstan-banned-code bans a function by the name as written; this rule reads
@@ -56,11 +57,28 @@ final class BannedCallsRule implements Rule
     private array $prefixes = [];
 
     /**
+     * @var array<string, array{spelling: string, allowedIn: list<string>}> the lowercased confined method names
+     */
+    private array $confined = [];
+
+    /**
      * @param list<string> $methods
      * @param list<string> $functions each a name, or a prefix followed by *
+     * @param list<array{method: string, allowedIn: list<string>}> $confined the methods called in the files named
+     *                                                                    only, relative to $workingDirectory
      */
-    public function __construct(array $methods, array $functions)
-    {
+    public function __construct(
+        array $methods,
+        array $functions,
+        array $confined = [],
+        private readonly string $workingDirectory = '',
+    ) {
+        foreach ($confined as $call) {
+            $this->confined[strtolower($call['method'])] = [
+                'spelling' => $call['method'],
+                'allowedIn' => $call['allowedIn'],
+            ];
+        }
         foreach ($methods as $method) {
             $this->methods[strtolower($method)] = $method;
         }
@@ -103,6 +121,10 @@ final class BannedCallsRule implements Rule
         if (! $node->name instanceof Identifier) {
             return [$this->error('A dynamic call escapes the review: name the method.')];
         }
+        $confined = $this->confined[$node->name->toLowerString()] ?? null;
+        if ($confined !== null) {
+            return $this->outside($confined, $scope);
+        }
         $method = $this->methods[$node->name->toLowerString()] ?? null;
         if ($method === null || $this->ofThePackage($node, $scope)) {
             return [];
@@ -142,6 +164,26 @@ final class BannedCallsRule implements Rule
             $scope->getType($node->var)->getObjectClassNames(),
             static fn (string $class): bool => str_starts_with(strtolower($class), self::PACKAGE),
         );
+    }
+
+    /**
+     * @param array{spelling: string, allowedIn: list<string>} $confined
+     *
+     * @return list<IdentifierRuleError>
+     */
+    private function outside(array $confined, Scope $scope): array
+    {
+        foreach ($confined['allowedIn'] as $path) {
+            if ($scope->getFile() === $this->workingDirectory . '/' . $path) {
+                return [];
+            }
+        }
+
+        return [$this->error(sprintf(
+            '%s() is called in %s only: section 8 of the specification confines it there.',
+            $confined['spelling'],
+            implode(', ', $confined['allowedIn']),
+        ))];
     }
 
     /**

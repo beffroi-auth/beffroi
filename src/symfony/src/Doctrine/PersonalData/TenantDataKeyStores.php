@@ -7,8 +7,9 @@ namespace Beffroi\Bundle\Doctrine\PersonalData;
 use Doctrine\DBAL\Connection;
 use Beffroi\Core\Bridge\KeyManagement\KmsKeyId;
 use Psr\Container\ContainerInterface;
+use SensitiveParameter;
 use Symfony\Component\KeyManagement\Bridge\DoctrineDbal\DataKeyStore;
-use Symfony\Component\KeyManagement\Ciphertext;
+use Symfony\Component\KeyManagement\DataKey;
 use Symfony\Component\KeyManagement\DataKeyHandle;
 use Symfony\Component\KeyManagement\RewrappableDataKeyStoreInterface;
 use Symfony\Component\KeyManagement\StoredDataKey;
@@ -25,6 +26,12 @@ use Symfony\Component\KeyManagement\StoredDataKey;
  * The store of a tenant is built at its first use and held, keyed by slug, each one with the master key
  * `KmsKeyId` resolves for that slug, the one its signing keys are already sealed under.
  *
+ * **Every store is given the same secrets.** A row is bound to its reference and its scope by an HMAC keyed
+ * by its data key and by a secret of the store (`StoredDataKey::bindingFor()`), so a key that whoever
+ * writes the table wrapped themselves opens nothing: the first secret writes the binding of a new row and
+ * every one reads it back. A row is read by the one reader whatever tenant it belongs to, so the secrets of
+ * a deployment are one list and not one per tenant, and a rewrap is what moves a row to the first of them.
+ *
  * **Nothing here carries `kernel.reset`.** The component tags its own store with it, and `forget()`
  * releases every retained plaintext between two units of work; under FrankenPHP in worker mode that puts
  * the KMS back on the path of every request that touches a column, which the third success criterion of
@@ -36,7 +43,7 @@ final class TenantDataKeyStores implements RewrappableDataKeyStoreInterface
     /**
      * The table the wrapped data keys of every tenant live in, owned by this bundle and created by one of
      * its migrations: the bridge is clear that a table carrying anything its store does not know about is
-     * a table the application declares itself, and this one carries exactly the five columns it names.
+     * a table the application declares itself, and this one carries exactly the six columns it names.
      */
     public const string TABLE = 'beffroi_data_key';
 
@@ -61,6 +68,8 @@ final class TenantDataKeyStores implements RewrappableDataKeyStoreInterface
      * @param string $client the name of the one this deployment seals with
      * @param string $masterKeyId the pattern of the master key of a tenant, "{tenant}" standing for its
      *                            slug, the same pattern the signing keys are sealed under
+     * @param non-empty-list<string> $secrets what binds a row to its reference and its scope, the first one
+     *                                        writing and every one reading
      * @param int<0, max>|null $maxAgeSeconds the age past which a scope is given a new key, null never
      */
     public function __construct(
@@ -68,6 +77,8 @@ final class TenantDataKeyStores implements RewrappableDataKeyStoreInterface
         private readonly ContainerInterface $clients,
         private readonly string $client,
         private readonly string $masterKeyId,
+        #[SensitiveParameter]
+        private readonly array $secrets,
         private readonly string $table,
         private readonly ?int $maxAgeSeconds = DataKeyStore::DEFAULT_MAX_AGE_SECONDS,
     ) {
@@ -97,9 +108,9 @@ final class TenantDataKeyStores implements RewrappableDataKeyStoreInterface
         return $this->reader()->all($client);
     }
 
-    public function rewrap(string $reference, Ciphertext $wrapped, string $client): void
+    public function rewrap(StoredDataKey $row, DataKey $rewrapped, string $client): void
     {
-        $this->reader()->rewrap($reference, $wrapped, $client);
+        $this->reader()->rewrap($row, $rewrapped, $client);
     }
 
     /**
@@ -123,6 +134,7 @@ final class TenantDataKeyStores implements RewrappableDataKeyStoreInterface
             $this->clients,
             $this->client,
             new KmsKeyId($this->masterKeyId)->forSlug($slug),
+            $this->secrets,
             $this->table,
             self::KEY_BYTES,
             $this->maxAgeSeconds,
@@ -145,6 +157,7 @@ final class TenantDataKeyStores implements RewrappableDataKeyStoreInterface
             $this->clients,
             $this->client,
             $this->masterKeyId,
+            $this->secrets,
             $this->table,
             self::KEY_BYTES,
             $this->maxAgeSeconds,

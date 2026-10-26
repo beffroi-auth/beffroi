@@ -13,13 +13,14 @@ use Beffroi\Saml2\Model\Assertion\NameIdFormat;
 use Beffroi\Saml2\Model\Exception\MalformedMessage;
 use Beffroi\Saml2\Model\Exception\Unsupported;
 use Beffroi\Saml2\Model\Internal\Assertion\AssertionReader;
+use Beffroi\Saml2\Model\Internal\Response\SignedAssertion;
+use Beffroi\Saml2\Model\Internal\Response\SignedResponse;
 use Beffroi\Saml2\Model\Saml;
 use Beffroi\Saml2\Model\SamlLoader;
+use Beffroi\Saml2\Model\Tests\Unit\Internal\Response\ResponseFixtures;
 use Beffroi\Saml2\Model\Tests\Unit\Metadata\MetadataFixtures;
 use Beffroi\Xml\Core\Children;
 use Beffroi\Xml\Core\Name;
-use Beffroi\Xml\Dsig\Verified;
-use Beffroi\Xml\Dsig\Verifier;
 use function file_get_contents;
 use function preg_match_all;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -33,11 +34,11 @@ use function str_contains;
 /**
  * M-1, M-4, M-5, section 6.1 steps 7 to 11: an assertion read strictly from the document of a verification, its
  * children in the order and with the cardinality of the schema, one of each part (SAML Core §2.3.3); the package reads
- * it through readVerified() only, from the Verified of a verification (section 6.1 step 5).
+ * it through readCovered() only, from the selection of the signed element (section 6.1 step 5).
  */
 final class AssertionReaderTest extends TestCase
 {
-    use AssertionFixtures;
+    use ResponseFixtures;
 
     /**
      * Section 6.1 steps 7 to 11, section 5.3: every part of the assertion, as read.
@@ -238,14 +239,10 @@ final class AssertionReaderTest extends TestCase
     public function itReadsTheAssertionAVerificationOfItsOwnSignatureCovered(): void
     {
         // Given
-        $document = MetadataFixtures::load('behaviour/response-signed-assertion-accepted.xml');
-        $verified = new Verifier(SamlLoader::create())->verify(
-            Children::one($document->root(), new Name(Saml::ASSERTION, 'Assertion')),
-            MetadataFixtures::verificationKeys('idp'),
-        );
+        $covered = $this->selected('behaviour/response-signed-assertion-accepted.xml', new Name(Saml::ASSERTION, 'Assertion'));
 
         // When
-        $assertion = AssertionReader::readVerified($verified, $this->context());
+        $assertion = AssertionReader::readCovered($covered, $this->context());
 
         // Then
         static::assertSame(['_assertion', '_7a2f4c1d9e'], [$assertion->id, $assertion->nameId->value]);
@@ -259,10 +256,10 @@ final class AssertionReaderTest extends TestCase
     public function itReadsTheAssertionTheSignatureOfTheResponseCovered(): void
     {
         // Given
-        $verified = $this->verifiedRoot('behaviour/response-signed-response-accepted.xml');
+        $covered = $this->selected('behaviour/response-signed-response-accepted.xml', new Name(Saml::ASSERTION, 'Assertion'));
 
         // When
-        $assertion = AssertionReader::readVerified($verified, $this->context());
+        $assertion = AssertionReader::readCovered($covered, $this->context());
 
         // Then
         static::assertSame(['_assertion', '_7a2f4c1d9e'], [$assertion->id, $assertion->nameId->value]);
@@ -270,41 +267,44 @@ final class AssertionReaderTest extends TestCase
 
     /**
      * M-1, M-4: a verification of anything but an assertion or a response, and a verified response without its one
-     * assertion, yield no assertion.
+     * assertion, yield no assertion, whatever element without a signature of its own was selected in it.
      */
     #[Test]
     #[DataProvider('provideVerificationsOfNoAssertion')]
-    public function itRefusesAVerificationThatCoveredNoAssertion(string $fixture, string $message): void
+    public function itRefusesAVerificationThatCoveredNoAssertion(string $fixture, Name $received, string $message): void
     {
         // Given
-        $verified = $this->verifiedRoot($fixture);
+        $covered = $this->selected($fixture, $received);
 
         // Then
         $this->expectException(MalformedMessage::class);
         $this->expectExceptionMessageIs($message);
 
         // When
-        AssertionReader::readVerified($verified, $this->context());
+        AssertionReader::readCovered($covered, $this->context());
     }
 
     /**
-     * @return iterable<string, array{string, string}>
+     * @return iterable<string, array{string, Name, string}>
      */
     public static function provideVerificationsOfNoAssertion(): iterable
     {
         yield 'a signed md:EntityDescriptor' => [
             'behaviour/metadata-signed-by-the-identity-provider.xml',
+            new Name(Saml::METADATA, 'IDPSSODescriptor'),
             'The root of the verified document is neither a saml:Assertion nor a samlp:Response (M-1).',
         ];
         yield 'a signed response without assertion' => [
             'behaviour/response-status-responder-authn-failed-signed-refused.xml',
+            new Name(Saml::PROTOCOL, 'Status'),
             'The verified samlp:Response does not hold exactly one saml:Assertion (M-4).',
         ];
     }
 
     /**
-     * M-1: every call the source of the package makes to the reader is readVerified(), which takes the Verified of a
-     * verification: no path reads an assertion from a document that no signature covered.
+     * M-1, section 6.7: every call the source of the package makes to the reader is readCovered(), which takes the
+     * SignedAssertion the selection of section 6.1 step 5 built, from a verification or from a decryption a verified
+     * signature covered: no path reads an assertion from a document that no signature covered.
      */
     #[Test]
     public function thePackageReadsAnAssertionThroughAVerificationOnly(): void
@@ -317,7 +317,7 @@ final class AssertionReaderTest extends TestCase
         }
 
         // Then
-        static::assertSame([], array_values(array_diff($calls, ['readVerified'])));
+        static::assertSame([], array_values(array_diff($calls, ['readCovered'])));
     }
 
     /**
@@ -337,13 +337,19 @@ final class AssertionReaderTest extends TestCase
     }
 
     /**
-     * The Verified of the signature of the root of $fixture, under the identity provider's test key.
+     * The selection of section 6.1 step 5 in $fixture, under the identity provider's test key: the root's signature
+     * verified when it has one, then the child $received of the root, its own signature verified when it has one.
      */
-    private function verifiedRoot(string $fixture): Verified
+    private function selected(string $fixture, Name $received): SignedAssertion
     {
         $document = MetadataFixtures::load($fixture);
 
-        return new Verifier(SamlLoader::create())->verify($document->root(), MetadataFixtures::verificationKeys('idp'));
+        return SignedAssertion::of(
+            Children::one($document->root(), $received),
+            SignedResponse::of($document->root(), self::identityProvider(), SamlLoader::create()),
+            self::identityProvider(),
+            SamlLoader::create(),
+        );
     }
 
     /**

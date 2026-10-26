@@ -12,7 +12,9 @@ use Beffroi\Core\Domain\Identity\Claim\Birthdate;
 use Beffroi\Core\Domain\Identity\Claim\Nickname;
 use Beffroi\Core\Domain\Identity\Claim\PhoneNumber;
 use Beffroi\Core\Domain\Identity\Profile;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Tenant\SelfServedClaims;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Tests\Fixture\Fixtures;
@@ -20,6 +22,7 @@ use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Issue #452: a person says something of themselves, when the tenant lets them. The policy is read here
@@ -67,6 +70,66 @@ final class SelfDescriptionTest extends TestCase
 
         // When
         self::describing()->describe($user, new Nickname(), 'Ada', Fixtures::context());
+    }
+
+    /**
+     * Decision 0002: what the source of the person holds is not theirs to say, the tenant opening it or not.
+     */
+    #[Test]
+    public function aClaimTheSourceOfThePersonHoldsIsNotTheirsToSay(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $tenant->adoptSelfServedClaims(new SelfServedClaims(['nickname']));
+        $user = User::create(
+            Uuid::v7(),
+            $tenant,
+            new Subject('alice-subject'),
+            'alice',
+            Fixtures::now(),
+            source: UserSource::upstream('workforce', ['nickname']),
+        );
+
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('The upstream provider "workforce" created this person and holds "nickname": a manual description does not change what its source holds.');
+
+        // When
+        self::describing()->describe($user, new Nickname(), 'Ada', Fixtures::context());
+    }
+
+    /**
+     * The refusal comes before anything is said: the record is as it was, no history is written and no
+     * act is announced.
+     */
+    #[Test]
+    public function aClaimRefusedForItsSourceWritesNothingAndAnnouncesNothing(): void
+    {
+        // Given
+        $tenant = Fixtures::tenant();
+        $tenant->adoptSelfServedClaims(new SelfServedClaims(['nickname']));
+        $user = User::create(
+            Uuid::v7(),
+            $tenant,
+            new Subject('alice-subject'),
+            'alice',
+            Fixtures::now(),
+            source: UserSource::upstream('workforce', ['nickname']),
+        );
+        $user->updateProfile(new Profile(nickname: 'Alice'), Fixtures::now());
+        $events = new RecordingEventDispatcher();
+        $history = new InMemoryClaimHistory();
+
+        // When
+        try {
+            self::describing($events, $history)->describe($user, new Nickname(), 'Ada', Fixtures::context());
+        } catch (InvalidArgumentException) {
+        }
+
+        // Then
+        static::assertSame('Alice', $user->profile->nickname);
+        static::assertSame([], $history->lastOf($user, 10));
+        static::assertSame([], $events->of(PersonDescribedThemselves::class));
     }
 
     #[Test]

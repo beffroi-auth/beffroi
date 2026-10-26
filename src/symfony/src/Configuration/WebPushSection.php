@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Bundle\Configuration;
 
 use Beffroi\Bundle\Ciba\WebPushApprovalChannel;
+use Beffroi\Bundle\Key\DormantKeyAlgorithms;
 use Beffroi\Bundle\Push\WebPushSender;
 use Beffroi\Core\Bridge\JwtLibrary\Algorithm\Vapid;
 use function is_string;
@@ -18,7 +19,9 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurat
  * A deployment that names no subject wires nothing: no channel reaches anybody by push, the tenant draws
  * no application server key, and the page where a browser would subscribe says so. That is the default,
  * because how a deployment reaches its users is the one thing about them it cannot be told in advance
- * (architecture §5.6), and a channel nobody asked for is a channel nobody wanted.
+ * (architecture §5.6), and a channel nobody asked for is a channel nobody wanted. The algorithm of that
+ * key is left dormant then, so that a key drawn before the subject was taken away is read by nothing
+ * until a subject is named again (DormantKeyAlgorithms).
  */
 final readonly class WebPushSection extends ConfigurationSection
 {
@@ -70,6 +73,8 @@ final readonly class WebPushSection extends ConfigurationSection
         $webPush = $this->own($config);
         $subject = $webPush['subject'] ?? null;
         if (! is_string($subject)) {
+            $services->get(Vapid::class)->tag(DormantKeyAlgorithms::TAG);
+
             return;
         }
         $services->get(WebPushSender::class)->arg('$subject', $subject)->arg('$timeout', self::float($webPush, 'timeout'));

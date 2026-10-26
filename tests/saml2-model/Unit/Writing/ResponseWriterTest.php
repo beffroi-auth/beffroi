@@ -380,6 +380,50 @@ final class ResponseWriterTest extends TestCase
             ))),
             'The NotBefore of the Conditions is not earlier than their NotOnOrAfter, to the second, which the service provider refuses (section 6.6).',
         ];
+        yield 'Conditions that end when the assertion is issued, to the second' => [
+            Fixtures::response(Fixtures::assertion(conditions: new Conditions(
+                null,
+                new DateTimeImmutable('2026-10-01T12:00:00.900000Z'),
+                [[Fixtures::SERVICE_PROVIDER]],
+                false,
+            ))),
+            'The NotOnOrAfter of the Conditions is not later than the IssueInstant of the assertion, to the second, which ends it when it is issued (section 6.6).',
+        ];
+        yield 'a bearer confirmation that ends when the assertion is issued, to the second' => [
+            Fixtures::response(Fixtures::assertion(bearerNotOnOrAfter: '2026-10-01T12:00:00.500000Z')),
+            'The NotOnOrAfter of the bearer confirmation is not later than the IssueInstant of the assertion, to the second, which ends it when it is issued (section 6.6).',
+        ];
+        yield 'a session that ends before the assertion is issued' => [
+            Fixtures::response(Fixtures::assertion(sessionNotOnOrAfter: '2026-10-01T11:00:00Z')),
+            'The SessionNotOnOrAfter of the authentication statement is not later than the IssueInstant of the assertion, to the second, which ends it when it is issued (section 6.6).',
+        ];
+        yield 'a session that ends when the assertion is issued, to the second' => [
+            Fixtures::response(Fixtures::assertion(sessionNotOnOrAfter: '2026-10-01T12:00:00.700000Z')),
+            'The SessionNotOnOrAfter of the authentication statement is not later than the IssueInstant of the assertion, to the second, which ends it when it is issued (section 6.6).',
+        ];
+    }
+
+    /**
+     * Section 6.6 step 1, Core §2.5.1.2, issue #721: windows that end a second after the assertion is issued, its
+     * Conditions, its bearer confirmation and its session, are written, and the validator of the service provider
+     * accepts them at that issue.
+     */
+    #[Test]
+    public function itWritesWindowsThatEndASecondAfterTheIssue(): void
+    {
+        // Given
+        $response = Fixtures::response(Fixtures::assertion(
+            conditions: new Conditions(null, new DateTimeImmutable('2026-10-01T12:00:01Z'), [[Fixtures::SERVICE_PROVIDER]], false),
+            bearerNotOnOrAfter: '2026-10-01T12:00:01Z',
+            sessionNotOnOrAfter: '2026-10-01T12:00:01Z',
+        ));
+
+        // When
+        $document = new ResponseWriter()->write($response, $this->signing());
+
+        // Then
+        $accepted = Fixtures::validator()->validate(Fixtures::reload($document), Fixtures::identityProvider(), Fixtures::expected());
+        static::assertSame('2026-10-01T12:00:01+00:00', $accepted->assertion->confirmation->notOnOrAfter->format('c'));
     }
 
     /**

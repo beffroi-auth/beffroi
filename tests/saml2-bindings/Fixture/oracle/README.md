@@ -30,7 +30,9 @@ developer's machine:
 PHP_VERSION=8.5 castor saml2-bindings-oracle   # writes into var/oracle/saml2-bindings, which git ignores, then verifies each
 ```
 
-which runs, in `alpine:3.22` with `apk add openssl python3`, the repository mounted read-only:
+which runs, in `alpine:3.22` pinned by its digest (`ALPINE_IMAGE`, `.castor/lab/xml-security.php`) with `apk add openssl
+python3`, given the oracle, the two certificates and `var/oracle/saml2-bindings` read-only and nothing else of the
+repository:
 
 ```
 sh tests/saml2-bindings/Fixture/oracle/verify-redirect.sh tests/saml2-bindings/Fixture/keys/sp-signing-certificate.pem var/oracle/saml2-bindings/sp-*.url

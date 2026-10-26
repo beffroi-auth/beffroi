@@ -20,6 +20,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class AccountSessionsTest extends BrowserTestCase
 {
+    use TokensOfASession;
+
     #[Test]
     public function thePageListsTheSessionsOpenInTheirName(): void
     {
@@ -55,6 +57,28 @@ final class AccountSessionsTest extends BrowserTestCase
         static::assertTrue(self::reread($other)->hasEnded());
         static::assertSame(SessionEnd::User, self::reread($other)->endedBy);
         static::assertCount(1, self::events(AuthenticationSessionEnded::class));
+    }
+
+    /**
+     * Issue #741: the tokens issued under a session a person ends here are revoked with it, as those of a
+     * session the end session endpoint ends are, the revocation being made on the end and not on the request
+     * that asked for it.
+     */
+    #[Test]
+    public function endingASessionRevokesTheTokensIssuedUnderIt(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        $this->signIn($alice);
+        $other = self::session($alice, self::currentSecond()->modify('-1 hour'));
+        $tokens = self::tokensIssuedIn($other);
+        $token = $this->token($other);
+
+        // When
+        $this->browser->request('POST', '/account/sessions/' . $other->id . '/revoke', ['_token' => $token]);
+
+        // Then
+        self::assertTheTokensAreRevoked($tokens);
     }
 
     #[Test]

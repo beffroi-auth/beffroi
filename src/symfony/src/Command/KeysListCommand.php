@@ -6,7 +6,6 @@ namespace Beffroi\Bundle\Command;
 
 use function array_map;
 use function count;
-use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Beffroi\Core\Domain\Key\KeyStatus;
@@ -14,6 +13,7 @@ use Beffroi\Core\Domain\Key\TenantKey;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\ExceptionTrail;
 use Beffroi\Core\Port\KeySealerInterface;
+use Beffroi\Core\Port\RotationSchedulesInterface;
 use Beffroi\Core\Port\TenantKeyRepositoryInterface;
 use Psr\Clock\ClockInterface;
 use function implode;
@@ -38,7 +38,7 @@ use Throwable;
  * **It also says when a key has worked past its age with nothing staged behind it** (issue #455), which is
  * what a planning that has stopped looks like from outside: the step that stages a successor runs every
  * minute, so an active key past its age and no staged key of its algorithm is a worker that is not
- * consuming, and nothing else.
+ * consuming, and nothing else. The age is the one of the family of the key (issue #738).
  */
 #[AsCommand(
     name: 'beffroi:keys:list',
@@ -47,13 +47,13 @@ use Throwable;
 final readonly class KeysListCommand
 {
     /**
-     * @param DateInterval $age how long a key works before the planning stages a successor (KeyAge)
+     * @param RotationSchedulesInterface $schedules how long a key of each family works before the planning stages a successor
      */
     public function __construct(
         private ConfiguredTenant $tenant,
         private TenantKeyRepositoryInterface $keys,
         private KeySealerInterface $sealer,
-        private DateInterval $age,
+        private RotationSchedulesInterface $schedules,
         private ClockInterface $clock,
     ) {
     }
@@ -99,7 +99,7 @@ final readonly class KeysListCommand
                 }
             }
             if ($check && $key->status === KeyStatus::Active) {
-                $reached = $key->hasReachedItsAge($now, $this->age);
+                $reached = $key->hasReachedItsAge($now, $this->schedules->of($key->algorithm)->age);
                 $staged = in_array($key->algorithm->name(), $awaited, true);
                 $rows[] = [
                     'Has worked past its age' => match (true) {

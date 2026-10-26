@@ -14,16 +14,18 @@ parameters:
 		- %currentWorkingDirectory%/src
 		- %currentWorkingDirectory%/tests
 	# The SAML packages are analysed apart, each by its own configuration (.ci-tools/phpstan-xml-security.neon,
-	# .ci-tools/phpstan-saml2-model.neon and .ci-tools/phpstan-saml2-bindings.neon), with no baseline and with the bans
-	# of their section 8.
+	# .ci-tools/phpstan-saml2-model.neon, .ci-tools/phpstan-saml2-bindings.neon and .ci-tools/phpstan-saml.neon), with
+	# no baseline and with the bans of their section 8.
 	excludePaths:
 		- %currentWorkingDirectory%/tests/symfony/config
 		- %currentWorkingDirectory%/src/xml-security
 		- %currentWorkingDirectory%/src/saml2-model
 		- %currentWorkingDirectory%/src/saml2-bindings
+		- %currentWorkingDirectory%/src/saml
 		- %currentWorkingDirectory%/tests/xml-security
 		- %currentWorkingDirectory%/tests/saml2-model
 		- %currentWorkingDirectory%/tests/saml2-bindings
+		- %currentWorkingDirectory%/tests/saml
 	banned_code:
 		non_ignorable: false
 	checkUninitializedProperties: true

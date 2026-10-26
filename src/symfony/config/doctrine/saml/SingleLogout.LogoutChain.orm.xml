@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
+                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <!--
+      The chains of logout the identity provider plays through the browser (beffroi/saml, spec/saml.md S-32), shared by
+      every worker of the deployment, since the next request of the browser may reach another one: a row per chain,
+      under the SHA-256 of the reference the provider's pages hand on, found too by the ID of the request whose answer
+      it waits for; beside it the SHA-256 of the secret of the browser the chain is bound to, which that browser holds
+      in a cookie; taken by the one request that deletes it, written again at its next step, open ten minutes from its
+      last step, the rows past it deleted before each insertion. Where it stands is the document LogoutProgress
+      writes.
+    -->
+    <entity name="Beffroi\Saml\Domain\SingleLogout\LogoutChain" table="beffroi_saml_logout_chain">
+        <indexes>
+            <index name="beffroi_saml_logout_chain_expiry" columns="expires_at"/>
+        </indexes>
+        <unique-constraints>
+            <unique-constraint name="beffroi_saml_logout_chain_awaiting" columns="awaiting_request"/>
+        </unique-constraints>
+        <id name="reference" type="string" column="reference" length="64">
+            <options>
+                <option name="fixed">true</option>
+            </options>
+        </id>
+        <field name="secret" type="string" column="secret" length="64">
+            <options>
+                <option name="fixed">true</option>
+            </options>
+        </field>
+        <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
+            <join-column name="tenant_id" referenced-column-name="id" nullable="false"/>
+        </many-to-one>
+        <field name="awaitingRequest" type="string" column="awaiting_request" length="128" nullable="true"/>
+        <field name="progress" type="beffroi_saml_logout_progress" column="progress"/>
+        <field name="expiresAt" type="datetime_immutable" column="expires_at"/>
+    </entity>
+</doctrine-mapping>

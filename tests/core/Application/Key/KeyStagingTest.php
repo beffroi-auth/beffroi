@@ -8,9 +8,12 @@ use DateInterval;
 use Beffroi\Core\Application\Key\KeyStaging;
 use Beffroi\Core\Application\Key\KeyTakeOver;
 use Beffroi\Core\Bridge\InMemory\InMemoryTenantKeyRepository;
+use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryKeyPairGenerator;
 use Beffroi\Core\Domain\Event\TenantKeyRotated;
 use Beffroi\Core\Domain\Event\TenantKeyStaged;
+use Beffroi\Core\Domain\Key\KeyAlgorithmInterface;
 use Beffroi\Core\Domain\Key\KeyStatus;
+use Beffroi\Core\Domain\Key\RotationSchedule;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Tests\Fixture\Algorithms;
@@ -18,6 +21,7 @@ use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\KeyLifecycle;
 use Beffroi\Core\Tests\Fixture\Keys;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -85,6 +89,35 @@ final class KeyStagingTest extends TestCase
 
         // Then
         static::assertEquals($this->clock->now()->add(new DateInterval(KeyLifecycle::STAGING_DELAY)), $staged->activationDueAt);
+    }
+
+    /**
+     * Issue #738, architecture §3.3: the staging window is the one of the family the algorithm belongs to, a
+     * week for a family that declares one, the delay of every other key for the rest.
+     */
+    #[Test]
+    #[DataProvider('provideFamilies')]
+    public function stagingDatesTheActivationAfterTheStagingDelayOfItsFamily(KeyAlgorithmInterface $algorithm, string $delay): void
+    {
+        // Given
+        $staging = new KeyLifecycle($this->clock, generator: new JwtLibraryKeyPairGenerator(Algorithms::everyUse()), families: [
+            Algorithms::es256()->name() => new RotationSchedule(new DateInterval('P7D'), new DateInterval('P365D')),
+        ])->staging;
+
+        // When
+        $staged = $staging->stage($this->tenant, $algorithm, $this->context);
+
+        // Then
+        static::assertEquals($this->clock->now()->add(new DateInterval($delay)), $staged->activationDueAt);
+    }
+
+    /**
+     * @return iterable<string, array{KeyAlgorithmInterface, string}>
+     */
+    public static function provideFamilies(): iterable
+    {
+        yield 'a family with a window of its own' => [Algorithms::es256(), 'P7D'];
+        yield 'every other family' => [Algorithms::edDsa(), KeyLifecycle::STAGING_DELAY];
     }
 
     #[Test]

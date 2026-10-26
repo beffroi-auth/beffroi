@@ -9,6 +9,7 @@ use Beffroi\Xml\Core\Exception\ForeignNode;
 use Beffroi\Xml\Core\Limits;
 use Beffroi\Xml\Core\Loader;
 use Beffroi\Xml\Core\Name;
+use Beffroi\Xml\Enc\CbcContentAlgorithm;
 use Beffroi\Xml\Enc\ContentAlgorithm;
 use Beffroi\Xml\Enc\EncryptedData;
 use Beffroi\Xml\Enc\Exception\LimitExceeded;
@@ -25,6 +26,7 @@ use Beffroi\Xml\Tests\Enc\Support\Loaded;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use function base64_encode;
 use function preg_replace;
 use function str_repeat;
 use function strlen;
@@ -59,12 +61,16 @@ final class EncryptedDataTest extends TestCase
     }
 
     /**
-     * §9.1 rows 1 to 7: every vector reads, with its content algorithm and the hash of its key transport.
+     * §9.1 rows 1 to 9, E-1: every vector reads, with its content algorithm, AES-GCM or AES-CBC, and the hash of its
+     * key transport.
      */
     #[Test]
     #[DataProvider('provideVectors')]
-    public function itReadsEveryVector(string $fixture, ContentAlgorithm $algorithm, OaepHash $hash): void
-    {
+    public function itReadsEveryVector(
+        string $fixture,
+        ContentAlgorithm|CbcContentAlgorithm $algorithm,
+        OaepHash $hash,
+    ): void {
         // Given
         $document = Loaded::fixture('vectors/' . $fixture);
 
@@ -77,7 +83,7 @@ final class EncryptedDataTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{string, ContentAlgorithm, OaepHash}>
+     * @return iterable<string, array{string, ContentAlgorithm|CbcContentAlgorithm, OaepHash}>
      */
     public static function provideVectors(): iterable
     {
@@ -116,6 +122,68 @@ final class EncryptedDataTest extends TestCase
             ContentAlgorithm::Aes256Gcm,
             OaepHash::Sha1,
         ];
+        yield 'row 8, aes128-cbc' => [
+            'response-encrypted-assertion-aes128-cbc.xml',
+            CbcContentAlgorithm::Aes128Cbc,
+            OaepHash::Sha1,
+        ];
+        yield 'row 9, aes256-cbc and the DigestMethod of SHA-1 under rsa-oaep-mgf1p' => [
+            'response-encrypted-assertion-aes256-cbc-mgf1p-digest-sha1.xml',
+            CbcContentAlgorithm::Aes256Cbc,
+            OaepHash::Sha1,
+        ];
+    }
+
+    /**
+     * §9.2 row 44, E-2: under AES-CBC, a cipher value that is not an IV and whole blocks, at least one, is refused
+     * before anything is decrypted.
+     */
+    #[Test]
+    #[DataProvider('provideCbcCipherValuesThatAreNotWholeBlocks')]
+    public function itRefusesACbcCipherValueThatIsNotAnIvAndWholeBlocks(string $fixture): void
+    {
+        // Given
+        $document = Loaded::fixture('hostile/' . $fixture);
+        $element = Encrypted::dataOf($document);
+
+        // Then
+        $this->expectException(MalformedEncryption::class);
+        $this->expectExceptionMessageIs('The cipher value of an AES-CBC EncryptedData holds an IV of 16 bytes and whole blocks of 16 bytes, at least one (E-2).');
+
+        // When
+        EncryptedData::of($element);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideCbcCipherValuesThatAreNotWholeBlocks(): iterable
+    {
+        yield 'an IV alone' => ['cbc-cipher-value-iv-only-refused.xml'];
+        yield 'an IV, whole blocks and one byte' => ['cbc-cipher-value-not-whole-blocks-refused.xml'];
+    }
+
+    /**
+     * §9.2 row 44, E-2: under AES-CBC, an IV and one block, the shortest cipher value, is read.
+     */
+    #[Test]
+    public function itReadsACbcCipherValueOfAnIvAndOneBlock(): void
+    {
+        // Given
+        $bytes = preg_replace(
+            '~(?<=\n)    <xenc:CipherValue>[^<]*</xenc:CipherValue>~',
+            '    <xenc:CipherValue>' . base64_encode(str_repeat("\x2a", CbcContentAlgorithm::MIN_CIPHER_BYTES)) . '</xenc:CipherValue>',
+            Fixtures::bytes('vectors/response-encrypted-assertion-aes128-cbc.xml'),
+        );
+        static::assertNotNull($bytes);
+        $document = Loaded::document($bytes);
+        $element = Encrypted::dataOf($document);
+
+        // When
+        $data = EncryptedData::of($element);
+
+        // Then
+        static::assertSame(32, strlen($data->cipherValue));
     }
 
     /**
@@ -145,7 +213,7 @@ final class EncryptedDataTest extends TestCase
      */
     public static function provideRefusedShapes(): iterable
     {
-        $content = 'The content algorithm is not AES-128-GCM or AES-256-GCM (E-1).';
+        $content = 'The content algorithm is not AES-128-GCM, AES-256-GCM, AES-128-CBC or AES-256-CBC (E-1).';
         $notOaep = 'The key transport is not RSA-OAEP: PKCS#1 v1.5, key wrapping and key agreement are refused by name (E-1).';
         $differ = 'The DigestMethod and the MGF of rsa-oaep name different hashes, which PHP cannot express (E-1).';
         $mgf1pChild = 'An EncryptionMethod of rsa-oaep-mgf1p holds nothing but a DigestMethod (E-5).';
@@ -157,9 +225,8 @@ final class EncryptedDataTest extends TestCase
         $keyBound = 'The cipher value of an EncryptedKey is not between 256 and maxEncryptedKeyBytes, 1024 bytes (E-13).';
         $names = 'An EncryptionMethod names its Algorithm (E-5).';
 
-        yield 'row 1, aes128-cbc' => ['content-aes128-cbc-refused.xml', UnknownContentAlgorithm::class, $content];
-        yield 'row 1, aes256-cbc' => ['content-aes256-cbc-refused.xml', UnknownContentAlgorithm::class, $content];
         yield 'row 1, tripledes-cbc' => ['content-tripledes-cbc-refused.xml', UnknownContentAlgorithm::class, $content];
+        yield 'row 1, aes192-cbc' => ['content-aes192-cbc-refused.xml', UnknownContentAlgorithm::class, $content];
         yield 'row 2, aes192-gcm' => ['content-aes192-gcm-refused.xml', UnknownContentAlgorithm::class, $content];
         yield 'row 3, rsa-1_5' => ['key-transport-rsa-1-5-refused.xml', UnknownKeyTransport::class, $notOaep];
         yield 'row 4, kw-aes256' => ['key-transport-kw-aes256-refused.xml', UnknownKeyTransport::class, $notOaep];

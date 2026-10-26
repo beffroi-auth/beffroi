@@ -29,6 +29,7 @@ use Beffroi\Oidc\Domain\Event\BackchannelRequestAnswered;
 use Beffroi\Oidc\Domain\Event\LogoutTokenIssued;
 use Beffroi\Oidc\Domain\Event\PushedRequestRefusalReason;
 use Beffroi\Oidc\Domain\Event\PushedRequestRefused;
+use Beffroi\Oidc\Domain\Event\RefreshTokenOutlivedItsSession;
 use Beffroi\Oidc\Domain\Event\RefreshTokenReuseDetected;
 use Beffroi\Oidc\Domain\Event\RegisteredClientDeleted;
 use Beffroi\Oidc\Domain\Event\RefreshTokenRotated;
@@ -191,6 +192,15 @@ final class EventsLeaveTheProcessTest extends TestCase
             $previous->family->id,
             $previous->tokenHash,
             RevokedTokenHashes::of([$previous, $next]),
+            $context,
+        )];
+        yield 'a refresh token that outlived its session' => [new RefreshTokenOutlivedItsSession(
+            $now,
+            $previous->tenant,
+            $previous->clientId,
+            $subject,
+            $session->id,
+            $now->modify('-1 minute'),
             $context,
         )];
         yield 'a refresh token rotated' => [new RefreshTokenRotated(

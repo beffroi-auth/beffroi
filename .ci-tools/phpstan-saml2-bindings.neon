@@ -97,6 +97,8 @@ parameters:
 		- FILTER_VALIDATE_BOOLEAN
 	# The methods and functions never called, for BannedCallsRule; a name ending with * bans the prefix.
 	bannedMethods:
+		# bindings.md section 8, enc.md E-15: the model's reader alone takes the proof of a covering signature
+		- decryptCovered
 		# I-9, I-11: no ID lookup, no search of descendants (M-4)
 		- getElementById
 		- setIdAttribute
@@ -125,6 +127,8 @@ parameters:
 		- relaxNgValidateSource
 		- createEntityReference
 	bannedFunctions:
+		# bindings.md section 8: a banned name given another under which it passes unread
+		- class_alias
 		# core.md section 8: no entity loader, no second parser (I-2, I-4)
 		- libxml_set_external_entity_loader
 		- libxml_disable_entity_loader

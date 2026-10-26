@@ -9,6 +9,7 @@ use Beffroi\Bundle\Http\AccountAccess;
 use Beffroi\Bundle\Http\BrowserSession;
 use Beffroi\Bundle\Http\InteractionPages;
 use Beffroi\Bundle\Http\RequestContextFactory;
+use Beffroi\Bundle\Saml\LogoutChainPages;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\SessionEnd;
@@ -27,7 +28,9 @@ use Symfony\Component\Uid\Uuid;
  * (AuthenticationSessionEnded). Someone else's session is not found.
  *
  * Ending the session of the browser reading the page is not the same act as ending another: that browser
- * is signed out here, the way the end session endpoint signs one out, and it is told so.
+ * is signed out here, the way the end session endpoint signs one out, the clients of OpenID Connect of
+ * the session that registered a front-channel logout URI loaded by its page and the SAML service
+ * providers it signed in told in turn (beffroi/saml S-29, S-35), and it is told so.
  *
  * **A session alone reaches it** (ReachedOnTheSessionAloneInterface): ending a session is what a person
  * does because they fear that session, and asking them to prove themselves first would be asking them to
@@ -48,6 +51,7 @@ final readonly class AccountSessionRevocationController implements ReachedOnTheS
         private BrowserSession $browser,
         private RequestContextFactory $contexts,
         private InteractionPages $pages,
+        private LogoutChainPages $logoutChain,
     ) {
     }
 
@@ -75,6 +79,6 @@ final readonly class AccountSessionRevocationController implements ReachedOnTheS
         }
         $this->browser->unbind($request->getSession());
 
-        return $this->pages->render('logged_out.html.twig', ['logged_out' => true]);
+        return $this->logoutChain->begin($ended->tenant, [$ended], null) ?? $this->pages->render('logged_out.html.twig', ['logged_out' => true]);
     }
 }

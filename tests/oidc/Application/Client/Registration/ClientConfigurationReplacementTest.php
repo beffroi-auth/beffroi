@@ -340,6 +340,29 @@ final class ClientConfigurationReplacementTest extends TestCase
     }
 
     /**
+     * RFC 9101 §10.5: a replacement cannot write the registration a registration could not, a client held
+     * to signed request objects that would have them read unsigned.
+     */
+    #[Test]
+    public function aReplacementCannotHaveTheSignedObjectsItRequiresReadUnsigned(): void
+    {
+        // Given
+        $this->register();
+
+        // Then
+        $this->expectException(InvalidClientMetadataException::class);
+        $this->expectExceptionMessageIsOrContains('registers no request_object_signing_alg under which an unsigned one is read (RFC 9101 section 10.5)');
+
+        // When
+        $this->replace([
+            'client_id' => self::CLIENT_ID,
+            'redirect_uris' => ['https://rp.example/cb'],
+            'require_signed_request_object' => true,
+            'request_object_signing_alg' => 'none',
+        ]);
+    }
+
+    /**
      * Decision 0017: the exemption is read from the policy every time that policy writes a registration,
      * the replacement of §2.2 included.
      */

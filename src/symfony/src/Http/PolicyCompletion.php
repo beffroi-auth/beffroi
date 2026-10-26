@@ -10,6 +10,7 @@ use function implode;
 use function in_array;
 use function is_array;
 use function is_string;
+use LogicException;
 use function preg_split;
 use function strtolower;
 use Symfony\Component\HttpFoundation\Request;
@@ -75,10 +76,16 @@ final readonly class PolicyCompletion
     }
 
     /**
-     * Named by a page that may reach this origin through this directive, once per origin it may reach.
+     * Named by a page that may reach this origin through this directive, once per origin it may reach. The origin is
+     * written into the header as it is named, so a value that is no origin is refused here, where the page names it
+     * (SourceOrigin), and not when the answer leaves, where an exception would replace the page by an error page the
+     * kernel sends without the listeners left to run.
+     *
+     * @throws LogicException when the value is not an origin
      */
     public function mayReach(Request $request, string $origin): void
     {
+        $origin = SourceOrigin::of($origin);
         $origins = $this->named($request);
         if (in_array($origin, $origins, true)) {
             return;

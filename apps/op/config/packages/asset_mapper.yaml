@@ -10,7 +10,7 @@ when@prod:
         asset_mapper:
             missing_import_mode: warn
 
-# The stylesheet is not built for the suite (issue beffroi-php/beffroi#521), and symfonycasts/tailwind-bundle
+# The stylesheet is not built for the suite (issue beffroi-auth/beffroi#521), and symfonycasts/tailwind-bundle
 # is the one that decides so: it leaves its strict mode off in the test environment, so the input CSS is
 # served as it is written rather than as the binary built it. What it is written with is "@import
 # "tailwindcss"", an import no asset of this application answers, which is an error under "strict" and what

@@ -7,7 +7,7 @@
       An identity of a tenant (decision 0002, architecture §3.1). The subject and the username are unique
       within the tenant.
 
-      Seventeen of its columns carry a personal datum and are sealed under the data key of their tenant
+      Six of its columns carry a personal datum and are sealed under the data key of their tenant
       (decisions 0011 and 0018): the type of each is the type it had, decorated, which is what the "user"
       family of EncryptedColumnTypes declares. Three things stop being true of a sealed column, and they
       are written where that class declares them: the column becomes unbounded binary, so the "length"
@@ -27,6 +27,14 @@
             -->
             <unique-constraint name="beffroi_user_username" columns="tenant_id,username_index"/>
         </unique-constraints>
+        <indexes>
+            <!--
+              The search of an address on its blind index, which the first sign-in through an upstream provider
+              asks to refuse an address another person holds (issue #781). An index and not a constraint: two
+              local persons may share an address, and nothing links either of them to a provider on its own.
+            -->
+            <index name="beffroi_user_email" columns="tenant_id,email_index"/>
+        </indexes>
         <id name="id" type="uuid" column="id"/>
         <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
             <join-column name="tenant_id" referenced-column-name="id" nullable="false"/>
@@ -54,5 +62,10 @@
         <field name="createdAt" type="datetime_immutable" column="created_at"/>
         <field name="updatedAt" type="datetime_immutable" column="updated_at"/>
         <field name="disabledAt" type="datetime_immutable" column="disabled_at" nullable="true"/>
+        <!-- The source that created the person and the claims it holds (decision 0002), sealed with the rest:
+             the provider that created a person says which organisation that person is of, as the column
+             "provider" of a linked identity does. A local source holds nothing and is a null column, which is
+             what every person the table held before the column came is. -->
+        <field name="source" type="beffroi_encrypted_user_user_source" column="source" nullable="true"/>
     </entity>
 </doctrine-mapping>

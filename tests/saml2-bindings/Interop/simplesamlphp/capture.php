@@ -144,7 +144,7 @@ if ($login === true) {
             if (! $received instanceof ReceivedLogoutRequest) {
                 throw new RuntimeException('default-sp sent no LogoutRequest');
             }
-            $request = $received->validate(new LogoutRequestValidator(SamlLoader::create(), $clock), $sp, $idp, $slo);
+            $request = $received->validate(new LogoutRequestValidator(SamlLoader::create(), $clock, new InMemoryReplayGuard()), $sp, $idp, $slo);
             $run->keep('sp-logoutrequest-query', $query);
             $run->say(sprintf(
                 'RedirectReceiver verified and the model accepted the LogoutRequest %s of default-sp (%s), issued %s, RelayState %d bytes',
@@ -168,7 +168,7 @@ if ($login === true) {
                 throw new RuntimeException('the identity provider answered with no LogoutResponse');
             }
             try {
-                $answer->validate(new LogoutResponseValidator(SamlLoader::create(), $clock), $idp, $sp, $spSlo, $request->request->id);
+                $answer->validate(new LogoutResponseValidator(SamlLoader::create(), $clock, new InMemoryReplayGuard()), $idp, $sp, $spSlo, $request->request->id);
                 throw new RuntimeException('the model accepted an unsigned LogoutResponse');
             } catch (SignatureRequired $refused) {
                 $run->keep('idp-logoutresponse-unsigned-refused-query', $query);

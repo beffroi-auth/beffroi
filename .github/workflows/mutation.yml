@@ -40,7 +40,7 @@ on:
         description: 'Mutant processes in parallel; "max" is the cores of the runner minus one'
         type: string
         required: false
-        default: '2'
+        default: 'max'
 
 # One run at a time per branch, and a run already going is never cancelled: hours of mutants are not
 # thrown away because somebody asked for a second one, and the weekly run does not kill what a human
@@ -52,9 +52,9 @@ concurrency:
 jobs:
   mutation:
     name: "Mutation Testing (beffroi/core and beffroi/oidc, the whole source)"
-    runs-on: ubuntu-latest
-    # The ceiling GitHub gives a job on a hosted runner. What the run costs of it is one of the things
-    # these runs are here to tell.
+    runs-on: [self-hosted, kloude]
+    # Six hours, the ceiling GitHub gives a job on a hosted runner, kept on the self-hosted one. What the
+    # run costs of it is one of the things these runs are here to tell.
     timeout-minutes: 360
     container:
       image: ghcr.io/spomky-labs/phpqa:8.5
@@ -65,8 +65,8 @@ jobs:
           dependency-versions: highest
           composer-options: --optimize-autoloader
       # "castor infect" runs the suite itself for the coverage Infection reads: this workflow stands on its
-      # own, with no job beside it to take an artifact from. Two threads for the reason the "infection" job
-      # of "ci.yml" gives, which is that "max" leaves one of the two cores of the runner idle. Every input
+      # own, with no job beside it to take an artifact from. Every core of the runner but one by default, as the
+      # "infection" job of "ci.yml" takes them. Every input
       # reaches the task through the environment and is never expanded into this script by the template
       # engine; a schedule sends none, and the fallbacks below are what it runs with.
       - name: "Mutate the whole source"
@@ -78,7 +78,7 @@ jobs:
           castor infect \
             --min-msi="${MIN_MSI:-0}" \
             --min-covered-msi="${MIN_COVERED_MSI:-0}" \
-            --threads="${THREADS:-2}"
+            --threads="${THREADS:-max}"
       # The text log "infection.json.dist" names: which mutant escaped, on which line, and what it changed.
       # Kept whatever the outcome, a red run being the one whose log is read.
       - uses: actions/upload-artifact@v7

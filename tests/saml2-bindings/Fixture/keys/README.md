@@ -4,7 +4,7 @@ Two key pairs for the tests of this package and nothing else: an identity provid
 (section 9.1 of `spec/bindings.md`). The private keys are public by construction, in this repository and in
 `saml2-model`'s, and sign no real document anywhere. Never trust either certificate outside the tests.
 
-They are the two pairs of `beffroi-php/saml2-model`, copied byte for byte from its `tests/saml2-model/Fixture/keys/` at commit
+They are the two pairs of `beffroi-auth/saml2-model`, copied byte for byte from its `tests/saml2-model/Fixture/keys/` at commit
 9c833c5 of its `main` (1 October 2026), so that what this package signs the model's fixtures verify, and the reverse.
 They were generated there, in the directory of that file, each an RSA-2048 key with a self-signed certificate valid ten
 years, PEM, in Alpine 3.22.6 with OpenSSL 3.5.9 on 30 September 2026:

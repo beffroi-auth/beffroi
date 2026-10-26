@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
  * record holds, read at every visit, never a copy this page keeps.
  *
  * It also offers what the tenant lets that person change of themselves (issue #452), one field per claim
- * it opens, in the order the claims are wired, each of the kind the claim says it is (issue #476), and
+ * it opens and the source that created them does not hold (decision 0002), in the order the claims are wired, each of the kind the claim says it is (issue #476), and
  * what they have changed of it so far (issue #482): the question a person asks first when they read that
  * they changed something is what it said before. What the tenant opens none of is a page that reads as it
  * always did, which is what a deployment that says nothing is served: the list above it says what is
@@ -25,7 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
 final readonly class ProfilePage
 {
     /**
-     * A refusal to show: the tenant does not open that claim.
+     * A refusal to show: the claim is not this person's to change, the tenant not opening it or the source
+     * that created them holding it.
      */
     public const string NOT_OPEN = 'claim_not_open';
 
@@ -46,7 +47,7 @@ final readonly class ProfilePage
     public function render(User $user, ?string $refusal = null, int $status = Response::HTTP_OK): Response
     {
         $changeable = [];
-        foreach ($this->claims->openedBy($user->tenant) as $claim) {
+        foreach ($this->claims->openedTo($user) as $claim) {
             $held = $claim->of($user);
             $changeable[$claim->name()] = [
                 'held' => $held,

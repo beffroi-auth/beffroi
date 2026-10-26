@@ -23,8 +23,8 @@ use Dom\Element;
 /**
  * The subject of an assertion, section 6.1 step 8: one saml:NameID read under M-12, with Text::of() (I-12), and one
  * saml:SubjectConfirmation of method bearer (M-4) whose SubjectConfirmationData holds no element, a Recipient that is
- * the URL of arrival (M-8), a NotOnOrAfter in the window of M-7 and at most maxBearerWindow ahead, no NotBefore (SAML
- * Profiles §4.1.4.2), the InResponseTo the consumer expects (M-10), and an Address kept as read.
+ * the URL of arrival (M-8), a NotOnOrAfter in the window of M-7 and at most maxBearerWindow and the skew ahead, no
+ * NotBefore (SAML Profiles §4.1.4.2), the InResponseTo the consumer expects (M-10), and an Address kept as read.
  *
  * @internal outside the compatibility promise of section 5
  */
@@ -53,7 +53,7 @@ final readonly class SubjectReader
         Schema::unsupported(
             $subject,
             [Schema::saml('EncryptedID')],
-            'The subject is a saml:EncryptedID, which the package does not support until sub-spike 9e (section 6.7).',
+            'The subject is a saml:EncryptedID, which the package does not support (section 6.7).',
         );
         Schema::children($subject, 'saml:Subject', [
             Particle::of(Schema::saml('NameID'), 1, 1),
@@ -110,7 +110,7 @@ final readonly class SubjectReader
             throw new OutsideValidityWindow('The NotOnOrAfter of the bearer confirmation is at or before now minus the clock skew (M-7).');
         }
         if ($read->notOnOrAfter > $context->window->bearerLimit()) {
-            throw new OutsideValidityWindow('The NotOnOrAfter of the bearer confirmation is later than now plus maxBearerWindow (M-7).');
+            throw new OutsideValidityWindow('The NotOnOrAfter of the bearer confirmation is later than now plus maxBearerWindow and the clock skew (M-7).');
         }
         if ($read->inResponseTo !== $context->inResponseTo) {
             throw new InResponseToMismatch('The InResponseTo of the bearer confirmation is not the one the consumer expects (M-10).');

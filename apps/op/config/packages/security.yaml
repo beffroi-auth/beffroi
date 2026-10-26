@@ -22,9 +22,10 @@ security:
             lazy: true
             provider: beffroi
             user_checker: Beffroi\Bundle\Security\UserChecker
-            # The three logins of the bundle, each an authenticator of its own: the form of the login
-            # page, the assertion that page posts, and the code posted by the code page, with one
-            # LoginSuccessListener for the three (architecture §5.4). Each hands what it reads to a use
+            # The four logins of the bundle, each an authenticator of its own: the form of the login
+            # page, the assertion that page posts, the code posted by the code page, and the response an
+            # upstream identity provider posts to the assertion consumer service (beffroi/saml S-52),
+            # with one LoginSuccessListener for the four (architecture §5.4). Each hands what it reads to a use
             # case of the core, where the order of a login is written once and nothing of it is written
             # a second time here (issue #130), which is why the form login of Symfony is not wired: it
             # would verify a hash the core has verified. The entry point is the login page.
@@ -33,6 +34,7 @@ security:
                 - Beffroi\Bundle\Security\PasswordLoginAuthenticator
                 - Beffroi\Bundle\Security\PasskeyLoginAuthenticator
                 - Beffroi\Bundle\Security\TotpLoginAuthenticator
+                - Beffroi\Bundle\Security\UpstreamAssertionAuthenticator
 
     # The pages decide for themselves whether a session is needed (the login page shows its form, the
     # consent page sends a browser without a session back to the login): no rule here.

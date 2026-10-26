@@ -7,7 +7,7 @@ name: OpenID Conformance
 #
 # It is the lean CI rule of this repository: what does not have to be paid on every event is not. A pull
 # request has the bundle suite, which is what judges a change before it lands; "castor conformance" on the
-# development stack is what judges a change that touches the protocol before the merge, and "CLAUDE.md"
+# development stack is what judges a change that touches the protocol before the merge, and "AGENTS.md"
 # asks for that run by hand when a spike is closed. The week is what catches what neither of them looked
 # at.
 #
@@ -47,13 +47,13 @@ concurrency:
 jobs:
   conformance:
     name: "OpenID Conformance (Basic, Config, Form Post, the three logout profiles, the four FAPI 2 runs, the two FAPI-CIBA runs, Dynamic OP and 3rd Party-Init OP)"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude]
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       # One checkout: the stack booted below is this repository, the packages and the application it holds
       # at apps/op, which is the layout of a working copy and the layout "castor conformance" expects from
-      # one. No credential of any kind, and nothing to install before the install below.
+      # one. No credential but the account of Docker Hub below, and nothing to install before the install below.
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
@@ -70,6 +70,19 @@ jobs:
           curl -fsSL -o "${RUNNER_TEMP}/castor" https://github.com/jolicode/castor/releases/download/v1.7.0/castor.linux-amd64
           chmod +x "${RUNNER_TEMP}/castor"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+      # Docker Hub under the account the secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN of this repository name,
+      # so that the pulls below are counted against it and not against the address of the runner, which the pool
+      # shares; a run given no secret pulls anonymously and says so.
+      - name: "Docker Hub, under the account of the repository"
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
+            printf '%s' "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
+          else
+            echo "::warning title=Docker Hub, anonymously::This run is given no DOCKERHUB_USERNAME and DOCKERHUB_TOKEN, so its pulls of Docker Hub are counted against the address of the runner, which is shared and may be spent."
+          fi
       - name: "Start the OP and the conformance suite"
         run: castor start --conformance --build
       - name: "Provision the OP"

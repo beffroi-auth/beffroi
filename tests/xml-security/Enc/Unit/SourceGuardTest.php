@@ -28,8 +28,9 @@ use function trim;
 
 /**
  * Section 8 of spec/enc.md, read on the source of src/Enc/ itself, next to the PHPStan rules: the tokens the
- * namespace never writes, the four OpenSSL calls and the two key readers confined to one file each and written once
- * (E-10), and base64 decoded strictly wherever it is decoded (E-7).
+ * namespace never writes, the four OpenSSL calls, the two key readers and the padding of AES-CBC confined to one file
+ * each and written once (E-10, E-16), nothing of CBC where the namespace encrypts (E-15), and base64 decoded strictly
+ * wherever it is decoded (E-7).
  */
 final class SourceGuardTest extends TestCase
 {
@@ -57,7 +58,6 @@ final class SourceGuardTest extends TestCase
     public static function provideBannedTokens(): iterable
     {
         foreach ([
-            'cbc',
             'hash_hmac(',
             'sha1(',
             'md5(',
@@ -71,7 +71,6 @@ final class SourceGuardTest extends TestCase
             'openssl_x509_',
             'OPENSSL_PKCS1_PADDING',
             'OPENSSL_NO_PADDING',
-            'OPENSSL_ZERO_PADDING',
             'DOMDocument',
             'XPath',
             'textContent',
@@ -122,6 +121,36 @@ final class SourceGuardTest extends TestCase
             'openssl_pkey_get_private(',
             'PrivateDecryptionKey.php',
         ];
+        yield 'OPENSSL_ZERO_PADDING in Decryptor, for AES-CBC (E-16)' => [
+            'OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING',
+            'Decryptor.php',
+        ];
+    }
+
+    /**
+     * §9.3 row 25, E-15, section 8: what writes for the peer, Encryptor and PeerKey, names nothing of CBC, so that
+     * nothing is encrypted in CBC.
+     */
+    #[Test]
+    #[DataProvider('provideWriters')]
+    public function itNamesNothingOfCbcWhereItEncrypts(string $file): void
+    {
+        // When
+        $code = $this->sources()[$file];
+
+        // Then
+        static::assertStringNotContainsString('Cbc', $code);
+        static::assertStringNotContainsString('cbc', $code);
+        static::assertStringNotContainsString('CBC', $code);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideWriters(): iterable
+    {
+        yield 'Encryptor' => ['Encryptor.php'];
+        yield 'PeerKey' => ['PeerKey.php'];
     }
 
     /**

@@ -27,6 +27,7 @@ use Beffroi\Saml2\Model\Validation\TimeBounds;
 use Beffroi\Xml\Core\Document;
 use Beffroi\Xml\Core\Serializer;
 use DateTimeImmutable;
+use Beffroi\Saml2\Model\Tests\Support\InMemoryReplayGuard;
 
 /**
  * The parties, the clock and the messages the logout tests share (sections 6.3, 6.4 and 9.1): an identity provider
@@ -133,14 +134,26 @@ final class LogoutFixtures
         return new FrozenClock(new DateTimeImmutable(self::NOW))->movedBy($seconds);
     }
 
-    public static function requestValidator(int $seconds = 0): LogoutRequestValidator
-    {
-        return new LogoutRequestValidator(SamlLoader::create(), self::clock($seconds), new TimeBounds());
+    /**
+     * @param InMemoryReplayGuard $replay the store the validator remembers what it accepts in (M-11), a new one unless
+     *                                    a test reads it
+     */
+    public static function requestValidator(
+        int $seconds = 0,
+        InMemoryReplayGuard $replay = new InMemoryReplayGuard(),
+    ): LogoutRequestValidator {
+        return new LogoutRequestValidator(SamlLoader::create(), self::clock($seconds), $replay, new TimeBounds());
     }
 
-    public static function responseValidator(int $seconds = 0): LogoutResponseValidator
-    {
-        return new LogoutResponseValidator(SamlLoader::create(), self::clock($seconds), new TimeBounds());
+    /**
+     * @param InMemoryReplayGuard $replay the store the validator remembers what it accepts in (M-11), a new one unless
+     *                                    a test reads it
+     */
+    public static function responseValidator(
+        int $seconds = 0,
+        InMemoryReplayGuard $replay = new InMemoryReplayGuard(),
+    ): LogoutResponseValidator {
+        return new LogoutResponseValidator(SamlLoader::create(), self::clock($seconds), $replay, new TimeBounds());
     }
 
     /**
