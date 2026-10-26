@@ -27,7 +27,7 @@ concurrency:
 jobs:
   website:
     name: "The website lints, PHPStan finds nothing, and its suite is green"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     container:
       image: ghcr.io/spomky-labs/phpqa:8.5
     env:

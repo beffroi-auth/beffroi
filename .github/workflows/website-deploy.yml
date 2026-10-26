@@ -24,7 +24,7 @@ jobs:
   deploy:
     name: "The website is deployed to Scalingo"
     needs: checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kloude-light]
     # One deployment at a time, and a second one waits for the first rather than cancelling it halfway.
     concurrency:
       group: website-deployment
