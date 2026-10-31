@@ -247,14 +247,14 @@ final class SettingsFromTheEnvironmentTest extends KernelTestCase
             '-1',
             'test.beffroi.saml_rotation_schedule',
             InvalidConfigurationException::class,
-            'The "beffroi" configuration key "saml.identity_provider.staging_delay" is a number of seconds of at least 0, -1 given.',
+            'The "beffroi" configuration key "saml.keys.staging_delay" is a number of seconds of at least 0, -1 given.',
         ];
         yield 'a SAML key that works no time' => [
             'BEFFROI_TEST_SAML_KEY_AGE',
             '0',
             'test.beffroi.saml_rotation_schedule',
             InvalidConfigurationException::class,
-            'The "beffroi" configuration key "saml.identity_provider.age" is a number of seconds of at least 1, 0 given.',
+            'The "beffroi" configuration key "saml.keys.age" is a number of seconds of at least 1, 0 given.',
         ];
         yield 'SAML metadata kept for no time' => [
             'BEFFROI_TEST_SAML_CACHE_DURATION',

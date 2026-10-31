@@ -84,7 +84,7 @@ final readonly class KeysSection extends ConfigurationSection
             ->min(0)
             ->end()
             ->scalarNode('staging_delay')
-            ->info('How long a new key is published before it signs, in seconds (architecture §3.3, §9), for every family of keys but the SAML signing key, which has its own ("saml.identity_provider.staging_delay"); unless set, or set to an empty string, which is what an environment variable nobody set gives, jwks_max_age plus the 60 s refetch cooldown of oidc_login: the max-age is what a relying party with a warm cache needs to see the new key, the cooldown what one served by a shared HTTP cache needs to refetch it.')
+            ->info('How long a new key is published before it signs, in seconds (architecture §3.3, §9), for every family of keys but the SAML keys, which have their own ("saml.keys.staging_delay"); unless set, or set to an empty string, which is what an environment variable nobody set gives, jwks_max_age plus the 60 s refetch cooldown of oidc_login: the max-age is what a relying party with a warm cache needs to see the new key, the cooldown what one served by a shared HTTP cache needs to refetch it.')
             ->defaultNull()
             ->validate()
             ->always(static function (mixed $delay): mixed {
@@ -100,7 +100,7 @@ final readonly class KeysSection extends ConfigurationSection
             ->end()
             ->end()
             ->integerNode('age')
-            ->info('How long a key works before the planning stages a successor for it, in seconds, counted from its activation (architecture §3.3), for every family of keys but the SAML signing key, which has its own ("saml.identity_provider.age"): ninety days by default, which is inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key and short enough that the rotation path is walked four times a year rather than first walked during an incident. It has to be longer than the window a retiring key holds the JWK Set open for, which is the longest lifetime of what a key of that use is bound to, or every rotation would leave a key behind; the rotation refuses an age that is not.')
+            ->info('How long a key works before the planning stages a successor for it, in seconds, counted from its activation (architecture §3.3), for every family of keys but the SAML keys, which have their own ("saml.keys.age"): ninety days by default, which is inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key and short enough that the rotation path is walked four times a year rather than first walked during an incident. It has to be longer than the window a retiring key holds the JWK Set open for, which is the longest lifetime of what a key of that use is bound to, or every rotation would leave a key behind; the rotation refuses an age that is not.')
             ->defaultValue(KeyAge::DEFAULT_SECONDS)
             ->min(1)
             ->end()

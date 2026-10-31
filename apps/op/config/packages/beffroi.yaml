@@ -77,20 +77,22 @@ beffroi:
     # broker configured from that metadata signs its requests by (spec/model.md section 6.9). It is a SAML service
     # provider once its deployment turns that role on (spec/saml.md section 6.9), named by the URL of its metadata
     # unless the deployment names its entity ID, "default::" making an empty variable none. A role turned off serves
-    # nothing, and a tenant whose roles are both off draws no SAML key. Its key is a family of its own (issue
-    # beffroi-auth/beffroi#738, spec/saml.md S-12): a rotation publishes the next certificate seven days before it
-    # signs, the key works a year, and the metadata tells a service provider to fetch it again every day; the keys of
-    # the JWK Set keep the figures of "keys".
+    # nothing, and a tenant whose roles are both off draws no SAML key. Its key, the key of both roles, is a family of
+    # its own whose figures are set under "keys", read whichever role is on (issue beffroi-auth/beffroi#738,
+    # spec/saml.md S-12, S-40): a rotation publishes the next certificate seven days before it signs, the key works a
+    # year, and the metadata tells a service provider to fetch it again every day; the keys of the JWK Set keep the
+    # figures of "beffroi.keys".
     saml:
         identity_provider:
             enabled: '%env(bool:BEFFROI_SAML_IDENTITY_PROVIDER)%'
             want_authn_requests_signed: '%env(bool:BEFFROI_SAML_WANT_AUTHN_REQUESTS_SIGNED)%'
-            staging_delay: '%env(int:BEFFROI_SAML_KEY_STAGING_DELAY)%'
-            age: '%env(int:BEFFROI_SAML_KEY_AGE)%'
-            cache_duration: '%env(int:BEFFROI_SAML_METADATA_CACHE_DURATION)%'
         service_provider:
             enabled: '%env(bool:BEFFROI_SAML_SERVICE_PROVIDER)%'
             entity_id: '%env(default::BEFFROI_SAML_SERVICE_PROVIDER_ENTITY_ID)%'
+        keys:
+            staging_delay: '%env(int:BEFFROI_SAML_KEY_STAGING_DELAY)%'
+            age: '%env(int:BEFFROI_SAML_KEY_AGE)%'
+            cache_duration: '%env(int:BEFFROI_SAML_METADATA_CACHE_DURATION)%'
         # The service providers the identity provider of the tenant serves (spec/saml.md S-5), and the upstream
         # identity providers its service provider receives assertions of (S-42), the second declared only for a
         # tenant whose service provider is on.

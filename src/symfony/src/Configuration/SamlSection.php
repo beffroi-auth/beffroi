@@ -67,8 +67,10 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service_c
  * container is compiled (UpstreamIdentityProvidersPass), the claims of the profile by the same warmer, and their
  * metadata read by "beffroi:saml:identity-provider:refresh" and by the same hourly step.
  *
- * The keys of the identity provider are a family of their own (spec/saml.md S-12, issue #738): their staging delay and their age are set here,
- * counted in days by default, and not by "beffroi.keys", whose figures suit a JWK Set refetched within minutes. The
+ * The SAML keys are a family of their own (spec/saml.md S-12, issue #738), the key of both roles (S-40) and the keys the
+ * upstream identity providers encrypt for (S-64): their staging delay and their age are set under a node of the family
+ * beside the two roles, "saml.keys", read whichever role is on (issue #811), counted in days by default, and not by
+ * "beffroi.keys", whose figures suit a JWK Set refetched within minutes. The
  * schedule of the family is built whether a role is on or not, the registry of the SAML keys being wired in both
  * cases, empty in the second; the cacheDuration of the metadata is refused here, when the configuration is read, unless
  * it is shorter than the staging delay, and by the handler of each role when it is built.
@@ -116,7 +118,7 @@ final readonly class SamlSection extends ConfigurationSection
             ->addDefaultsIfNotSet()
             ->children()
             ->arrayNode('identity_provider')
-            ->info('The tenant as a SAML identity provider (spec/saml.md section 6.1), switched by "enabled", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: no metadata, and the tenant draws no SAML key unless its service provider is enabled, the key of both roles (S-40, S-41). Enabled, its key is drawn with "beffroi:keys:generate --algorithm=SAML-SIGNING" and rotates as every key of the tenant, by the figures of its own family below.')
+            ->info('The tenant as a SAML identity provider (spec/saml.md section 6.1), switched by "enabled", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: no metadata, and the tenant draws no SAML key unless its service provider is enabled, the key of both roles (S-40, S-41). Enabled, its key is drawn with "beffroi:keys:generate --algorithm=SAML-SIGNING" and rotates as every key of the tenant, by the figures of its family, "keys".')
             ->canBeEnabled()
             ->children()
             ->append(self::enabled())
@@ -124,13 +126,31 @@ final readonly class SamlSection extends ConfigurationSection
             ->info('What the metadata says in WantAuthnRequestsSigned (SAML Metadata section 2.4.3): true asks every service provider to sign its requests, which is what a broker configured from the metadata does (spec/model.md section 6.9). Turned off, the requests of service providers that cannot sign are accepted where their configuration says so, and the logout of a broker that signs only when asked is lost.')
             ->defaultTrue()
             ->end()
+            ->end()
+            ->end()
+            ->arrayNode('service_provider')
+            ->info('The tenant as a SAML service provider to the identity providers upstream of it (spec/saml.md section 6.9), switched by "enabled", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: its metadata answer that there are none. Enabled, it signs with the SAML signing key of the identity provider, drawn and rotated by the figures of "keys" whichever role is enabled (S-40), and its metadata are served at /saml/sp/metadata.')
+            ->canBeEnabled()
+            ->children()
+            ->append(self::enabled())
+            ->stringNode('entity_id')
+            ->info('The entity ID of the service provider (spec/saml.md S-38): the URL of its metadata when left out, as the identity provider is named by the URL of its own; another URI for a service provider its upstream identity providers already know by a name it keeps, absolute, at most 1024 characters, with no whitespace, control, format or invisible character (M-6). Never the entity ID of the identity provider of the tenant. Refused when the container is compiled, or at its first use when it or the issuer holds an environment variable.')
+            ->defaultNull()
+            ->cannotBeEmpty()
+            ->end()
+            ->end()
+            ->end()
+            ->arrayNode('keys')
+            ->info('The figures of the family of the SAML keys (spec/saml.md S-12): the signing key of both roles (S-40) and the key each upstream identity provider encrypts for (S-64), read whichever role is enabled, so that a deployment that serves the service provider alone sets them without naming the identity provider. The keys of every other family keep the figures of "beffroi.keys".')
+            ->addDefaultsIfNotSet()
+            ->children()
             ->integerNode('staging_delay')
-            ->info('How long a new SAML signing key is published in the metadata before it signs, in seconds (spec/saml.md S-12, section 7): seven days by default, seven times the cacheDuration of the metadata, so that a service provider whose refresh fails a few times still fetches the next certificate before it is used, and a calendar week for an administrator of a service provider that holds an uploaded certificate (Entra without the metadata URL it may be given, or one Microsoft cannot reach) to put the next one in place; AD FS, in the sample of its documentation, gives its partners five days. The keys of every other family keep "keys.staging_delay".')
+            ->info('How long a new SAML key is published in the metadata before it signs, in seconds (spec/saml.md S-12, section 7): seven days by default, seven times the cacheDuration of the metadata, so that a service provider whose refresh fails a few times still fetches the next certificate before it is used, and a calendar week for an administrator of a service provider that holds an uploaded certificate (Entra without the metadata URL it may be given, or one Microsoft cannot reach) to put the next one in place; AD FS, in the sample of its documentation, gives its partners five days. The keys of every other family keep "keys.staging_delay".')
             ->defaultValue(SamlSigningAlgorithmInterface::STAGING_DELAY)
             ->min(0)
             ->end()
             ->integerNode('age')
-            ->info('How long a SAML signing key works before the planning stages a successor for it, in seconds, counted from its activation (spec/saml.md S-12, section 7): 365 days by default, every rotation being a step for whoever pinned its certificate, and inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key. The keys of every other family keep "keys.age".')
+            ->info('How long a SAML key works before the planning stages a successor for it, in seconds, counted from its activation (spec/saml.md S-12, section 7): 365 days by default, every rotation being a step for whoever pinned its certificate, and inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key. The keys of every other family keep "keys.age".')
             ->defaultValue(SamlSigningAlgorithmInterface::AGE)
             ->min(1)
             ->end()
@@ -141,9 +161,9 @@ final readonly class SamlSection extends ConfigurationSection
             ->end()
             ->end()
             ->validate()
-            ->always(static function (array $identityProvider): array {
-                $cacheDuration = $identityProvider['cache_duration'] ?? null;
-                $stagingDelay = $identityProvider['staging_delay'] ?? null;
+            ->always(static function (array $keys): array {
+                $cacheDuration = $keys['cache_duration'] ?? null;
+                $stagingDelay = $keys['staging_delay'] ?? null;
                 // an environment placeholder is a number at runtime only, where the handler checks it again
                 if (is_int($cacheDuration) && is_int($stagingDelay)) {
                     try {
@@ -153,20 +173,8 @@ final readonly class SamlSection extends ConfigurationSection
                     }
                 }
 
-                return $identityProvider;
+                return $keys;
             })
-            ->end()
-            ->end()
-            ->arrayNode('service_provider')
-            ->info('The tenant as a SAML service provider to the identity providers upstream of it (spec/saml.md section 6.9), switched by "enabled", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: its metadata answer that there are none. Enabled, it signs with the SAML signing key of the identity provider, drawn and rotated by the figures of "identity_provider" whichever role is enabled (S-40), and its metadata are served at /saml/sp/metadata.')
-            ->canBeEnabled()
-            ->children()
-            ->append(self::enabled())
-            ->stringNode('entity_id')
-            ->info('The entity ID of the service provider (spec/saml.md S-38): the URL of its metadata when left out, as the identity provider is named by the URL of its own; another URI for a service provider its upstream identity providers already know by a name it keeps, absolute, at most 1024 characters, with no whitespace, control, format or invisible character (M-6). Never the entity ID of the identity provider of the tenant. Refused when the container is compiled, or at its first use when it or the issuer holds an environment variable.')
-            ->defaultNull()
-            ->cannotBeEmpty()
-            ->end()
             ->end()
             ->end()
             ->append(self::serviceProviders())
@@ -456,13 +464,14 @@ final readonly class SamlSection extends ConfigurationSection
         )->arg('$serviceProviderEnabled', $serviceProviderEnabled);
         // the family of the SAML keys exists in every deployment (JoseKeyAlgorithms), so its schedule does too, held to
         // the floors of the tree when it is built
+        $keys = self::section($own, 'keys');
         $services->set('beffroi.saml.rotation_schedule', RotationSchedule::class)->args([
-            self::bounded($identityProvider, 'staging_delay', named: 'saml.identity_provider.staging_delay', minimum: 0),
-            self::bounded($identityProvider, 'age', named: 'saml.identity_provider.age'),
+            self::bounded($keys, 'staging_delay', named: 'saml.keys.staging_delay', minimum: 0),
+            self::bounded($keys, 'age', named: 'saml.keys.age'),
         ]);
         $maxAge = self::integer(self::section($config, 'keys'), 'jwks_max_age');
-        $cacheDuration = self::integer($identityProvider, 'cache_duration');
-        $stagingDelay = self::integer($identityProvider, 'staging_delay');
+        $cacheDuration = self::integer($keys, 'cache_duration');
+        $stagingDelay = self::integer($keys, 'staging_delay');
         // The handler of each role is wired in every image and built for its consumers while the role is on, none while
         // it is off, which is what a role never declared hands them (S-41, RoleSwitch): the routes of a role are known
         // when the container is compiled, whether it is on only when it runs.

@@ -874,13 +874,13 @@
                             "staging_delay": {
                                 "$ref": "#/$defs/types/scalar",
                                 "default": null,
-                                "description": "How long a new key is published before it signs, in seconds (architecture §3.3, §9), for every family of keys but the SAML signing key, which has its own (\"saml.identity_provider.staging_delay\"); unless set, or set to an empty string, which is what an environment variable nobody set gives, jwks_max_age plus the 60 s refetch cooldown of oidc_login: the max-age is what a relying party with a warm cache needs to see the new key, the cooldown what one served by a shared HTTP cache needs to refetch it."
+                                "description": "How long a new key is published before it signs, in seconds (architecture §3.3, §9), for every family of keys but the SAML keys, which have their own (\"saml.keys.staging_delay\"); unless set, or set to an empty string, which is what an environment variable nobody set gives, jwks_max_age plus the 60 s refetch cooldown of oidc_login: the max-age is what a relying party with a warm cache needs to see the new key, the cooldown what one served by a shared HTTP cache needs to refetch it."
                             },
                             "age": {
                                 "$ref": "#/$defs/types/integer",
                                 "minimum": 1,
                                 "default": 7776000,
-                                "description": "How long a key works before the planning stages a successor for it, in seconds, counted from its activation (architecture §3.3), for every family of keys but the SAML signing key, which has its own (\"saml.identity_provider.age\"): ninety days by default, which is inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key and short enough that the rotation path is walked four times a year rather than first walked during an incident. It has to be longer than the window a retiring key holds the JWK Set open for, which is the longest lifetime of what a key of that use is bound to, or every rotation would leave a key behind; the rotation refuses an age that is not."
+                                "description": "How long a key works before the planning stages a successor for it, in seconds, counted from its activation (architecture §3.3), for every family of keys but the SAML keys, which have their own (\"saml.keys.age\"): ninety days by default, which is inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key and short enough that the rotation path is walked four times a year rather than first walked during an incident. It has to be longer than the window a retiring key holds the JWK Set open for, which is the longest lifetime of what a key of that use is bound to, or every rotation would leave a key behind; the rotation refuses an age that is not."
                             }
                         },
                         "additionalProperties": false,
@@ -1916,24 +1916,6 @@
                                                 "$ref": "#/$defs/types/boolean",
                                                 "default": true,
                                                 "description": "What the metadata says in WantAuthnRequestsSigned (SAML Metadata section 2.4.3): true asks every service provider to sign its requests, which is what a broker configured from the metadata does (spec/model.md section 6.9). Turned off, the requests of service providers that cannot sign are accepted where their configuration says so, and the logout of a broker that signs only when asked is lost."
-                                            },
-                                            "staging_delay": {
-                                                "$ref": "#/$defs/types/integer",
-                                                "minimum": 0,
-                                                "default": 604800,
-                                                "description": "How long a new SAML signing key is published in the metadata before it signs, in seconds (spec/saml.md S-12, section 7): seven days by default, seven times the cacheDuration of the metadata, so that a service provider whose refresh fails a few times still fetches the next certificate before it is used, and a calendar week for an administrator of a service provider that holds an uploaded certificate (Entra without the metadata URL it may be given, or one Microsoft cannot reach) to put the next one in place; AD FS, in the sample of its documentation, gives its partners five days. The keys of every other family keep \"keys.staging_delay\"."
-                                            },
-                                            "age": {
-                                                "$ref": "#/$defs/types/integer",
-                                                "minimum": 1,
-                                                "default": 31536000,
-                                                "description": "How long a SAML signing key works before the planning stages a successor for it, in seconds, counted from its activation (spec/saml.md S-12, section 7): 365 days by default, every rotation being a step for whoever pinned its certificate, and inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key. The keys of every other family keep \"keys.age\"."
-                                            },
-                                            "cache_duration": {
-                                                "$ref": "#/$defs/types/integer",
-                                                "minimum": 1,
-                                                "default": 86400,
-                                                "description": "How long a service provider may keep the metadata before it fetches it again, in seconds, written as its cacheDuration (SAML Metadata section 2.3.2, spec/saml.md S-12): one day by default, how often SimpleSAMLphp's metarefresh and a Shibboleth SP refresh it, and strictly shorter than \"staging_delay\", which the configuration refuses otherwise."
                                             }
                                         },
                                         "additionalProperties": false
@@ -1946,12 +1928,9 @@
                                 ],
                                 "default": {
                                     "enabled": false,
-                                    "want_authn_requests_signed": true,
-                                    "staging_delay": 604800,
-                                    "age": 31536000,
-                                    "cache_duration": 86400
+                                    "want_authn_requests_signed": true
                                 },
-                                "description": "The tenant as a SAML identity provider (spec/saml.md section 6.1), switched by \"enabled\", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: no metadata, and the tenant draws no SAML key unless its service provider is enabled, the key of both roles (S-40, S-41). Enabled, its key is drawn with \"beffroi:keys:generate --algorithm=SAML-SIGNING\" and rotates as every key of the tenant, by the figures of its own family below."
+                                "description": "The tenant as a SAML identity provider (spec/saml.md section 6.1), switched by \"enabled\", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: no metadata, and the tenant draws no SAML key unless its service provider is enabled, the key of both roles (S-40, S-41). Enabled, its key is drawn with \"beffroi:keys:generate --algorithm=SAML-SIGNING\" and rotates as every key of the tenant, by the figures of its family, \"keys\"."
                             },
                             "service_provider": {
                                 "anyOf": [
@@ -1980,7 +1959,37 @@
                                     "enabled": false,
                                     "entity_id": null
                                 },
-                                "description": "The tenant as a SAML service provider to the identity providers upstream of it (spec/saml.md section 6.9), switched by \"enabled\", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: its metadata answer that there are none. Enabled, it signs with the SAML signing key of the identity provider, drawn and rotated by the figures of \"identity_provider\" whichever role is enabled (S-40), and its metadata are served at /saml/sp/metadata."
+                                "description": "The tenant as a SAML service provider to the identity providers upstream of it (spec/saml.md section 6.9), switched by \"enabled\", which may be an environment variable, read when the container builds what the role changes. Disabled, it serves nothing: its metadata answer that there are none. Enabled, it signs with the SAML signing key of the identity provider, drawn and rotated by the figures of \"keys\" whichever role is enabled (S-40), and its metadata are served at /saml/sp/metadata."
+                            },
+                            "keys": {
+                                "$ref": "#/$defs/types/object_null",
+                                "properties": {
+                                    "staging_delay": {
+                                        "$ref": "#/$defs/types/integer",
+                                        "minimum": 0,
+                                        "default": 604800,
+                                        "description": "How long a new SAML key is published in the metadata before it signs, in seconds (spec/saml.md S-12, section 7): seven days by default, seven times the cacheDuration of the metadata, so that a service provider whose refresh fails a few times still fetches the next certificate before it is used, and a calendar week for an administrator of a service provider that holds an uploaded certificate (Entra without the metadata URL it may be given, or one Microsoft cannot reach) to put the next one in place; AD FS, in the sample of its documentation, gives its partners five days. The keys of every other family keep \"keys.staging_delay\"."
+                                    },
+                                    "age": {
+                                        "$ref": "#/$defs/types/integer",
+                                        "minimum": 1,
+                                        "default": 31536000,
+                                        "description": "How long a SAML key works before the planning stages a successor for it, in seconds, counted from its activation (spec/saml.md S-12, section 7): 365 days by default, every rotation being a step for whoever pinned its certificate, and inside the one to three years NIST SP 800-57 Part 1 Rev. 5 §5.3.6 gives a private signature key. The keys of every other family keep \"keys.age\"."
+                                    },
+                                    "cache_duration": {
+                                        "$ref": "#/$defs/types/integer",
+                                        "minimum": 1,
+                                        "default": 86400,
+                                        "description": "How long a service provider may keep the metadata before it fetches it again, in seconds, written as its cacheDuration (SAML Metadata section 2.3.2, spec/saml.md S-12): one day by default, how often SimpleSAMLphp's metarefresh and a Shibboleth SP refresh it, and strictly shorter than \"staging_delay\", which the configuration refuses otherwise."
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "default": {
+                                    "staging_delay": 604800,
+                                    "age": 31536000,
+                                    "cache_duration": 86400
+                                },
+                                "description": "The figures of the family of the SAML keys (spec/saml.md S-12): the signing key of both roles (S-40) and the key each upstream identity provider encrypts for (S-64), read whichever role is enabled, so that a deployment that serves the service provider alone sets them without naming the identity provider. The keys of every other family keep the figures of \"beffroi.keys\"."
                             },
                             "service_providers": {
                                 "anyOf": [
@@ -2144,14 +2153,16 @@
                         "default": {
                             "identity_provider": {
                                 "enabled": false,
-                                "want_authn_requests_signed": true,
-                                "staging_delay": 604800,
-                                "age": 31536000,
-                                "cache_duration": 86400
+                                "want_authn_requests_signed": true
                             },
                             "service_provider": {
                                 "enabled": false,
                                 "entity_id": null
+                            },
+                            "keys": {
+                                "staging_delay": 604800,
+                                "age": 31536000,
+                                "cache_duration": 86400
                             },
                             "service_providers": [],
                             "identity_providers": []

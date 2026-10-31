@@ -553,8 +553,9 @@ final class BeffroiBundleExtensionTest extends TestCase
     }
 
     /**
-     * Spec/saml.md S-12, S-40: the metadata of the service provider are handed the max-age of the keys, and the
-     * cacheDuration and the staging delay of the SAML key, those of the identity provider.
+     * Spec/saml.md S-12, S-40, section 5.1: the metadata of the service provider are handed the max-age of the keys,
+     * and the cacheDuration and the staging delay of the SAML key, those of its family, which a deployment that serves
+     * the service provider alone sets without naming the identity provider.
      */
     #[Test]
     public function theMetadataOfTheServiceProviderAreHandedTheFiguresOfTheSamlKey(): void
@@ -567,12 +568,11 @@ final class BeffroiBundleExtensionTest extends TestCase
                 'jwks_max_age' => 90,
             ],
             'saml' => [
-                'identity_provider' => [
-                    'enabled' => false,
+                'service_provider' => null,
+                'keys' => [
                     'staging_delay' => 172_800,
                     'cache_duration' => 3_600,
                 ],
-                'service_provider' => null,
             ],
         ]);
 
@@ -898,9 +898,9 @@ final class BeffroiBundleExtensionTest extends TestCase
     }
 
     /**
-     * Spec/saml.md S-12, section 7, issue #738: the SAML signing key is a family of its own, published seven days
-     * before it signs and working a year unless the deployment says otherwise, whether the role is enabled or not,
-     * the registry of its keys being wired in both cases.
+     * Spec/saml.md S-12, S-40, section 7, issue #738: the SAML signing key is a family of its own, published seven
+     * days before it signs and working a year unless the deployment says otherwise under the node of the family,
+     * whichever role is enabled, or none, the registry of its keys being wired in every case.
      *
      * @param array<string, mixed> $saml
      */
@@ -936,9 +936,10 @@ final class BeffroiBundleExtensionTest extends TestCase
             'PT604800S',
             'PT31536000S',
         ];
-        yield 'figures the deployment sets' => [
+        yield 'figures the deployment sets for the identity provider' => [
             [
-                'identity_provider' => [
+                'identity_provider' => null,
+                'keys' => [
                     'staging_delay' => 1_209_600,
                     'age' => 15_552_000,
                 ],
@@ -946,14 +947,13 @@ final class BeffroiBundleExtensionTest extends TestCase
             'PT1209600S',
             'PT15552000S',
         ];
-        yield 'figures set under the identity provider left off, for the service provider alone' => [
+        yield 'figures the deployment sets for the service provider alone' => [
             [
-                'identity_provider' => [
-                    'enabled' => false,
+                'service_provider' => null,
+                'keys' => [
                     'staging_delay' => 1_209_600,
                     'age' => 15_552_000,
                 ],
-                'service_provider' => null,
             ],
             'PT1209600S',
             'PT15552000S',
@@ -969,7 +969,8 @@ final class BeffroiBundleExtensionTest extends TestCase
         // When
         $container = self::load([
             'saml' => [
-                'identity_provider' => [
+                'identity_provider' => null,
+                'keys' => [
                     'staging_delay' => 172_800,
                     'cache_duration' => 3_600,
                 ],
@@ -995,7 +996,7 @@ final class BeffroiBundleExtensionTest extends TestCase
         // When
         self::load([
             'saml' => [
-                'identity_provider' => [
+                'keys' => [
                     'staging_delay' => 86_400,
                 ],
             ],

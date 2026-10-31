@@ -356,10 +356,11 @@ beffroi:
         timeout: '%env(float:BEFFROI_TEST_WEB_PUSH_TIMEOUT)%'
     # The tenant of the tests is a SAML identity provider (beffroi/saml, spec/saml.md section 6.1): its key is
     # drawn by the key commands under SAML-SIGNING, as every key of the tenant, and its metadata is served at
-    # /saml/metadata, WantAuthnRequestsSigned left at its default; the figures of the family of its key are read
-    # from the environment, as the ones of "keys".
+    # /saml/metadata, WantAuthnRequestsSigned left at its default; the figures of the family of its key, under "keys"
+    # beside the roles, are read from the environment, as the ones of "beffroi.keys".
     saml:
-        identity_provider:
+        identity_provider: ~
+        keys:
             staging_delay: '%env(int:BEFFROI_TEST_SAML_STAGING_DELAY)%'
             age: '%env(int:BEFFROI_TEST_SAML_KEY_AGE)%'
             cache_duration: '%env(int:BEFFROI_TEST_SAML_CACHE_DURATION)%'
