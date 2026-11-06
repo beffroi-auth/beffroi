@@ -48,29 +48,29 @@ final class PlainPasswordTest extends TestCase
     }
 
     /**
-     * NIST SP 800-63B §3.1.1.2
+     * Architecture §9
      */
     #[Test]
-    public function sevenCharactersAreRefusedWhereASecondFactorIsReadBeside(): void
+    public function elevenCharactersAreRefusedWhereASecondFactorIsReadBeside(): void
     {
         // Then
         $this->expectException(PasswordRefusedException::class);
-        $this->expectExceptionMessageIs('A password is at least 8 characters long.');
+        $this->expectExceptionMessageIs('A password is at least 12 characters long.');
 
         // When
-        new PlainPassword('seven77', self::withASecondFactor());
+        new PlainPassword('Tr0ub4dor&3', self::withASecondFactor());
     }
 
     #[Test]
-    public function eightMultibyteCharactersAreNotTooShortWhereEightIsAsked(): void
+    public function twelveMultibyteCharactersAreNotTooShortWhereTwelveIsAsked(): void
     {
         // Given
-        $password = 'éééééééé';
+        $password = str_repeat('é', 12);
 
         // When
         try {
             new PlainPassword($password, self::withASecondFactor());
-            static::fail('A password of eight repeated characters is refused.');
+            static::fail('A password of one repeated character is refused.');
         } catch (PasswordRefusedException $exception) {
             // Then
             static::assertSame(PasswordRefusal::TooWeak, $exception->refusal);
@@ -118,10 +118,9 @@ final class PlainPasswordTest extends TestCase
      */
     public static function provideGuessablePasswords(): iterable
     {
-        yield 'a word and a digit' => ['password1'];
+        yield 'twelve letters and nothing else' => ['abcdefghijkl'];
         yield 'one character repeated' => [str_repeat('a', 24)];
         yield 'a word written twice' => ['passwordpassword'];
-        yield 'eight of every alphabet' => ['Ab3$Cd4%'];
     }
 
     #[Test]
@@ -139,7 +138,7 @@ final class PlainPasswordTest extends TestCase
     {
         yield 'four words of letters only' => [self::A_PASSWORD];
         yield 'thirteen letters and nothing else' => [self::THIRTEEN_LETTERS];
-        yield 'eleven of every alphabet' => ['Tr0ub4dor&3'];
+        yield 'twelve of every alphabet' => ['Tr0ub4dor&31'];
     }
 
     /**

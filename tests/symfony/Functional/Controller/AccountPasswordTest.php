@@ -336,7 +336,7 @@ final class AccountPasswordTest extends BrowserTestCase
     }
 
     /**
-     * NIST SP 800-63B §3.1.1.2
+     * NIST SP 800-63B §3.1.1.2, Architecture §9
      */
     #[Test]
     #[DataProvider('provideFloorsAndTheLengthTheyAsk')]
@@ -361,7 +361,7 @@ final class AccountPasswordTest extends BrowserTestCase
     public static function provideFloorsAndTheLengthTheyAsk(): iterable
     {
         yield 'a password that signs somebody in alone' => [new SingleFactor(), '15'];
-        yield 'a password a second factor is read beside' => [new TwoFactors(), '8'];
+        yield 'a password a second factor is read beside' => [new TwoFactors(), '12'];
     }
 
     /**

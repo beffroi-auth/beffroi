@@ -28,20 +28,20 @@ final class PasswordLengthTest extends TestCase
     }
 
     /**
-     * NIST SP 800-63B §3.1.1.2
+     * Architecture §9
      */
     #[Test]
-    public function aPasswordASecondFactorIsReadBesideReachesEightCharacters(): void
+    public function aPasswordASecondFactorIsReadBesideReachesTwelveCharacters(): void
     {
         // When / Then
-        static::assertSame(8, PasswordLength::under(new TwoFactors())->minimum);
+        static::assertSame(12, PasswordLength::under(new TwoFactors())->minimum);
     }
 
     #[Test]
     public function aFloorThatReadsNoPasswordIsAnsweredTheShorterLength(): void
     {
         // When / Then
-        static::assertSame(8, PasswordLength::under(new PhishingResistant())->minimum);
+        static::assertSame(12, PasswordLength::under(new PhishingResistant())->minimum);
     }
 
     /**
