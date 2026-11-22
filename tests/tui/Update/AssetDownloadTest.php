@@ -71,15 +71,18 @@ final class AssetDownloadTest extends TestCase
     }
 
     #[Test]
-    #[DataProvider('provideLocationsThatAreNotHttps')]
-    public function aRedirectionToAnAddressThatIsNotHttpsIsNotFollowed(string $location): void
+    #[DataProvider('provideLocationsElsewhere')]
+    public function aRedirectionElsewhereThanTheStorageOfTheReleaseFilesIsNotFollowed(string $location): void
     {
         // Given
         $http = RecordedRequests::answering([self::redirectedTo($location)]);
 
         // Then
         $this->expectException(SelfUpdateException::class);
-        $this->expectExceptionMessageIs(sprintf('The download of beffroi-tui.phar is redirected to "%s", which is not an HTTPS address.', $location));
+        $this->expectExceptionMessageIs(sprintf(
+            'The download of beffroi-tui.phar is redirected to "%s", which is not under https://release-assets.githubusercontent.com/.',
+            $location,
+        ));
 
         // When
         new AssetDownload($http->client)->to(new ReleaseAsset('beffroi-tui.phar', self::URL, 15), $this->path);
@@ -88,10 +91,13 @@ final class AssetDownloadTest extends TestCase
     /**
      * @return iterable<string, array{string}>
      */
-    public static function provideLocationsThatAreNotHttps(): iterable
+    public static function provideLocationsElsewhere(): iterable
     {
         yield 'plain HTTP' => ['http://release-assets.githubusercontent.com/beffroi-tui.phar'];
         yield 'a relative address' => ['/beffroi-tui.phar'];
+        yield 'another host' => ['https://elsewhere.example/beffroi-tui.phar'];
+        yield 'a host that begins like it' => ['https://release-assets.githubusercontent.com.elsewhere.example/beffroi-tui.phar'];
+        yield 'no address' => [''];
     }
 
     #[Test]

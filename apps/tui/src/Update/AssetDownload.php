@@ -17,11 +17,14 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * A file of a release written to disk as it arrives, read up to the size the release announces for it. GitHub
- * answers the download of a file with a redirection to where it stores it: that one redirection is followed, to an
- * HTTPS address, and no other. Where the file is served from does not vouch for it; the signed digest does.
+ * answers the download of a file with a redirection to the host it stores release files on: that one redirection is
+ * followed, to that host under HTTPS, and no other. Where the file is served from does not vouch for it; the signed
+ * digest does.
  */
 final readonly class AssetDownload
 {
+    public const string STORAGE = 'https://release-assets.githubusercontent.com/';
+
     private const array REDIRECTIONS = [301, 302, 303, 307, 308];
 
     public function __construct(
@@ -30,7 +33,7 @@ final readonly class AssetDownload
     }
 
     /**
-     * @throws SelfUpdateException when the file cannot be downloaded whole, or is not served one redirection away at most
+     * @throws SelfUpdateException when the file cannot be downloaded whole, or is not served from the storage one redirection away at most
      */
     public function to(ReleaseAsset $asset, string $path): void
     {
@@ -77,13 +80,13 @@ final readonly class AssetDownload
 
     /**
      * @throws ExceptionInterface
-     * @throws SelfUpdateException when the redirection names no HTTPS address
+     * @throws SelfUpdateException when the redirection leads elsewhere than the storage of the release files
      */
     private static function location(ReleaseAsset $asset, ResponseInterface $response): string
     {
         $location = $response->getHeaders(false)['location'][0] ?? '';
-        if (! str_starts_with($location, 'https://')) {
-            throw new SelfUpdateException(sprintf('The download of %s is redirected to "%s", which is not an HTTPS address.', $asset->name, $location));
+        if (! str_starts_with($location, self::STORAGE)) {
+            throw new SelfUpdateException(sprintf('The download of %s is redirected to "%s", which is not under %s.', $asset->name, $location, self::STORAGE));
         }
 
         return $location;
