@@ -41,6 +41,17 @@
 #   docker compose -f compose.prod.yaml up -d --wait
 #
 # The same page says the rest of it: the keys of SAML and web push, the first person who signs in.
+#
+# The processes connect as a role of their own, which reads and writes what they serve but rewrites no row of the
+# journal, of the history of claims or of what clients were given, and forgets them only through the retention
+# (decision 0060). The role POSTGRES_USER, which owns the tables, plays the migrations and grants that role as the
+# server starts. The role is created once, its password URL-safe as the other one:
+#
+#   docker compose -f compose.prod.yaml up -d --wait database
+#   docker compose -f compose.prod.yaml exec database psql -U beffroi -c "CREATE ROLE beffroi_runtime LOGIN PASSWORD '<password>'"
+#
+# then named by BEFFROI_DATABASE_USER=beffroi_runtime and BEFFROI_DATABASE_PASSWORD=<password>. Left unset, the
+# processes connect as POSTGRES_USER, and whoever holds its password can rewrite any row.
 
 # What the provider and its worker read alike: one value, written once, so that the two processes never serve
 # two different issuers or two different databases.
@@ -48,7 +59,7 @@ x-environment: &environment
   BEFFROI_ISSUER: ${BEFFROI_ISSUER:-https://${SERVER_NAME:?the host the provider is served on}}
   DEFAULT_URI: ${BEFFROI_ISSUER:-https://${SERVER_NAME:?the host the provider is served on}}
   APP_SECRET: ${APP_SECRET:?the secret of the kernel, drawn once and kept}
-  DATABASE_URL: postgresql://${POSTGRES_USER:-beffroi}:${POSTGRES_PASSWORD:?the password of the database}@database:5432/${POSTGRES_DB:-beffroi}?serverVersion=16&charset=utf8
+  DATABASE_URL: postgresql://${BEFFROI_DATABASE_USER:-${POSTGRES_USER:-beffroi}}:${BEFFROI_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?the password of the database}}@database:5432/${POSTGRES_DB:-beffroi}?serverVersion=16&charset=utf8
   BEFFROI_KMS_DSN: ${BEFFROI_KMS_DSN:?the key management service}
   BEFFROI_KMS_KEY_ID: ${BEFFROI_KMS_KEY_ID:?the master key of the key management service}
 
@@ -62,6 +73,8 @@ services:
     environment:
       <<: *environment
       SERVER_NAME: ${SERVER_NAME:?the host the provider is served on}
+      # The role that owns the tables, which the server plays the migrations as and grants the role of DATABASE_URL.
+      BEFFROI_MIGRATIONS_DATABASE_URL: postgresql://${POSTGRES_USER:-beffroi}:${POSTGRES_PASSWORD:?the password of the database}@database:5432/${POSTGRES_DB:-beffroi}?serverVersion=16&charset=utf8
       # The host that asks for a client certificate (RFC 8705 §5), for a deployment whose clients authenticate
       # with one or bind their tokens to it: a host of its own, and the origin the discovery document announces.
       # Left out, the provider serves no mutual TLS: no method that reads a certificate, no token bound to one.

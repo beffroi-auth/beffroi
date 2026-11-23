@@ -21,6 +21,7 @@ use Beffroi\Core\Port\RelinkableChainsInterface;
 use Closure;
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Types;
 use function implode;
 use function is_numeric;
@@ -145,11 +146,20 @@ final readonly class DoctrineChains implements ChainOfRowsInterface, RelinkableC
         return is_numeric($count) ? (int) $count : 0;
     }
 
+    /**
+     * On PostgreSQL, through the function the migrations wrote, which runs as the owner of the tables: a role granted
+     * no deletion on a chained record forgets through it alone (beffroi:database:grant).
+     */
     public function forgetUpTo(Tenant $tenant, ChainInterface $chain, int $position): int
     {
         $connection = $this->connection();
         $parameters = ['tenant' => $tenant->id, 'chain' => $chain->name(), 'position' => $position];
         $types = ['tenant' => UuidType::NAME];
+        if ($connection->getDatabasePlatform() instanceof PostgreSQLPlatform) {
+            $forgotten = $connection->fetchOne('SELECT beffroi_forget_chained_rows(:tenant, :chain, :position)', $parameters, $types);
+
+            return is_numeric($forgotten) ? (int) $forgotten : 0;
+        }
         $forgotten = $connection->executeStatement(
             sprintf(
                 'DELETE FROM %s WHERE id IN (SELECT row_id FROM %s WHERE tenant_id = :tenant AND chain = :chain AND position <= :position)',

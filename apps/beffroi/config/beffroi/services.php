@@ -274,6 +274,7 @@ use App\Locale\Moments;
 use App\Locale\UserTimeZone;
 use App\Doctrine\Repository\DoctrineJournal;
 use App\Doctrine\Chain\DoctrineChains;
+use App\Doctrine\Role\RuntimeRoleGrants;
 use App\Doctrine\Chain\JournalTable;
 use App\Doctrine\Chain\ClaimHistoryTable;
 use App\Doctrine\Chain\DisclosureTable;
@@ -1068,6 +1069,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(ClaimHistoryTable::class)->tag('beffroi.chained_table');
     $services->set(DisclosureTable::class)->tag('beffroi.chained_table');
     $services->set(DoctrineChains::class)->arg('$tables', tagged_iterator('beffroi.chained_table'));
+    $services->set(RuntimeRoleGrants::class)->arg('$tables', tagged_iterator('beffroi.chained_table'));
     $services->alias(ChainOfRowsInterface::class, DoctrineChains::class);
     $services->alias(RelinkableChainsInterface::class, DoctrineChains::class);
     $services->set(FileChainCheckpoints::class);

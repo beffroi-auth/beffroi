@@ -84,6 +84,7 @@ use DoctrineMigrations\Version20261122210500;
 use DoctrineMigrations\Version20261123110900;
 use DoctrineMigrations\Version20261123200600;
 use DoctrineMigrations\Version20261124003000;
+use DoctrineMigrations\Version20261124020000;
 use function implode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -173,6 +174,7 @@ final class MigrationTest extends DatabaseTestCase
         Version20261123110900::class,
         Version20261123200600::class,
         Version20261124003000::class,
+        Version20261124020000::class,
     ];
 
     #[Test]

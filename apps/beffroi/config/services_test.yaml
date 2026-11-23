@@ -39,6 +39,12 @@ services:
     test.beffroi.chain_verification:
         alias: Beffroi\Core\Application\Chain\ChainVerification
         public: true
+    test.beffroi.chains:
+        alias: Beffroi\Core\Port\ChainOfRowsInterface
+        public: true
+    test.beffroi.runtime_role_grants:
+        alias: App\Doctrine\Role\RuntimeRoleGrants
+        public: true
     test.beffroi.sessions:
         alias: Beffroi\Core\Port\AuthenticationSessionRepositoryInterface
         public: true
