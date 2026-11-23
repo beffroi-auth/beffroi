@@ -21,7 +21,7 @@ use App\Doctrine\PersonalData\TenantScopedEncrypter;
 use App\Doctrine\TenantProvider;
 use App\Key\FilePairwiseSalt;
 use App\Key\FileMailSigningKeyRepository;
-use App\Key\FileJournalCheckpoints;
+use App\Key\FileChainCheckpoints;
 use App\Key\FileTenantKeyRepository;
 use App\Key\KeyAge;
 use App\Key\StagingDelay;
@@ -247,7 +247,7 @@ final readonly class KeysSection extends ConfigurationSection
         $services->get(FileTenantKeyRepository::class)->arg('$directory', self::string($keys, 'storage'));
         $services->get(FilePairwiseSalt::class)->arg('$directory', self::string($keys, 'storage'));
         $services->get(FileMailSigningKeyRepository::class)->arg('$directory', self::string($keys, 'storage'));
-        $services->get(FileJournalCheckpoints::class)->arg('$directory', self::string($keys, 'storage'));
+        $services->get(FileChainCheckpoints::class)->arg('$directory', self::string($keys, 'storage'));
         if ($debug) {
             $services->get(KmsClient::class)->arg('$name', self::string($keys, 'kms'));
         }

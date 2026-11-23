@@ -29,6 +29,10 @@ services:
     App\Http\RequestChannelLogger:
         decorates: monolog.logger.request
         arguments: ['@.inner']
+    # The copies of the signed heads of the chains go to the channel symfony/monolog-bundle declares for them, which
+    # production writes out as it comes (config/packages/monolog.yaml, decision 0060).
+    App\Chain\LoggedCheckpointCopies:
+        arguments: ['@monolog.logger.chain']
     App\Twig\AccountNavigationExtension: ~
     App\Twig\ThemeExtension: ~
 

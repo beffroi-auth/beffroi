@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\MessageHandler;
 
 use App\Configuration\JournalSection;
-use App\Key\FileJournalCheckpoints;
+use App\Key\FileChainCheckpoints;
 use App\Message\ForgetTheActsPastTheirRetention;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
 use Beffroi\Core\Application\Key\KeyTakeOver;
@@ -30,7 +30,7 @@ final class TheJournalIsForgottenInTimeTest extends DatabaseTestCase
 {
     protected function tearDown(): void
     {
-        new Filesystem()->remove(self::keyStorage() . '/default/' . FileJournalCheckpoints::DIRECTORY);
+        new Filesystem()->remove(self::keyStorage() . '/default/' . FileChainCheckpoints::DIRECTORY);
         parent::tearDown();
     }
 
@@ -66,6 +66,7 @@ final class TheJournalIsForgottenInTimeTest extends DatabaseTestCase
     {
         // Given
         self::whatWasGiven(sprintf('-%d days', JournalSection::DEFAULT_RETENTION + 1));
+        self::aKeyToSignTheCutWith();
 
         // When
         self::tick();

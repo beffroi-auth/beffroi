@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Doctrine\Repository;
 
+use App\Doctrine\Chain\DoctrineChains;
 use App\Doctrine\EntityManagers;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\RuntimeException;
 use Beffroi\Oidc\Domain\Disclosure\Disclosure;
+use Beffroi\Oidc\Domain\Disclosure\DisclosureChain;
 use Beffroi\Oidc\Port\DisclosuresInterface;
 use Beffroi\Oidc\Port\DisclosuresOfAPersonInterface;
-use function count;
-use DateTimeImmutable;
 use SortDirection;
 use function sprintf;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -23,40 +23,17 @@ use Symfony\Component\Uid\Uuid;
  */
 final readonly class DoctrineDisclosures extends DoctrineRepository implements DisclosuresInterface, DisclosuresOfAPersonInterface
 {
-    public const int FORGOTTEN_AT_ONCE = 1000;
-
-    public function __construct(EntityManagers $managers)
-    {
+    public function __construct(
+        EntityManagers $managers,
+        private DoctrineChains $chains,
+    ) {
         parent::__construct($managers, Disclosure::class);
     }
 
     public function record(Disclosure $disclosure): void
     {
-        $this->store($this->namingTheRowOfItsTenant($disclosure));
-    }
-
-    public function forgetBefore(Tenant $tenant, DateTimeImmutable $moment): int
-    {
-        /** @var list<Disclosure> $past */
-        $past = $this->queryBuilder('d')
-            ->where('d.tenant = :tenant')
-            ->andWhere('d.handedOverAt < :moment')
-            ->orderBy('d.handedOverAt', SortDirection::Ascending)
-            ->setMaxResults(self::FORGOTTEN_AT_ONCE)
-            ->setParameter('tenant', $tenant->id, UuidType::NAME)
-            ->setParameter('moment', $moment)
-            ->getQuery()
-            ->getResult();
-        if ($past === []) {
-            return 0;
-        }
-        $manager = $this->manager();
-        foreach ($past as $disclosure) {
-            $manager->remove($disclosure);
-        }
-        $manager->flush();
-
-        return count($past);
+        $disclosure = $this->namingTheRowOfItsTenant($disclosure);
+        $this->chains->written($disclosure->tenant, new DisclosureChain(), $disclosure->id, fn () => $this->store($disclosure));
     }
 
     public function everyDisclosureTo(User $user, int $howMany, ?Uuid $after = null): array

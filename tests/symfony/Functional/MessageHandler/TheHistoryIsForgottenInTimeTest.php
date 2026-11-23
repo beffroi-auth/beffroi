@@ -5,24 +5,35 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\MessageHandler;
 
 use App\Configuration\HistorySection;
+use App\Key\FileChainCheckpoints;
 use App\Message\ForgetTheChangesPastTheirRetention;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
+use Beffroi\Core\Application\Key\KeyTakeOver;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Port\ClaimHistoryInterface;
+use Beffroi\Core\Tests\Fixture\Algorithms;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Clock\ClockInterface;
 use function sprintf;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
 
 final class TheHistoryIsForgottenInTimeTest extends DatabaseTestCase
 {
+    protected function tearDown(): void
+    {
+        new Filesystem()->remove(self::keyStorage() . '/default/' . FileChainCheckpoints::DIRECTORY);
+        parent::tearDown();
+    }
+
     #[Test]
     public function aChangePastTheRetentionIsForgotten(): void
     {
         // Given
         self::aChange(sprintf('-%d days', HistorySection::DEFAULT_RETENTION + 1));
+        self::service('test.beffroi.key_take_over', KeyTakeOver::class)->rotate(self::tenant(), Algorithms::rs256(), self::context());
 
         // When
         self::tick();

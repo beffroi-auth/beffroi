@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
+                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <!-- The place of a row in a chain of its tenant (decision 0060): written and read through DBAL by DoctrineChains, in the transaction that writes the row. The row is in the table of its chain, which no foreign key can name, so the deletions of the retention reach the links themselves. Unique by position, so that no two rows of a chain take the same one. -->
+    <entity name="Beffroi\Core\Domain\Chain\ChainLink" table="beffroi_chain_link">
+        <unique-constraints>
+            <unique-constraint name="beffroi_chain_link_position" columns="tenant_id,chain,position"/>
+        </unique-constraints>
+        <id name="chain" type="string" column="chain" length="32"/>
+        <id name="row" type="uuid" column="row_id"/>
+        <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
+            <join-column name="tenant_id" referenced-column-name="id" nullable="false" on-delete="CASCADE"/>
+        </many-to-one>
+        <field name="position" type="bigint" column="position"/>
+        <field name="previous" type="string" column="previous" length="64"/>
+        <field name="hash" type="string" column="hash" length="64"/>
+    </entity>
+</doctrine-mapping>

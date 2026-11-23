@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Doctrine\Repository;
 
+use App\Doctrine\Chain\DoctrineChains;
 use App\Doctrine\SelectionWithinAPeriod;
 use App\Doctrine\EntityManagers;
 use App\Doctrine\PageOfRows;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Journal\JournalChain;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Journal\JournalQuestion;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -37,29 +39,18 @@ final readonly class DoctrineJournal extends DoctrineRepository implements
     public function __construct(
         EntityManagers $managers,
         private PageOfRows $rows,
-        private DoctrineChainOfActs $chain,
+        private DoctrineChains $chains,
     ) {
         parent::__construct($managers, JournalEntry::class);
     }
 
-    /**
-     * The act, its link and the head it moves are one transaction, taken under the lock of the head: two writers at
-     * once take two positions that follow each other.
-     */
     public function record(JournalEntry $entry): void
     {
         $entry = $this->namingTheRowOfItsTenant($entry);
-        $manager = $this->manager();
         try {
-            $manager
-                ->getConnection()
-                ->transactional(function () use ($entry): void {
-                    $head = $this->chain->lockedHead($entry->tenant);
-                    $this->store($entry);
-                    $this->chain->append($entry, $head);
-                });
+            $this->chains->written($entry->tenant, new JournalChain(), $entry->id, fn () => $this->store($entry));
         } catch (Throwable $failure) {
-            $manager->detach($entry);
+            $this->manager()->detach($entry);
 
             throw $failure;
         }
@@ -80,27 +71,6 @@ final readonly class DoctrineJournal extends DoctrineRepository implements
         }
 
         return new JournalEntry($entry->id, $tenant, $entry->act, $entry->occurredAt, $entry->context, $entry->subject, $entry->client, $entry->author);
-    }
-
-    public function forgetUpTo(Tenant $tenant, int $position): int
-    {
-        $connection = $this->manager()->getConnection();
-        $forgotten = $connection->executeStatement(
-            sprintf(
-                'DELETE FROM beffroi_journal WHERE id IN (SELECT act_id FROM %s WHERE tenant_id = :tenant AND position <= :position)',
-                DoctrineChainOfActs::LINKS,
-            ),
-            ['tenant' => $tenant->id, 'position' => $position],
-            ['tenant' => UuidType::NAME],
-        );
-        // PostgreSQL cascades to the links; SQLite, which the suite of the packages runs on, enforces no foreign key.
-        $connection->executeStatement(
-            sprintf('DELETE FROM %s WHERE tenant_id = :tenant AND position <= :position', DoctrineChainOfActs::LINKS),
-            ['tenant' => $tenant->id, 'position' => $position],
-            ['tenant' => UuidType::NAME],
-        );
-
-        return (int) $forgotten;
     }
 
     public function countActsSince(Tenant $tenant, DateTimeImmutable $since): array

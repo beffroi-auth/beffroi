@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
+                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <!-- The last link of a chain of a tenant (decision 0060), the row a write locks: written and read through DBAL by DoctrineChains. -->
+    <entity name="Beffroi\Core\Domain\Chain\ChainHead" table="beffroi_chain_head">
+        <id name="tenant" association-key="true"/>
+        <id name="chain" type="string" column="chain" length="32"/>
+        <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
+            <join-column name="tenant_id" referenced-column-name="id" on-delete="CASCADE"/>
+        </many-to-one>
+        <field name="position" type="bigint" column="position"/>
+        <field name="hash" type="string" column="hash" length="64"/>
+    </entity>
+</doctrine-mapping>

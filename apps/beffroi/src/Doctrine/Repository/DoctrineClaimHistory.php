@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace App\Doctrine\Repository;
 
+use App\Doctrine\Chain\DoctrineChains;
 use App\Doctrine\EntityManagers;
 use App\Doctrine\PageOfRows;
 use App\Doctrine\SelectionWithinAPeriod;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\ClaimChangeQuestion;
+use Beffroi\Core\Domain\Identity\ClaimHistoryChain;
 use Beffroi\Core\Domain\Identity\User;
-use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Domain\Listing\Listing;
 use Beffroi\Core\Domain\Listing\Pagination;
 use Beffroi\Core\Port\CanPageChangesOfAPersonInterface;
 use Beffroi\Core\Port\ChangesOfAPersonInterface;
 use Beffroi\Core\Port\ClaimHistoryInterface;
-use function count;
-use DateTimeImmutable;
 use SortDirection;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -30,42 +29,17 @@ final readonly class DoctrineClaimHistory extends DoctrineRepository implements
     ChangesOfAPersonInterface,
     ClaimHistoryInterface
 {
-    public const int FORGOTTEN_AT_ONCE = 1000;
-
     public function __construct(
         EntityManagers $managers,
         private PageOfRows $rows,
+        private DoctrineChains $chains,
     ) {
         parent::__construct($managers, ClaimChange::class);
     }
 
     public function record(ClaimChange $change): void
     {
-        $this->store($change);
-    }
-
-    public function forgetBefore(Tenant $tenant, DateTimeImmutable $moment): int
-    {
-        /** @var list<ClaimChange> $past */
-        $past = $this->queryBuilder('c')
-            ->where('c.tenant = :tenant')
-            ->andWhere('c.changedAt < :moment')
-            ->orderBy('c.changedAt', SortDirection::Ascending)
-            ->setMaxResults(self::FORGOTTEN_AT_ONCE)
-            ->setParameter('tenant', $tenant->id, UuidType::NAME)
-            ->setParameter('moment', $moment)
-            ->getQuery()
-            ->getResult();
-        if ($past === []) {
-            return 0;
-        }
-        $manager = $this->manager();
-        foreach ($past as $change) {
-            $manager->remove($change);
-        }
-        $manager->flush();
-
-        return count($past);
+        $this->chains->written($change->tenant, new ClaimHistoryChain(), $change->id, fn () => $this->store($change));
     }
 
     /**

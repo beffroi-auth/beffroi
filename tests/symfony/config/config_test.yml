@@ -1293,17 +1293,23 @@ services:
     test.beffroi.journal:
         alias: Beffroi\Core\Port\JournalInterface
         public: true
-    test.beffroi.chain_of_acts:
-        alias: Beffroi\Core\Port\ChainOfActsInterface
+    test.beffroi.chains:
+        alias: Beffroi\Core\Port\ChainOfRowsInterface
         public: true
-    test.beffroi.journal_signature:
-        alias: Beffroi\Core\Application\Journal\JournalSignature
+    test.beffroi.chain_signature:
+        alias: Beffroi\Core\Application\Chain\ChainSignature
         public: true
-    test.beffroi.journal_verification:
-        alias: Beffroi\Core\Application\Journal\JournalVerification
+    test.beffroi.chain_verification:
+        alias: Beffroi\Core\Application\Chain\ChainVerification
         public: true
-    test.beffroi.journal_holds_together:
-        alias: App\Doctor\JournalHoldsTogether
+    test.beffroi.doctor.journal_chain:
+        alias: 'beffroi.doctor.chain.Beffroi\Core\Domain\Journal\JournalChain'
+        public: true
+    test.beffroi.doctor.claim_history_chain:
+        alias: 'beffroi.doctor.chain.Beffroi\Core\Domain\Identity\ClaimHistoryChain'
+        public: true
+    test.beffroi.doctor.disclosure_chain:
+        alias: 'beffroi.doctor.chain.Beffroi\Oidc\Domain\Disclosure\DisclosureChain'
         public: true
     test.beffroi.acts:
         alias: Beffroi\Core\Port\ActsOfAPersonInterface

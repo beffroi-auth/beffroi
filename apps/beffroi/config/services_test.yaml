@@ -36,8 +36,8 @@ services:
     test.beffroi.journal:
         alias: Beffroi\Core\Port\JournalInterface
         public: true
-    test.beffroi.journal_verification:
-        alias: Beffroi\Core\Application\Journal\JournalVerification
+    test.beffroi.chain_verification:
+        alias: Beffroi\Core\Application\Chain\ChainVerification
         public: true
     test.beffroi.sessions:
         alias: Beffroi\Core\Port\AuthenticationSessionRepositoryInterface

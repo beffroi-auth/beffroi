@@ -7,7 +7,8 @@ namespace App\Tests\Functional;
 use App\Doctrine\TenantProvider;
 use App\Doctrine\TenantSynchronizer;
 use function array_map;
-use Beffroi\Core\Application\Journal\JournalVerification;
+use Beffroi\Core\Application\Chain\ChainVerification;
+use Beffroi\Core\Domain\Journal\JournalChain;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -57,7 +58,7 @@ final class TheJournalUnderConcurrentWritersTest extends KernelTestCase
         // Then
         static::assertSame(
             range(1, 1 + (self::WRITERS * self::ACTS_EACH)),
-            array_map('intval', self::database()->fetchFirstColumn('SELECT position FROM beffroi_journal_link ORDER BY position')),
+            array_map(intval(...), self::database()->fetchFirstColumn("SELECT position FROM beffroi_chain_link WHERE chain = 'journal' ORDER BY position")),
         );
     }
 
@@ -66,11 +67,11 @@ final class TheJournalUnderConcurrentWritersTest extends KernelTestCase
     {
         // Given
         self::waitFor(self::writersStarted());
-        $verification = self::getContainer()->get('test.beffroi.journal_verification');
-        static::assertInstanceOf(JournalVerification::class, $verification);
+        $verification = self::getContainer()->get('test.beffroi.chain_verification');
+        static::assertInstanceOf(ChainVerification::class, $verification);
 
         // When
-        $verified = $verification->verify(self::tenant());
+        $verified = $verification->whole(self::tenant(), new JournalChain());
 
         // Then
         static::assertSame(1 + (self::WRITERS * self::ACTS_EACH), $verified->end->position);
@@ -119,8 +120,8 @@ final class TheJournalUnderConcurrentWritersTest extends KernelTestCase
 
     private static function forgetTheJournal(): void
     {
-        self::database()->executeStatement('DELETE FROM beffroi_journal_link');
-        self::database()->executeStatement('DELETE FROM beffroi_journal_head');
+        self::database()->executeStatement("DELETE FROM beffroi_chain_link WHERE chain = 'journal'");
+        self::database()->executeStatement("DELETE FROM beffroi_chain_head WHERE chain = 'journal'");
         self::database()->executeStatement('DELETE FROM beffroi_journal');
     }
 

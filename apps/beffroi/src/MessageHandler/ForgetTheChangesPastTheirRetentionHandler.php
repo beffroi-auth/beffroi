@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\MessageHandler;
 
+use App\Chain\LoggedCut;
 use App\Doctrine\TenantNotSynchronizedException;
 use App\Doctrine\TenantProvider;
 use App\Message\ForgetTheChangesPastTheirRetention;
 use Beffroi\Core\Application\Identity\ClaimHistoryRetention;
-use Psr\Log\LoggerInterface;
+use Beffroi\Core\Domain\Identity\ClaimHistoryChain;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -16,8 +17,8 @@ final readonly class ForgetTheChangesPastTheirRetentionHandler
 {
     public function __construct(
         private TenantProvider $tenants,
+        private LoggedCut $cut,
         private ClaimHistoryRetention $retention,
-        private LoggerInterface $logger,
     ) {
     }
 
@@ -29,13 +30,6 @@ final readonly class ForgetTheChangesPastTheirRetentionHandler
             // Nothing to do before the first provisioning, and a tick is not the place to say so.
             return;
         }
-        $forgotten = $this->retention->enforce($tenant);
-        if ($forgotten === 0) {
-            return;
-        }
-        $this->logger->info('Forgot {count} change(s) of a record of the tenant "{tenant}", kept past their retention.', [
-            'count' => $forgotten,
-            'tenant' => $tenant->slug,
-        ]);
+        $this->cut->cut($tenant, new ClaimHistoryChain(), $this->retention->keptSince());
     }
 }

@@ -55,6 +55,7 @@ use Beffroi\Core\Domain\Event\TenantContactChanged;
 use Beffroi\Core\Domain\Event\MailSigningKeyRemoved;
 use Beffroi\Core\Domain\Event\MailSigningKeySet;
 use Beffroi\Core\Domain\Event\TenantDataKeysDestroyed;
+use Beffroi\Core\Domain\Event\ChainSignedAnew;
 use Beffroi\Core\Domain\Event\TenantDataKeysRewrapped;
 use Beffroi\Core\Domain\Event\TenantKeyRetired;
 use Beffroi\Core\Domain\Event\TenantKeyRotated;
@@ -236,6 +237,7 @@ final class EventsLeaveTheProcessTest extends TestCase
             $context,
         )];
         yield 'the data keys of a tenant destroyed' => [new TenantDataKeysDestroyed($tenant, 11, 10, $now, $context)];
+        yield 'a chain signed anew' => [new ChainSignedAnew($tenant, 'journal', 1, 12, $now, $context)];
         yield 'the contact of a tenant an administrator changed' => [new TenantContactChanged($tenant, $now, $context, new Subject('administrator-subject'))];
         yield 'a mail signing key an administrator set' => [new MailSigningKeySet(
             $tenant,

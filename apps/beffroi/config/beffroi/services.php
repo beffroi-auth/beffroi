@@ -38,7 +38,7 @@ use Beffroi\Oidc\Application\Administration\PersonDelivery;
 use Beffroi\Oidc\Application\Administration\AdministratorOfARequest;
 use Beffroi\Oidc\Application\Administration\PersonsOfTheTenant;
 use App\Doctor\ClientsSignedWithHeldKeys;
-use App\Doctor\JournalHoldsTogether;
+use App\Doctor\ChainHoldsTogether;
 use App\Doctor\NotificationsLanePatience;
 use Beffroi\Oidc\Application\Secret\SecretDrawer;
 use Beffroi\Oidc\Application\Secret\UserCodeDrawer;
@@ -223,7 +223,9 @@ use App\Http\TotpProvisioningStore;
 use App\Http\TwoFactorPage;
 use App\Http\TotpSecretShown;
 use App\Key\FilePairwiseSalt;
-use App\Key\FileJournalCheckpoints;
+use App\Key\FileChainCheckpoints;
+use App\Chain\LoggedCheckpointCopies;
+use App\Chain\LoggedCut;
 use App\Key\DormantKeyAlgorithms;
 use App\Key\FileTenantKeyRepository;
 use App\Key\KeysOpenedAtStart;
@@ -271,7 +273,12 @@ use App\Tenant\TenantFactory;
 use App\Locale\Moments;
 use App\Locale\UserTimeZone;
 use App\Doctrine\Repository\DoctrineJournal;
-use App\Doctrine\Repository\DoctrineChainOfActs;
+use App\Doctrine\Chain\DoctrineChains;
+use App\Doctrine\Chain\JournalTable;
+use App\Doctrine\Chain\ClaimHistoryTable;
+use App\Doctrine\Chain\DisclosureTable;
+use App\Command\NamedChain;
+use App\MessageHandler\SignTheChainsHandler;
 use App\Identity\LocaleClaimFactory;
 use App\Identity\WiredClaims;
 use Beffroi\Core\Port\ClaimsInterface;
@@ -304,12 +311,15 @@ use Beffroi\Core\Application\Session\ProvedMethods;
 use Beffroi\Core\Application\Session\ProvenancePlace;
 use Beffroi\Core\Application\Session\SessionProvenanceEnrichment;
 use Beffroi\Core\Application\Journal\JournalRetention;
-use Beffroi\Core\Application\Journal\ChainWalk;
-use Beffroi\Core\Application\Journal\JournalCheckpointJwsKind;
-use Beffroi\Core\Application\Journal\JournalCheckpoints;
-use Beffroi\Core\Application\Journal\JournalCut;
-use Beffroi\Core\Application\Journal\JournalSignature;
-use Beffroi\Core\Application\Journal\JournalVerification;
+use Beffroi\Core\Application\Chain\ChainWalk;
+use Beffroi\Core\Application\Chain\ChainCheckpoints;
+use Beffroi\Core\Application\Chain\ChainCut;
+use Beffroi\Core\Application\Chain\ChainRelinking;
+use Beffroi\Core\Application\Chain\ChainSignature;
+use Beffroi\Core\Application\Chain\ChainVerification;
+use Beffroi\Core\Domain\Journal\JournalChain;
+use Beffroi\Core\Domain\Identity\ClaimHistoryChain;
+use Beffroi\Oidc\Domain\Disclosure\DisclosureChain;
 use App\Doctrine\Repository\DoctrineDisclosures;
 use Beffroi\Oidc\Application\Archive\DisclosuresChapter;
 use Beffroi\Oidc\Application\Disclosure\DisclosureRecording;
@@ -493,6 +503,10 @@ use Beffroi\Core\Bridge\JwtLibrary\JoseSignatureAlgorithms;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryJweDecrypter;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryJwsSigner;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryJwsVerifier;
+use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryHeldKeyJwsVerifier;
+use Beffroi\Core\Port\HeldKeyJwsVerifierInterface;
+use Beffroi\Core\Port\CheckpointCopiesInterface;
+use Beffroi\Core\Port\RelinkableChainsInterface;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryKeyPairGenerator;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryMessageBodyOpener;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryMessageBodySealer;
@@ -549,7 +563,7 @@ use Beffroi\Core\Port\GeoLocatorInterface;
 use Beffroi\Core\Port\JweDecrypterInterface;
 use Beffroi\Core\Port\JwsSignerInterface;
 use Beffroi\Core\Port\SignedCheckpointsInterface;
-use Beffroi\Core\Port\ChainOfActsInterface;
+use Beffroi\Core\Port\ChainOfRowsInterface;
 use Beffroi\Core\Port\JwsVerifierInterface;
 use Beffroi\Core\Port\KeyAlgorithmsInterface;
 use Beffroi\Core\Port\RotationSchedulesInterface;
@@ -1047,21 +1061,28 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(ActsOfAPersonInterface::class, DoctrineJournal::class);
     $services->alias(CanPageActsOfAPersonInterface::class, DoctrineJournal::class);
     $services->alias(CanCountActsInterface::class, DoctrineJournal::class);
-    $services->set(DoctrineChainOfActs::class);
-    $services->alias(ChainOfActsInterface::class, DoctrineChainOfActs::class);
-    $services->set(FileJournalCheckpoints::class);
-    $services->alias(SignedCheckpointsInterface::class, FileJournalCheckpoints::class);
+    $services->set(JournalChain::class)->tag('beffroi.chain');
+    $services->set(ClaimHistoryChain::class)->tag('beffroi.chain');
+    $services->set(DisclosureChain::class)->tag('beffroi.chain');
+    $services->set(JournalTable::class)->tag('beffroi.chained_table');
+    $services->set(ClaimHistoryTable::class)->tag('beffroi.chained_table');
+    $services->set(DisclosureTable::class)->tag('beffroi.chained_table');
+    $services->set(DoctrineChains::class)->arg('$tables', tagged_iterator('beffroi.chained_table'));
+    $services->alias(ChainOfRowsInterface::class, DoctrineChains::class);
+    $services->alias(RelinkableChainsInterface::class, DoctrineChains::class);
+    $services->set(FileChainCheckpoints::class);
+    $services->alias(SignedCheckpointsInterface::class, FileChainCheckpoints::class);
+    $services->set(LoggedCheckpointCopies::class);
+    $services->alias(CheckpointCopiesInterface::class, LoggedCheckpointCopies::class);
     $services->set(ActRecording::class);
     $services->set(ChainWalk::class);
-    $services->set(JournalCheckpoints::class);
-    $services->set(JournalSignature::class);
-    $services->set(JournalVerification::class);
+    $services->set(ChainCheckpoints::class);
+    $services->set(ChainSignature::class);
+    $services->set(ChainVerification::class);
+    $services->set(ChainCut::class);
+    $services->set(ChainRelinking::class);
+    $services->set(LoggedCut::class);
     $services->set(JournalRetention::class);
-    $services->set(JournalCut::class);
-    $services->set(JournalCheckpointJwsKind::class)->arg(
-        '$signedAgainWithin',
-        inline_service(DateInterval::class)->args(['PT' . (2 * BeffroiSchedule::JOURNAL_SIGNATURE_EVERY) . 'S']),
-    )->tag('beffroi.key_bound_artifact');
     $services->set(DoctrineDisclosures::class);
     $services->alias(DisclosuresInterface::class, DoctrineDisclosures::class);
     $services->alias(DisclosuresOfAPersonInterface::class, DoctrineDisclosures::class);
@@ -1191,7 +1212,10 @@ return static function (ContainerConfigurator $container): void {
     $services->set(LaneBacklogs::class)->args([service('messenger.receiver_locator')]);
     $services->set(InstanceStatistics::class);
     $services->set(ClientsSignedWithHeldKeys::class)->arg('$sources', tagged_iterator('beffroi.oidc.client_source'))->tag('beffroi.doctor_check');
-    $services->set(JournalHoldsTogether::class)->tag('beffroi.doctor_check');
+    foreach ([JournalChain::class, ClaimHistoryChain::class, DisclosureChain::class] as $chain) {
+        $services->set('beffroi.doctor.chain.' . $chain, ChainHoldsTogether::class)->arg('$chain', service($chain))->tag('beffroi.doctor_check');
+    }
+    $services->set(NamedChain::class)->arg('$chains', tagged_iterator('beffroi.chain'));
     $services
         ->set(NotificationsLanePatience::class)
         ->args([
@@ -1229,6 +1253,7 @@ return static function (ContainerConfigurator $container): void {
     $services->load('App\\Ciba\\Conformance\\', '../../src/Ciba/Conformance/');
 
     $services->load('App\\MessageHandler\\', '../../src/MessageHandler/');
+    $services->get(SignTheChainsHandler::class)->arg('$chains', tagged_iterator('beffroi.chain'));
     $services->get(QueueLogoutTokenHandler::class)->tag('beffroi.logout_channel');
     $services->set(BeffroiSchedule::class);
     // WebPushSection::CHANNEL_TAG is for a deployment's own channels; the provider tags none.
@@ -1594,6 +1619,8 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(SigningKeyOpenerInterface::class, JwtLibraryJwsSigner::class);
     $services->set(JwtLibraryJwsVerifier::class);
     $services->alias(JwsVerifierInterface::class, JwtLibraryJwsVerifier::class);
+    $services->set(JwtLibraryHeldKeyJwsVerifier::class);
+    $services->alias(HeldKeyJwsVerifierInterface::class, JwtLibraryHeldKeyJwsVerifier::class);
     $services->set(JwtLibraryJweDecrypter::class);
     $services->alias(JweDecrypterInterface::class, JwtLibraryJweDecrypter::class);
     $services->set(RetirementWindow::class)->args([
