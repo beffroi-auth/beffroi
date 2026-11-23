@@ -7,6 +7,7 @@ namespace App\Tests\Symfony\Functional\Command;
 use Beffroi\Core\Domain\Group\Group;
 use Beffroi\Core\Domain\Group\GroupMembership;
 use Beffroi\Core\Domain\Group\GroupSource;
+use Beffroi\Core\Domain\Identity\Address;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Identity\UserSource;
@@ -58,14 +59,14 @@ final class UserShowTest extends ConsoleTestCase
     }
 
     /**
-     * OIDC Core §5.1
+     * OIDC Core §5.1.1
      */
     #[Test]
-    public function theControlsOfWhatAPersonWroteOfThemselvesAreNotPrinted(): void
+    public function theControlsOfTheAddressAPersonWroteAreNotPrinted(): void
     {
         // Given
         $user = User::create(Uuid::v7(), self::tenant(), new Subject('mallory-subject'), 'mallory', self::now());
-        $user->updateProfile($user->profile->describedWith(['name' => "Mallory\e[2K\e[1A\e[2KNothing to see"]), self::now());
+        $user->changeAddress(new Address(streetAddress: "1 Main Street\e[2K\e[1A\e[2KNothing to see"), self::now());
         self::service('test.beffroi.users', UserRepositoryInterface::class)->save($user);
 
         // When
@@ -74,7 +75,7 @@ final class UserShowTest extends ConsoleTestCase
         ]);
 
         // Then
-        static::assertSame('Mallory[2K[1A[2KNothing to see', self::displayed($tester, 'Name'));
+        static::assertSame('1 Main Street[2K[1A[2KNothing to see', self::displayed($tester, 'Address'));
     }
 
     #[Test]
