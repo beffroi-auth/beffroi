@@ -23,6 +23,7 @@ use function sprintf;
 use function str_starts_with;
 use function strlen;
 use function substr;
+use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\ErrorHandler\Exception\FlattenException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\MessageDecodingFailedException;
@@ -45,11 +46,12 @@ final readonly class SealedBodySerializer implements SerializerInterface
 
     /**
      * What a stamp of the component holds besides scalars: the exception of an ErrorDetailsStamp, the moment of a
-     * RedeliveryStamp. Whoever writes to the transport writes the headers, and no key seals them.
+     * RedeliveryStamp, and that moment as the clock of the component writes it when the stamp is given none. Whoever
+     * writes to the transport writes the headers, and no key seals them.
      *
      * @var list<class-string>
      */
-    private const array HELD_BY_A_STAMP = [FlattenException::class, DateTimeImmutable::class];
+    private const array HELD_BY_A_STAMP = [FlattenException::class, DateTimeImmutable::class, DatePoint::class];
 
     public function __construct(
         private AmbientTenantInterface $tenants,

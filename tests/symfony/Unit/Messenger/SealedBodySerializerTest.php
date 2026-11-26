@@ -350,6 +350,23 @@ final class SealedBodySerializerTest extends TestCase
     }
 
     #[Test]
+    public function aMessageRetriedReadBackKeepsTheMomentTheClockOfTheComponentGaveItsRetry(): void
+    {
+        // Given
+        $retried = new RedeliveryStamp(1);
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered'), [$retried]));
+
+        // When
+        $read = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame(
+            $retried->getRedeliveredAt()->format(DateTimeImmutable::RFC3339_EXTENDED),
+            $read->last(RedeliveryStamp::class)?->getRedeliveredAt()->format(DateTimeImmutable::RFC3339_EXTENDED),
+        );
+    }
+
+    #[Test]
     public function aHeaderThatNamesAClassThatIsNoStampBuildsNothing(): void
     {
         // Given
