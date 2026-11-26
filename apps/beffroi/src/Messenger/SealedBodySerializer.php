@@ -217,11 +217,17 @@ final readonly class SealedBodySerializer implements SerializerInterface
             }
             $class = substr($name, strlen(self::STAMP_HEADER_PREFIX));
             $decoded = base64_decode($value, true);
-            $read = $decoded === false || ! is_subclass_of($class, StampInterface::class)
-                ? false
-                : @unserialize($decoded, [
-                    'allowed_classes' => [$class, ...self::HELD_BY_A_STAMP],
-                ]);
+            try {
+                $read = $decoded === false || ! is_subclass_of($class, StampInterface::class)
+                    ? false
+                    : @unserialize($decoded, [
+                        'allowed_classes' => [$class, ...self::HELD_BY_A_STAMP],
+                    ]);
+            } catch (Throwable $exception) {
+                $failure ??= new MessageDecodingFailedException(sprintf('The header of the stamp "%s" does not read back.', $class), 0, $exception);
+
+                continue;
+            }
             if (! is_array($read)) {
                 $failure ??= new MessageDecodingFailedException(sprintf('The header of the stamp "%s" does not read back.', $class));
 

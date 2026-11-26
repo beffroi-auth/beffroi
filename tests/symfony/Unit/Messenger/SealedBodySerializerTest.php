@@ -49,6 +49,8 @@ use PHPUnit\Framework\TestCase;
 use function preg_match_all;
 use function serialize;
 use function sprintf;
+use stdClass;
+use function str_replace;
 use function strlen;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\MessageDecodingFailedException;
@@ -60,6 +62,7 @@ use Symfony\Component\Scheduler\Generator\MessageContext;
 use Symfony\Component\Scheduler\Messenger\ScheduledStamp;
 use Symfony\Component\Scheduler\Trigger\PeriodicalTrigger;
 use Symfony\Component\Uid\Uuid;
+use TypeError;
 use function unserialize;
 
 /**
@@ -404,6 +407,51 @@ final class SealedBodySerializerTest extends TestCase
         // Then
         static::assertSame(0, WokenWhenRead::$woken);
         static::assertStringContainsString('does not read back', self::failureOf($decoded)->getMessage());
+    }
+
+    #[Test]
+    #[DataProvider('provideHeadersThatThrowWhenRead')]
+    public function aHeaderThatThrowsWhenReadIsAStampThatDoesNotReadBack(string $header): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . RedeliveryStamp::class] = base64_encode($header);
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertStringContainsString('does not read back', self::failureOf($decoded)->getMessage());
+        static::assertSame($this->tenant->slug, $decoded->last(TenantStamp::class)?->slug);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideHeadersThatThrowWhenRead(): iterable
+    {
+        $redeliveredAt = new DateTimeImmutable('2026-10-09T12:00:00+00:00');
+        $header = serialize([new RedeliveryStamp(1, $redeliveredAt)]);
+
+        yield 'an object outside the list in a typed property' => [str_replace(serialize($redeliveredAt), serialize(new stdClass()), $header)];
+        yield 'a string in a property typed int' => [str_replace('retryCount";i:1;', 'retryCount";s:3:"one";', $header)];
+        yield 'a moment without its date' => [str_replace(serialize($redeliveredAt), 'O:17:"DateTimeImmutable":0:{}', $header)];
+    }
+
+    #[Test]
+    public function aHeaderThatThrowsWhenReadKeepsWhatItThrew(): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . RedeliveryStamp::class] = base64_encode(
+            str_replace('retryCount";i:1;', 'retryCount";s:3:"one";', serialize([new RedeliveryStamp(1, new DateTimeImmutable('2026-10-09T12:00:00+00:00'))])),
+        );
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertInstanceOf(TypeError::class, self::failureOf($decoded)->getPrevious()?->getPrevious());
     }
 
     #[Test]
