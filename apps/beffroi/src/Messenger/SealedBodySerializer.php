@@ -31,6 +31,8 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Messenger\Stamp\NonSendableStampInterface;
 use Symfony\Component\Messenger\Stamp\StampInterface;
 use Symfony\Component\Messenger\Transport\Serialization\SerializerInterface;
+use Symfony\Component\Scheduler\Generator\MessageContext;
+use Symfony\Component\Scheduler\Trigger\SerializedTrigger;
 use Throwable;
 use function unserialize;
 
@@ -46,12 +48,19 @@ final readonly class SealedBodySerializer implements SerializerInterface
 
     /**
      * What a stamp of the component holds besides scalars: the exception of an ErrorDetailsStamp, the moment of a
-     * RedeliveryStamp, and that moment as the clock of the component writes it when the stamp is given none. Whoever
-     * writes to the transport writes the headers, and no key seals them.
+     * RedeliveryStamp, and that moment as the clock of the component writes it when the stamp is given none, the
+     * context of a ScheduledStamp, whose trigger crosses as its description only. Whoever writes to the transport
+     * writes the headers, and no key seals them.
      *
      * @var list<class-string>
      */
-    private const array HELD_BY_A_STAMP = [FlattenException::class, DateTimeImmutable::class, DatePoint::class];
+    private const array HELD_BY_A_STAMP = [
+        FlattenException::class,
+        DateTimeImmutable::class,
+        DatePoint::class,
+        MessageContext::class,
+        SerializedTrigger::class,
+    ];
 
     public function __construct(
         private AmbientTenantInterface $tenants,

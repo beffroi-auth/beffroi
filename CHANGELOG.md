@@ -25,6 +25,8 @@ All notable changes to this project are documented in this file, in reverse chro
 - `beffroi/beffroi`: an asynchronous message retried after a handler failure reads back, and is no longer sent to the
   failure transport as unrecoverable at its first retry. The moment the retry listener of Messenger stamps on it, a
   `DatePoint` of the clock of the component, is now read back from the headers of the transport with the stamp.
+- `beffroi/beffroi`: a message the scheduler sends to an asynchronous transport is read back with its
+  `ScheduledStamp`: every scheduled task went to the failure transport.
 
 ## 0.1.0 - 2026-11-26
 

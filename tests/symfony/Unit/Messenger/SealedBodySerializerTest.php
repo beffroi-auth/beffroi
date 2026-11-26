@@ -56,6 +56,9 @@ use Symfony\Component\Messenger\Stamp\ErrorDetailsStamp;
 use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
 use Symfony\Component\Messenger\Stamp\SentToFailureTransportStamp;
 use Symfony\Component\Messenger\Stamp\StampInterface;
+use Symfony\Component\Scheduler\Generator\MessageContext;
+use Symfony\Component\Scheduler\Messenger\ScheduledStamp;
+use Symfony\Component\Scheduler\Trigger\PeriodicalTrigger;
 use Symfony\Component\Uid\Uuid;
 use function unserialize;
 
@@ -364,6 +367,27 @@ final class SealedBodySerializerTest extends TestCase
             $retried->getRedeliveredAt()->format(DateTimeImmutable::RFC3339_EXTENDED),
             $read->last(RedeliveryStamp::class)?->getRedeliveredAt()->format(DateTimeImmutable::RFC3339_EXTENDED),
         );
+    }
+
+    #[Test]
+    public function aScheduledMessageReadBackKeepsTheScheduleThatSentIt(): void
+    {
+        // Given
+        $triggeredAt = new DateTimeImmutable('2026-10-09T12:00:00+00:00');
+        $trigger = new PeriodicalTrigger(60, $triggeredAt);
+        $encoded = $this->serializer->encode(new Envelope(new AdvanceKeyLifecycle(), [
+            new ScheduledStamp(new MessageContext('beffroi', 'advance-key-lifecycle', $trigger, $triggeredAt)),
+        ]));
+
+        // When
+        $read = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertInstanceOf(AdvanceKeyLifecycle::class, $read->getMessage());
+        $context = $read->last(ScheduledStamp::class)?->messageContext;
+        static::assertSame('advance-key-lifecycle', $context?->id);
+        static::assertSame('2026-10-09T12:00:00+00:00', $context->triggeredAt->format(DateTimeImmutable::RFC3339));
+        static::assertSame((string) $trigger, (string) $context->trigger);
     }
 
     #[Test]
