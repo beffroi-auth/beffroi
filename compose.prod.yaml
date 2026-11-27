@@ -20,7 +20,7 @@
 #
 # Every other variable the application reads (the lifetimes, the look of the tenant, the SAML peers, the transports
 # of mail and SMS, SYMFONY_TRUSTED_PROXIES behind a proxy) is added under "environment" below, on both processes:
-# https://doc.beffroi.tech/0.1/operators/application/configuration/
+# https://doc.beffroi.tech/0.2/operators/application/configuration/
 #
 # A secret may be a file instead of a variable, which "docker inspect" shows: each variable that carries one, APP_SECRET,
 # DATABASE_URL, BEFFROI_MIGRATIONS_DATABASE_URL and BEFFROI_KMS_DSN below among them (the .env of the application lists
@@ -37,7 +37,7 @@
 #   docker compose -f compose.prod.yaml run --rm --no-deps --user 0 --entrypoint chown op -R 33:0 \
 #     /app/var/keys /app/var/kms /app/var/geoip /app/var/webauthn /app/var/share /data /config
 #
-# The first start, in the order of https://doc.beffroi.tech/0.1/operators/getting-started/the-standalone-application/
+# The first start, in the order of https://doc.beffroi.tech/0.2/operators/getting-started/the-standalone-application/
 # (the server writes the row of the tenant as it starts, and the first key of the tenant is the one messages are
 # sealed to), the worker last:
 #
@@ -112,12 +112,12 @@ services:
       # Behind a proxy that terminates TLS (issue #908), the site of SERVER_NAME is served on plain HTTP, as
       # http://<SERVER_NAME> on port 80, to the proxy, which asks for that host; Symfony reads the scheme and the
       # address of the client the proxy forwards from where SYMFONY_TRUSTED_PROXIES says it connects
-      # (https://doc.beffroi.tech/0.1/operators/application/deployment/#behind-a-proxy).
+      # (https://doc.beffroi.tech/0.2/operators/application/deployment/#behind-a-proxy).
       # TLS_TERMINATION: proxy
       # SYMFONY_TRUSTED_PROXIES: private_ranges
     volumes:
       # What the processes share
-      # (https://doc.beffroi.tech/0.1/operators/application/deployment/#what-the-processes-share): the sealed keys
+      # (https://doc.beffroi.tech/0.2/operators/application/deployment/#what-the-processes-share): the sealed keys
       # the server signs with and the worker rotates, the key of the file backend, the GeoLite2 databases the
       # console downloads and the worker reads, the FIDO metadata, and the share directory of Symfony, where the
       # caches of the provider are (the client assertions and the DPoP proofs already seen among them, which a
