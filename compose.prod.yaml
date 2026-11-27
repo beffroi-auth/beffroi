@@ -18,10 +18,9 @@
 #                           docker compose -f compose.prod.yaml run --rm --no-deps --entrypoint sh op -c \
 #                             'umask 077 && mkdir -p var/kms && chmod 700 var/kms && head -c 32 /dev/urandom > var/kms/beffroi-default.key'
 #
-# Every other variable the application reads (the lifetimes, the registration mode, the look of the tenant, the
-# SAML peers, the transports of mail and SMS, SYMFONY_TRUSTED_PROXIES behind a proxy) is added under "environment"
-# below, on both processes:
-# https://doc.beffroi.tech/application/configuration/
+# Every other variable the application reads (the lifetimes, the look of the tenant, the SAML peers, the transports
+# of mail and SMS, SYMFONY_TRUSTED_PROXIES behind a proxy) is added under "environment" below, on both processes:
+# https://doc.beffroi.tech/0.1/operators/application/configuration/
 #
 # A secret may be a file instead of a variable, which "docker inspect" shows: each variable that carries one, APP_SECRET,
 # DATABASE_URL, BEFFROI_MIGRATIONS_DATABASE_URL and BEFFROI_KMS_DSN below among them (the .env of the application lists
@@ -38,8 +37,8 @@
 #   docker compose -f compose.prod.yaml run --rm --no-deps --user 0 --entrypoint chown op -R 33:0 \
 #     /app/var/keys /app/var/kms /app/var/geoip /app/var/webauthn /app/var/share /data /config
 #
-# The first start, in the order of https://doc.beffroi.tech/getting-started/the-standalone-application/ (the
-# server writes the row of the tenant as it starts, and the first key of the tenant is the one messages are
+# The first start, in the order of https://doc.beffroi.tech/0.1/operators/getting-started/the-standalone-application/
+# (the server writes the row of the tenant as it starts, and the first key of the tenant is the one messages are
 # sealed to), the worker last:
 #
 #   docker compose -f compose.prod.yaml up -d --wait op
@@ -48,6 +47,13 @@
 #   docker compose -f compose.prod.yaml up -d --wait
 #
 # The same page says the rest of it: the keys of SAML and web push, the first person who signs in.
+#
+# No client exists until BEFFROI_REGISTRATION_MODE names how one registers itself (RFC 7591): the image declares
+# none, and while the mode is empty the discovery document names no registration_endpoint. For the clients of an
+# organisation, BEFFROI_REGISTRATION_MODE=initial_access_token in the ".env" beside this file before the first start,
+# then one token per team that integrates, printed once:
+#
+#   docker compose -f compose.prod.yaml exec op bin/console beffroi:client:token:issue 'My application'
 #
 # The processes connect as a role of their own, which reads and writes what they serve but rewrites no row of the
 # journal, of the history of claims or of what clients were given, and forgets them only through the retention
@@ -71,7 +77,7 @@
 # session, which a pooler keeps only in its session mode, one connection of the database per connection of a thread.
 
 # What the provider and its worker read alike: one value, written once, so that the two processes never serve
-# two different issuers or two different databases.
+# two different issuers, two different databases or two different ways a client registers itself.
 x-environment: &environment
   BEFFROI_ISSUER: ${BEFFROI_ISSUER:-https://${SERVER_NAME:?the host the provider is served on}}
   DEFAULT_URI: ${BEFFROI_ISSUER:-https://${SERVER_NAME:?the host the provider is served on}}
@@ -79,6 +85,8 @@ x-environment: &environment
   DATABASE_URL: postgresql://${BEFFROI_DATABASE_USER:-${POSTGRES_USER:-beffroi}}:${BEFFROI_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?the password of the database}}@database:5432/${POSTGRES_DB:-beffroi}?serverVersion=16&charset=utf8
   BEFFROI_KMS_DSN: ${BEFFROI_KMS_DSN:?the key management service}
   BEFFROI_KMS_KEY_ID: ${BEFFROI_KMS_KEY_ID:?the master key of the key management service}
+  # initial_access_token, software_statement or open; empty, no client registers itself.
+  BEFFROI_REGISTRATION_MODE: ${BEFFROI_REGISTRATION_MODE:-}
 
 services:
   # The HTTP server, FrankenPHP in worker mode, with the entrypoint and the command of the image: it waits for
@@ -104,16 +112,16 @@ services:
       # Behind a proxy that terminates TLS (issue #908), the site of SERVER_NAME is served on plain HTTP, as
       # http://<SERVER_NAME> on port 80, to the proxy, which asks for that host; Symfony reads the scheme and the
       # address of the client the proxy forwards from where SYMFONY_TRUSTED_PROXIES says it connects
-      # (https://doc.beffroi.tech/application/deployment/#behind-a-proxy).
+      # (https://doc.beffroi.tech/0.1/operators/application/deployment/#behind-a-proxy).
       # TLS_TERMINATION: proxy
       # SYMFONY_TRUSTED_PROXIES: private_ranges
     volumes:
-      # What the processes share (https://doc.beffroi.tech/application/deployment/#what-the-processes-share): the
-      # sealed keys the server signs with and the worker rotates, the key of the file backend, the GeoLite2
-      # databases the console downloads and the worker reads, the FIDO metadata, and the share directory of
-      # Symfony, where the caches of the provider are (the client assertions and the DPoP proofs already seen among
-      # them, which a restart must not forget). A directory one process writes and another reads is one volume,
-      # mounted on both.
+      # What the processes share
+      # (https://doc.beffroi.tech/0.1/operators/application/deployment/#what-the-processes-share): the sealed keys
+      # the server signs with and the worker rotates, the key of the file backend, the GeoLite2 databases the
+      # console downloads and the worker reads, the FIDO metadata, and the share directory of Symfony, where the
+      # caches of the provider are (the client assertions and the DPoP proofs already seen among them, which a
+      # restart must not forget). A directory one process writes and another reads is one volume, mounted on both.
       - keys_data:/app/var/keys
       - kms_data:/app/var/kms
       - geoip_data:/app/var/geoip

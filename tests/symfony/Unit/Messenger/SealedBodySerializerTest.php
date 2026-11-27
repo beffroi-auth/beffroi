@@ -47,16 +47,24 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use function preg_match_all;
+use RuntimeException;
 use function serialize;
 use function sprintf;
+use stdClass;
+use function str_replace;
 use function strlen;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\MessageDecodingFailedException;
+use Symfony\Component\Messenger\Exception\UnrecoverableExceptionInterface;
 use Symfony\Component\Messenger\Stamp\ErrorDetailsStamp;
 use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
 use Symfony\Component\Messenger\Stamp\SentToFailureTransportStamp;
 use Symfony\Component\Messenger\Stamp\StampInterface;
+use Symfony\Component\Scheduler\Generator\MessageContext;
+use Symfony\Component\Scheduler\Messenger\ScheduledStamp;
+use Symfony\Component\Scheduler\Trigger\PeriodicalTrigger;
 use Symfony\Component\Uid\Uuid;
+use TypeError;
 use function unserialize;
 
 /**
@@ -350,6 +358,44 @@ final class SealedBodySerializerTest extends TestCase
     }
 
     #[Test]
+    public function aMessageRetriedReadBackKeepsTheMomentTheClockOfTheComponentGaveItsRetry(): void
+    {
+        // Given
+        $retried = new RedeliveryStamp(1);
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered'), [$retried]));
+
+        // When
+        $read = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame(
+            $retried->getRedeliveredAt()->format(DateTimeImmutable::RFC3339_EXTENDED),
+            $read->last(RedeliveryStamp::class)?->getRedeliveredAt()->format(DateTimeImmutable::RFC3339_EXTENDED),
+        );
+    }
+
+    #[Test]
+    public function aScheduledMessageReadBackKeepsTheScheduleThatSentIt(): void
+    {
+        // Given
+        $triggeredAt = new DateTimeImmutable('2026-10-09T12:00:00+00:00');
+        $trigger = new PeriodicalTrigger(60, $triggeredAt);
+        $encoded = $this->serializer->encode(new Envelope(new AdvanceKeyLifecycle(), [
+            new ScheduledStamp(new MessageContext('beffroi', 'advance-key-lifecycle', $trigger, $triggeredAt)),
+        ]));
+
+        // When
+        $read = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertInstanceOf(AdvanceKeyLifecycle::class, $read->getMessage());
+        $context = $read->last(ScheduledStamp::class)?->messageContext;
+        static::assertSame('advance-key-lifecycle', $context?->id);
+        static::assertSame('2026-10-09T12:00:00+00:00', $context->triggeredAt->format(DateTimeImmutable::RFC3339));
+        static::assertSame((string) $trigger, (string) $context->trigger);
+    }
+
+    #[Test]
     public function aHeaderThatNamesAClassThatIsNoStampBuildsNothing(): void
     {
         // Given
@@ -363,6 +409,111 @@ final class SealedBodySerializerTest extends TestCase
         // Then
         static::assertSame(0, WokenWhenRead::$woken);
         static::assertStringContainsString('does not read back', self::failureOf($decoded)->getMessage());
+    }
+
+    #[Test]
+    #[DataProvider('provideHeadersThatThrowWhenRead')]
+    public function aHeaderThatThrowsWhenReadIsAStampThatDoesNotReadBack(string $header): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . RedeliveryStamp::class] = base64_encode($header);
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertStringContainsString('does not read back', self::failureOf($decoded)->getMessage());
+        static::assertSame($this->tenant->slug, $decoded->last(TenantStamp::class)?->slug);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideHeadersThatThrowWhenRead(): iterable
+    {
+        $redeliveredAt = new DateTimeImmutable('2026-10-09T12:00:00+00:00');
+        $header = serialize([new RedeliveryStamp(1, $redeliveredAt)]);
+
+        yield 'an object outside the list in a typed property' => [str_replace(serialize($redeliveredAt), serialize(new stdClass()), $header)];
+        yield 'a string in a property typed int' => [self::aRetryCountThatIsAString()];
+        yield 'a moment without its date' => [str_replace(serialize($redeliveredAt), 'O:17:"DateTimeImmutable":0:{}', $header)];
+    }
+
+    #[Test]
+    public function aHeaderThatThrowsWhenReadKeepsWhatItThrew(): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . ErrorDetailsStamp::class] = base64_encode(self::anErrorWhoseMessageIsNull());
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertInstanceOf(TypeError::class, self::failureOf($decoded)->getPrevious()?->getPrevious());
+    }
+
+    /**
+     * @param array<class-string<StampInterface>, string> $headers
+     */
+    #[Test]
+    #[DataProvider('provideHeadersOfTheRetriesThatDoNotReadBack')]
+    public function aMessageWhoseRetriesCannotBeCountedIsNotRetried(array $headers): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        foreach ($headers as $class => $header) {
+            $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . $class] = $header;
+        }
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertInstanceOf(UnrecoverableExceptionInterface::class, self::failureOf($decoded)->getPrevious());
+    }
+
+    /**
+     * @return iterable<string, array{array<class-string<StampInterface>, string>}>
+     */
+    public static function provideHeadersOfTheRetriesThatDoNotReadBack(): iterable
+    {
+        yield 'a header that throws when read' => [[RedeliveryStamp::class => base64_encode(self::aRetryCountThatIsAString())]];
+        yield 'a header that is no base64' => [[RedeliveryStamp::class => 'no base64 at all!']];
+        yield 'a header that carries no stamp' => [[RedeliveryStamp::class => base64_encode(serialize([1]))]];
+        yield 'after the header of another stamp that does not read back' => [[
+            ErrorDetailsStamp::class => base64_encode(self::anErrorWhoseMessageIsNull()),
+            RedeliveryStamp::class => base64_encode(self::aRetryCountThatIsAString()),
+        ]];
+    }
+
+    /**
+     * @param list<StampInterface> $stamps
+     */
+    #[Test]
+    #[DataProvider('provideRetriesThatStillCount')]
+    public function aMessageWhoseRetriesStillCountIsLeftToTheRetryStrategy(array $stamps, int $retries): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered'), $stamps));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . ErrorDetailsStamp::class] = base64_encode(self::anErrorWhoseMessageIsNull());
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertNotInstanceOf(UnrecoverableExceptionInterface::class, self::failureOf($decoded)->getPrevious());
+        static::assertSame($retries, RedeliveryStamp::getRetryCountFromEnvelope($decoded));
+    }
+
+    /**
+     * @return iterable<string, array{list<StampInterface>, int}>
+     */
+    public static function provideRetriesThatStillCount(): iterable
+    {
+        yield 'a message retried once' => [[new RedeliveryStamp(1, new DateTimeImmutable('2026-10-09T12:00:00+00:00'))], 1];
+        yield 'a first delivery, which no header counts yet' => [[], 0];
     }
 
     #[Test]
@@ -448,6 +599,24 @@ final class SealedBodySerializerTest extends TestCase
         static::assertInstanceOf(MessageDecodingFailedException::class, $failure);
 
         return $failure;
+    }
+
+    private static function aRetryCountThatIsAString(): string
+    {
+        return str_replace(
+            'retryCount";i:1;',
+            'retryCount";s:3:"one";',
+            serialize([new RedeliveryStamp(1, new DateTimeImmutable('2026-10-09T12:00:00+00:00'))]),
+        );
+    }
+
+    private static function anErrorWhoseMessageIsNull(): string
+    {
+        return str_replace(
+            'exceptionMessage";s:24:"the vault did not answer";',
+            'exceptionMessage";N;',
+            serialize([new ErrorDetailsStamp(RuntimeException::class, 0, 'the vault did not answer')]),
+        );
     }
 
     /**
