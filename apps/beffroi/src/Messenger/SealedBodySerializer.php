@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Messenger;
 
 use __PHP_Incomplete_Class;
+use function array_any;
 use function array_map;
 use function array_values;
 use function base64_decode;
@@ -27,8 +28,10 @@ use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\ErrorHandler\Exception\FlattenException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\MessageDecodingFailedException;
+use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Messenger\Stamp\NonSendableStampInterface;
+use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
 use Symfony\Component\Messenger\Stamp\StampInterface;
 use Symfony\Component\Messenger\Transport\Serialization\SerializerInterface;
 use Symfony\Component\Scheduler\Generator\MessageContext;
@@ -203,6 +206,8 @@ final readonly class SealedBodySerializer implements SerializerInterface
 
     /**
      * A stamp that does not read back leaves the others kept, so that the retries of the message are still counted.
+     * When the stamp that counts them is the one that does not read back, the failure is not retried: without its
+     * count, the message would be retried forever.
      *
      * @param array{body?: string, headers?: array<string, string>, extra?: array<string, mixed>} $encodedEnvelope
      *
@@ -210,20 +215,26 @@ final readonly class SealedBodySerializer implements SerializerInterface
      */
     private static function decodeStamps(array $encodedEnvelope, ?Throwable &$failure = null): array
     {
+        $headers = self::headers($encodedEnvelope);
         $stamps = [];
-        foreach (self::headers($encodedEnvelope) as $name => $value) {
+        foreach ($headers as $name => $value) {
             if (! str_starts_with($name, self::STAMP_HEADER_PREFIX)) {
                 continue;
             }
             $class = substr($name, strlen(self::STAMP_HEADER_PREFIX));
             $decoded = base64_decode($value, true);
-            $read = $decoded === false || ! is_subclass_of($class, StampInterface::class)
-                ? false
-                : @unserialize($decoded, [
-                    'allowed_classes' => [$class, ...self::HELD_BY_A_STAMP],
-                ]);
+            $thrown = null;
+            try {
+                $read = $decoded === false || ! is_subclass_of($class, StampInterface::class)
+                    ? false
+                    : @unserialize($decoded, [
+                        'allowed_classes' => [$class, ...self::HELD_BY_A_STAMP],
+                    ]);
+            } catch (Throwable $thrown) {
+                $read = false;
+            }
             if (! is_array($read)) {
-                $failure ??= new MessageDecodingFailedException(sprintf('The header of the stamp "%s" does not read back.', $class));
+                $failure ??= new MessageDecodingFailedException(sprintf('The header of the stamp "%s" does not read back.', $class), 0, $thrown);
 
                 continue;
             }
@@ -235,6 +246,17 @@ final readonly class SealedBodySerializer implements SerializerInterface
                 }
                 $stamps[] = $stamp;
             }
+        }
+        if (
+            $failure !== null
+            && isset($headers[self::STAMP_HEADER_PREFIX . RedeliveryStamp::class])
+            && ! array_any($stamps, static fn (StampInterface $stamp): bool => $stamp instanceof RedeliveryStamp)
+        ) {
+            $failure = new UnrecoverableMessageHandlingException(
+                sprintf('%s The retries of the message cannot be counted.', $failure->getMessage()),
+                0,
+                $failure,
+            );
         }
 
         return $stamps;

@@ -27,6 +27,11 @@ All notable changes to this project are documented in this file, in reverse chro
   `DatePoint` of the clock of the component, is now read back from the headers of the transport with the stamp.
 - `beffroi/beffroi`: a message the scheduler sends to an asynchronous transport is read back with its
   `ScheduledStamp`: every scheduled task went to the failure transport.
+- `beffroi/beffroi`: a stamp header of a queued message that PHP cannot read back into its stamp, such as a string in
+  a property typed `int`, is a stamp that does not read back like any other: the message keeps its other stamps and
+  goes through the retry strategy of its transport, instead of going to the failure transport at once without them.
+  A header of the `RedeliveryStamp`, which counts the retries, that does not read back sends the message to the
+  failure transport at once, with its other stamps: retried without its count, it would be retried forever.
 
 ## 0.1.0 - 2026-11-26
 
