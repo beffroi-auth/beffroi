@@ -44,6 +44,7 @@ use App\Administration\RateLimitedPersonsBudget;
 use App\Doctor\ClientsSignedWithHeldKeys;
 use App\Doctor\ChainHoldsTogether;
 use App\Doctor\NotificationsLanePatience;
+use App\Doctor\PasswordsHashedAsTypedLeft;
 use App\Doctor\PasswordsUnderTheUnicodeOfTheBuild;
 use App\Doctor\UsernamesComparedByTheirForm;
 use Beffroi\Oidc\Application\Secret\SecretDrawer;
@@ -341,6 +342,7 @@ use Beffroi\Core\Port\CanPageActiveSessionsInterface;
 use Beffroi\Core\Port\CanPageActiveSubscriptionsInterface;
 use Beffroi\Core\Port\CanPageActsOfAPersonInterface;
 use Beffroi\Core\Port\CanPageChangesOfAPersonInterface;
+use Beffroi\Core\Port\CanCountPasswordsHashedAsTypedInterface;
 use Beffroi\Core\Port\CanPageCredentialsInterface;
 use Beffroi\Core\Port\PasswordsHashedAsTypedInterface;
 use App\Doctrine\Repository\DoctrineClaimHistory;
@@ -1222,6 +1224,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(InstanceStatistics::class);
     $services->set(ClientsSignedWithHeldKeys::class)->arg('$sources', tagged_iterator('beffroi.oidc.client_source'))->tag('beffroi.doctor_check');
     $services->set(UsernamesComparedByTheirForm::class)->tag('beffroi.doctor_check');
+    $services->set(PasswordsHashedAsTypedLeft::class)->tag('beffroi.doctor_check');
     $services->set(PasswordsUnderTheUnicodeOfTheBuild::class)->tag('beffroi.doctor_check');
     foreach ([JournalChain::class, ClaimHistoryChain::class, DisclosureChain::class] as $chain) {
         $services->set('beffroi.doctor.chain.' . $chain, ChainHoldsTogether::class)->arg('$chain', service($chain))->tag('beffroi.doctor_check');
@@ -1460,6 +1463,7 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(CanPageCredentialsInterface::class, DoctrineCredentialRepository::class);
     $services->alias(CanForgetCredentialsInterface::class, DoctrineCredentialRepository::class);
     $services->alias(PasswordsHashedAsTypedInterface::class, DoctrineCredentialRepository::class);
+    $services->alias(CanCountPasswordsHashedAsTypedInterface::class, DoctrineCredentialRepository::class);
     $services->set(ConditionalCredentialWrite::class);
     $services->set(DoctrineTotpUses::class);
     $services->alias(TotpUsesInterface::class, DoctrineTotpUses::class);

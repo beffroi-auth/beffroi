@@ -228,6 +228,22 @@ final class InMemoryRepositoriesTest extends TestCase
      * Decision 0065
      */
     #[Test]
+    public function thePasswordsHashedAsTypedOfATenantAreCountedWithoutThoseOfAnother(): void
+    {
+        // Given
+        $repository = new InMemoryCredentialRepository();
+        $repository->save(Fixtures::hashedAsTyped(Fixtures::password($this->alice)));
+        $repository->save(Fixtures::password(Fixtures::user($this->tenant, 'carol', 'carol-subject')));
+        $repository->save(Fixtures::hashedAsTyped(Fixtures::password(Fixtures::user($this->other, 'bob', 'bob-subject'))));
+
+        // When / Then
+        static::assertSame(1, $repository->countIn($this->tenant));
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
     public function aPasswordHashedAsTypedInAnotherTenantIsNotOneOfThisTenant(): void
     {
         // Given

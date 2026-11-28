@@ -13,6 +13,7 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Domain\Listing\Listing;
 use Beffroi\Core\Domain\Listing\Pagination;
+use Beffroi\Core\Port\CanCountPasswordsHashedAsTypedInterface;
 use Beffroi\Core\Port\CanForgetCredentialsInterface;
 use Beffroi\Core\Port\CanPageCredentialsInterface;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
@@ -21,6 +22,7 @@ use Symfony\Component\Uid\Uuid;
 use function usort;
 
 final class InMemoryCredentialRepository implements
+    CanCountPasswordsHashedAsTypedInterface,
     CanForgetCredentialsInterface,
     CanPageCredentialsInterface,
     CredentialRepositoryInterface,
@@ -95,6 +97,18 @@ final class InMemoryCredentialRepository implements
     public function forget(Credential $credential): void
     {
         unset($this->credentials[$credential->id->toRfc4122()]);
+    }
+
+    public function countIn(Tenant $tenant): int
+    {
+        $count = 0;
+        foreach ($this->credentials as $credential) {
+            if ($credential instanceof PasswordCredential && $credential->hashedAsTyped && $credential->tenant->equals($tenant)) {
+                ++$count;
+            }
+        }
+
+        return $count;
     }
 
     public function remainIn(Tenant $tenant): bool
