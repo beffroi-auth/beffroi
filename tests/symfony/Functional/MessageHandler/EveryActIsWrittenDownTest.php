@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\MessageHandler;
 
+use App\Load\LoadBudget;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\ClassifiedModel;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
+use Beffroi\Core\Domain\Event\KmsUnavailable;
 use Beffroi\Core\Domain\Event\LoadBudgetSpent;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -23,6 +25,7 @@ use Beffroi\Oidc\Domain\Scope\Scope;
 use Beffroi\Oidc\Domain\Scope\Scopes;
 use function array_keys;
 use Doctrine\DBAL\Connection;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
@@ -193,11 +196,62 @@ final class EveryActIsWrittenDownTest extends DatabaseTestCase
     public function anActThatRefusedNothingSaysNoReason(): void
     {
         // When
-        self::announce(new LoadBudgetSpent(self::now(), self::tenant(), self::context(), 'origin', '/jwks', null));
+        self::announce(new KmsUnavailable(self::now(), self::tenant(), self::context(), 'the vault did not answer'));
 
         // Then
         $act = self::onlyAct();
         static::assertSame([null, null], [$act->reason, $act->method]);
+    }
+
+    /**
+     * Decision 0014, decision 0062
+     *
+     * @param non-empty-string $budget
+     */
+    #[Test]
+    #[DataProvider('provideSpentBudgets')]
+    public function aSpentLoadBudgetSaysWhichBudgetItSpent(string $budget, ?string $client): void
+    {
+        // When
+        self::announce(new LoadBudgetSpent(self::now(), self::tenant(), self::context(), $budget, 'beffroi_protocol_token', $client));
+
+        // Then
+        static::assertSame($budget, self::onlyAct()->reason);
+    }
+
+    /**
+     * @return iterable<string, array{non-empty-string, string|null}>
+     */
+    public static function provideSpentBudgets(): iterable
+    {
+        yield 'the budget of an origin' => [LoadBudget::ORIGIN, null];
+        yield 'the budget of a client' => [LoadBudget::CLIENT, 'oidc-demo'];
+    }
+
+    /**
+     * Decision 0014, decision 0062
+     */
+    #[Test]
+    public function aSpentLoadBudgetNamesTheRouteItRefused(): void
+    {
+        // When
+        self::announce(new LoadBudgetSpent(self::now(), self::tenant(), self::context(), LoadBudget::ORIGIN, 'beffroi_protocol_jwks', null));
+
+        // Then
+        static::assertSame('beffroi_protocol_jwks', self::onlyAct()->method);
+    }
+
+    /**
+     * Decision 0014
+     */
+    #[Test]
+    public function aSpentLoadBudgetNamesTheClientThatSpentIt(): void
+    {
+        // When
+        self::announce(new LoadBudgetSpent(self::now(), self::tenant(), self::context(), LoadBudget::CLIENT, 'beffroi_protocol_token', 'oidc-demo'));
+
+        // Then
+        static::assertSame('oidc-demo', self::onlyAct()->client);
     }
 
     #[Test]

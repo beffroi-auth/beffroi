@@ -28,6 +28,8 @@ final readonly class LoadBudget
     /**
      * Checked here as well as in the tree: a value from the environment is a number only here.
      *
+     * @param non-empty-string $name
+     *
      * @throws InvalidConfigurationException when the limit is below one
      */
     public function __construct(

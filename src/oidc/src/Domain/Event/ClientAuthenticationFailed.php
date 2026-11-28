@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Oidc\Domain\Event;
 
 use DateTimeImmutable;
+use Beffroi\Core\Domain\Event\MayConcernAClientInterface;
 use Beffroi\Core\Domain\Event\SaysWhyItWasRefusedInterface;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
