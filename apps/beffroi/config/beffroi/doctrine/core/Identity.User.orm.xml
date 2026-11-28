@@ -60,9 +60,10 @@
         <field name="phoneNumberVerified" type="boolean" column="phone_number_verified"/>
         <field name="address" type="beffroi_encrypted_user_address" column="address" nullable="true"/>
         <field name="createdAt" type="datetime_immutable" column="created_at"/>
-        <field name="updatedAt" type="datetime_immutable" column="updated_at"/>
-        <!-- A person the table held before the column came is at the first version. -->
-        <field name="version" type="integer" column="version">
+        <!-- Neither is in an UPDATE Doctrine writes: VersionRaisedInTheRow raises the version and moves the last
+             change from what the row holds. A person the table held before the column came is at the first version. -->
+        <field name="updatedAt" type="datetime_immutable" column="updated_at" updatable="false"/>
+        <field name="version" type="integer" column="version" updatable="false">
             <options>
                 <option name="default">1</option>
             </options>
@@ -79,5 +80,10 @@
         <!-- The channels the person chose to be told by, sealed with the rest; a person who chose nothing is a null
              column. -->
         <field name="notificationChannels" type="beffroi_encrypted_user_chosen_channels" column="notification_channels" nullable="true"/>
+        <entity-listeners>
+            <entity-listener class="App\Doctrine\Listener\VersionRaisedInTheRow">
+                <lifecycle-callback type="postUpdate" method="postUpdate"/>
+            </entity-listener>
+        </entity-listeners>
     </entity>
 </doctrine-mapping>

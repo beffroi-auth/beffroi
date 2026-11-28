@@ -52,6 +52,7 @@ use Beffroi\Core\Bridge\Clock\PlatformMonotonicClock;
 use Beffroi\Core\Port\MonotonicClockInterface;
 use App\Account\ApplicationHoldings;
 use App\Ciba\QueuedPendingApprovalNotifier;
+use App\Messenger\QueuedVersionRaises;
 use App\Credential\CredentialChangeChannels;
 use App\Credential\CredentialChangeNotices;
 use App\Credential\QueuedCredentialChangeNotifier;
@@ -70,6 +71,7 @@ use App\Client\RegistrationsReadOncePerRequest;
 use App\Client\RequestObjectFetcher;
 use App\Client\SectorIdentifierDocumentFetcher;
 use App\Doctrine\Listener\ClientResolver;
+use App\Doctrine\Listener\VersionRaisedInTheRow;
 use App\Doctrine\DoctrineAtomicWrites;
 use App\Lock\LockedSections;
 use App\Doctrine\EntityManagers;
@@ -380,6 +382,7 @@ use Beffroi\Core\Application\Credential\CredentialRevocation;
 use Beffroi\Core\Application\Administration\Administrators;
 use Beffroi\Core\Application\Group\GroupProvisioner;
 use Beffroi\Core\Application\Group\LocalMemberships;
+use Beffroi\Core\Application\Group\MembershipWrites;
 use Beffroi\Core\Bridge\Configuration\ConfigurationAdministratorGroups;
 use Beffroi\Core\Port\AdministratorGroupsInterface;
 use Beffroi\Core\Application\Group\UpstreamMemberships;
@@ -600,6 +603,7 @@ use Beffroi\Core\Port\TotpAlgorithmInterface;
 use Beffroi\Core\Port\UserAgentParserInterface;
 use Beffroi\Core\Port\LinkedIdentityRepositoryInterface;
 use Beffroi\Core\Port\AtomicWritesInterface;
+use Beffroi\Core\Port\VersionRaisesInterface;
 use Beffroi\Core\Port\ExclusiveSectionsInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Beffroi\Oidc\Application\Authorization\AuthenticationRequirement;
@@ -1264,6 +1268,8 @@ return static function (ContainerConfigurator $container): void {
     $services->set(BeffroiSchedule::class);
     // WebPushSection::CHANNEL_TAG is for a deployment's own channels; the provider tags none.
     $services->set(QueuedPendingApprovalNotifier::class);
+    $services->set(QueuedVersionRaises::class);
+    $services->alias(VersionRaisesInterface::class, QueuedVersionRaises::class);
     $services->alias(PendingApprovalNotifierInterface::class, QueuedPendingApprovalNotifier::class);
     // The channels of the deployment, then web push, mail and SMS, each while its role is on.
     $services->set('beffroi.pending_approval_channels', SwitchedServices::class)->args([
@@ -1438,6 +1444,7 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(AmbientTenantInterface::class, TenantProvider::class);
     $services->set(TenantSynchronizer::class);
     $services->set(ClientResolver::class)->tag('doctrine.orm.entity_listener');
+    $services->set(VersionRaisedInTheRow::class)->tag('doctrine.orm.entity_listener');
     $services->set(DoctrineUserRepository::class);
     $services->alias(UserRepositoryInterface::class, DoctrineUserRepository::class);
     $services->alias(CanCountUsersInterface::class, DoctrineUserRepository::class);
@@ -1773,6 +1780,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(PersonDisabling::class);
     $services->set(PersonEnabling::class);
     $services->set(IdentityLinker::class);
+    $services->set(MembershipWrites::class);
     $services->set(UpstreamMemberships::class);
     $services->set(JustInTimeProvisioning::class);
     $services->set(GroupProvisioner::class);

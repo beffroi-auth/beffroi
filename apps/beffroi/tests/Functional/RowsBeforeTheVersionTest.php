@@ -93,6 +93,48 @@ final class RowsBeforeTheVersionTest extends KernelTestCase
         );
     }
 
+    /**
+     * RFC 7643 §3.1: a server of the previous code still writes groups while the next one migrates, and after it rolls
+     * back.
+     */
+    #[Test]
+    public function aGroupAProcessThatKnowsNoVersionWritesTakesTheFirstVersionAndALastChange(): void
+    {
+        // Given
+        $id = Uuid::v7()->toRfc4122();
+
+        // When
+        self::database()->insert('beffroi_group', [
+            'id' => $id,
+            'tenant_id' => self::tenant()->id->toRfc4122(),
+            'name' => 'admins',
+            'source' => 'local',
+            'created_at' => self::CREATED_AT,
+        ]);
+
+        // Then
+        static::assertSame(
+            [1, true],
+            [
+                self::database()->fetchOne('SELECT version FROM beffroi_group WHERE id = ?', [$id]),
+                self::database()->fetchOne('SELECT updated_at IS NOT NULL FROM beffroi_group WHERE id = ?', [$id]),
+            ],
+        );
+    }
+
+    #[Test]
+    public function theMigrationWaitsFiveSecondsAtMostForALock(): void
+    {
+        // Given
+        $migration = self::migration();
+
+        // When
+        $migration->up(new Schema());
+
+        // Then
+        static::assertSame("SET LOCAL lock_timeout = '5s'", $migration->getSql()[0]->getStatement());
+    }
+
     private static function migrateDown(): void
     {
         $migration = self::migration();

@@ -15,12 +15,23 @@
         <field name="name" type="string" column="name" length="255"/>
         <field name="source" type="string" column="source" length="32" enum-type="Beffroi\Core\Domain\Group\GroupSource"/>
         <field name="createdAt" type="datetime_immutable" column="created_at"/>
-        <field name="updatedAt" type="datetime_immutable" column="updated_at"/>
-        <!-- A group the table held before the column came is at the first version. -->
-        <field name="version" type="integer" column="version">
+        <!-- Neither is in an UPDATE Doctrine writes: VersionRaisedInTheRow raises the version and moves the last
+             change from what the row holds. The defaults serve a process that writes a group without them, as one
+             started before the column came does. -->
+        <field name="updatedAt" type="datetime_immutable" column="updated_at" updatable="false">
+            <options>
+                <option name="default">CURRENT_TIMESTAMP</option>
+            </options>
+        </field>
+        <field name="version" type="integer" column="version" updatable="false">
             <options>
                 <option name="default">1</option>
             </options>
         </field>
+        <entity-listeners>
+            <entity-listener class="App\Doctrine\Listener\VersionRaisedInTheRow">
+                <lifecycle-callback type="postUpdate" method="postUpdate"/>
+            </entity-listener>
+        </entity-listeners>
     </entity>
 </doctrine-mapping>

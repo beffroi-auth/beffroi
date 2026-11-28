@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Fixture;
 
+use Beffroi\Core\Port\UserRepositoryInterface;
+use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
+use Beffroi\Core\Bridge\InMemory\InMemoryGroupRepository;
+use Beffroi\Core\Bridge\InMemory\InMemoryVersionRaises;
+use Beffroi\Core\Application\Group\MembershipWrites;
 use function chr;
 use DateTimeImmutable;
 use Beffroi\Core\Bridge\InMemory\InMemoryMetadataBlobStore;
@@ -155,6 +160,14 @@ final class Fixtures
             | ($backedUp ? AuthenticatorData::FLAG_BS : 0);
 
         return AuthenticatorData::create('', str_repeat("\0", 32), chr($flags), $signCount);
+    }
+
+    /**
+     * The writes of memberships under units of their own, the groups kept nowhere and the other side raised at once.
+     */
+    public static function membershipWrites(UserRepositoryInterface $users, GroupMembershipRepositoryInterface $memberships): MembershipWrites
+    {
+        return new MembershipWrites($users, $memberships, new InMemoryGroupRepository(), new WritesAsTheyCome(), new InMemoryVersionRaises());
     }
 
     public static function user(?Tenant $tenant = null, string $username = 'alice', string $subject = 'alice-subject'): User

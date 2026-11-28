@@ -179,10 +179,7 @@ final readonly class JustInTimeProvisioning
                 $groups,
                 $asserted,
             ): User {
-                $user = $this->provisioner->create($tenant, $email->value, $email, true, $person, $source);
-                $user->updateProfile($profile, $now);
-                $this->writePhoneNumber($user, $phoneNumber, $now);
-                $this->users->save($user);
+                $user = $this->provisioner->create($tenant, $email->value, $email, true, $person, $source, $now, $profile, $phoneNumber);
                 $this->linker->link($user, $provider->name, $subject, $snapshot);
                 $this->writeGroups($user, $groups, $asserted);
 

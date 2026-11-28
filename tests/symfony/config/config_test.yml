@@ -1368,6 +1368,9 @@ services:
     test.beffroi.upstream_memberships:
         alias: Beffroi\Core\Application\Group\UpstreamMemberships
         public: true
+    test.beffroi.membership_writes:
+        alias: Beffroi\Core\Application\Group\MembershipWrites
+        public: true
     test.beffroi.archive_request:
         alias: Beffroi\Core\Application\Archive\ArchiveRequest
         public: true

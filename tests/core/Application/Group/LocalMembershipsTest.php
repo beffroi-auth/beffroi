@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Group;
 
+use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
 use Beffroi\Core\Application\Group\LocalMemberships;
 use Beffroi\Core\Bridge\InMemory\InMemoryGroupMembershipRepository;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -54,7 +55,13 @@ final class LocalMembershipsTest extends TestCase
         $this->memberships = new InMemoryGroupMembershipRepository();
         $this->clock = new MockClock('2026-11-04T12:00:00+00:00');
         $this->events = new RecordingEventDispatcher();
-        $this->local = new LocalMemberships($this->memberships, $this->memberships, new SymfonyUuidGenerator(), $this->clock, $this->events);
+        $this->local = new LocalMemberships(
+            Fixtures::membershipWrites(new InMemoryUserRepository(), $this->memberships),
+            $this->memberships,
+            new SymfonyUuidGenerator(),
+            $this->clock,
+            $this->events,
+        );
     }
 
     /**
@@ -239,6 +246,31 @@ final class LocalMembershipsTest extends TestCase
         static::assertSame(
             [$version + 1, $this->clock->now()->getTimestamp()],
             [$this->group->version, $this->group->updatedAt->getTimestamp()],
+        );
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1 and §4.1.2
+     *
+     * @param Closure(LocalMemberships, Group, User): mixed $before
+     * @param Closure(LocalMemberships, Group, User): mixed $change
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function everyChangeOfTheMembersRaisesTheVersionOfThePersonOnceAndDatesIt(Closure $before, Closure $change): void
+    {
+        // Given
+        $before($this->local, $this->group, $this->user);
+        $version = $this->user->version;
+        $this->clock->modify('+1 minute');
+
+        // When
+        $change($this->local, $this->group, $this->user);
+
+        // Then
+        static::assertSame(
+            [$version + 1, $this->clock->now()->getTimestamp()],
+            [$this->user->version, $this->user->updatedAt->getTimestamp()],
         );
     }
 

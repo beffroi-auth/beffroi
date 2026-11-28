@@ -613,7 +613,12 @@ final class AssertionConsumerServiceTest extends TestCase
                 $this->clock,
                 new WritesAsTheyCome(),
                 new SymfonyUuidGenerator(),
-                new UpstreamMemberships($this->memberships, $this->memberships, new SymfonyUuidGenerator(), $this->clock),
+                new UpstreamMemberships(
+                    $this->memberships,
+                    Fixtures::membershipWrites($this->users, $this->memberships),
+                    new SymfonyUuidGenerator(),
+                    $this->clock,
+                ),
             ),
         );
     }

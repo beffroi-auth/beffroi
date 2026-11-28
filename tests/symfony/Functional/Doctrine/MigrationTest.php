@@ -96,9 +96,7 @@ use function preg_quote;
 use function preg_replace;
 use Psr\Log\NullLogger;
 use function sort;
-use function strlen;
 use function str_contains;
-use function str_ends_with;
 use function str_split;
 use function str_starts_with;
 use function substr;
@@ -425,21 +423,6 @@ final class MigrationTest extends DatabaseTestCase
         return $matches[1] . implode(', ', $definitions) . $matches[3];
     }
 
-    private static function withColumnRequired(string $statement, string $column): string
-    {
-        if (preg_match('/^(CREATE TABLE \S+ \()(.*)(\))$/', $statement, $matches) !== 1) {
-            return $statement;
-        }
-        $definitions = array_map(
-            static fn (string $definition): string => str_starts_with($definition, $column . ' ') && str_ends_with($definition, ' DEFAULT NULL')
-                ? substr($definition, 0, -strlen(' DEFAULT NULL')) . ' NOT NULL'
-                : $definition,
-            self::definitions($matches[2]),
-        );
-
-        return $matches[1] . implode(', ', $definitions) . $matches[3];
-    }
-
     /**
      * @return list<string>
      */
@@ -550,17 +533,7 @@ final class MigrationTest extends DatabaseTestCase
 
                     continue;
                 }
-                if (preg_match('/^ALTER TABLE (\S+) ALTER (\S+) SET NOT NULL$/', $statement, $matches) === 1) {
-                    $statements = array_map(
-                        static fn (string $earlier): string => str_starts_with($earlier, 'CREATE TABLE ' . $matches[1] . ' (')
-                            ? self::withColumnRequired($earlier, $matches[2])
-                            : $earlier,
-                        $statements,
-                    );
-
-                    continue;
-                }
-                if (str_starts_with($statement, 'DELETE FROM ') || str_starts_with($statement, 'UPDATE ')) {
+                if (str_starts_with($statement, 'DELETE FROM ') || str_starts_with($statement, 'UPDATE ') || str_starts_with($statement, 'SET ')) {
                     continue;
                 }
                 $statements[] = $statement;

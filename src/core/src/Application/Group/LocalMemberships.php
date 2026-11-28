@@ -15,7 +15,6 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Exception\GroupMembershipException;
 use Beffroi\Core\Exception\InvalidArgumentException;
-use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\GroupsOfAPersonInterface;
 use Beffroi\Core\Port\UuidGeneratorInterface;
 use Psr\Clock\ClockInterface;
@@ -31,7 +30,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 final readonly class LocalMemberships
 {
     public function __construct(
-        private GroupMembershipRepositoryInterface $memberships,
+        private MembershipWrites $writes,
         private GroupsOfAPersonInterface $groupsOfAPerson,
         private UuidGeneratorInterface $uuids,
         private ClockInterface $clock,
@@ -91,8 +90,7 @@ final readonly class LocalMemberships
         }
         $now = $this->clock->now();
         $membership = new GroupMembership($this->uuids->timeOrdered(), $group, $user, GroupSource::Local, $now);
-        $group->membershipChanged($now);
-        $this->memberships->save($membership);
+        $this->writes->onTheGroup($group, [$membership], [], $now);
         $this->events->dispatch(new GroupMembershipAdded($group->tenant, $user->subject, $group->name, $now, $context, $administrator));
 
         return $membership;
@@ -108,8 +106,7 @@ final readonly class LocalMemberships
             throw GroupMembershipException::givenByADirectory($group->name);
         }
         $now = $this->clock->now();
-        $group->membershipChanged($now);
-        $this->memberships->remove($membership);
+        $this->writes->onTheGroup($group, [], [$membership], $now);
         $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->name, $now, $context, $administrator));
     }
 

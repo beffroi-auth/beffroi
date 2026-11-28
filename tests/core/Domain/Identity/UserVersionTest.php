@@ -38,7 +38,28 @@ final class UserVersionTest extends TestCase
     }
 
     /**
-     * RFC 7644 §3.14, RFC 7232 §2.1, RFC 7643 §3.1
+     * RFC 7643 §3.1
+     */
+    #[Test]
+    public function aPersonCreatedWithAProfileAndAPhoneNumberIsAtTheFirstVersionLastChangedWhenCreated(): void
+    {
+        // When
+        $user = User::create(
+            Uuid::v7(),
+            Fixtures::tenant(),
+            new Subject('alice-subject'),
+            'alice',
+            Fixtures::now(),
+            profile: new Profile(name: 'Alice'),
+            phoneNumber: '+33612345678',
+        );
+
+        // Then
+        static::assertSame([1, $user->createdAt], [$user->version, $user->updatedAt]);
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 9110 §8.8.1, RFC 7643 §3.1
      *
      * @param Closure(): User                       $person
      * @param Closure(User, DateTimeImmutable): void $change
@@ -111,6 +132,10 @@ final class UserVersionTest extends TestCase
         yield 'enabled' => [
             self::disabled(...),
             static fn (User $user, DateTimeImmutable $now) => $user->enable($now),
+        ];
+        yield 'a group entered or left' => [
+            self::verified(...),
+            static fn (User $user, DateTimeImmutable $now) => $user->membershipChanged($now),
         ];
     }
 

@@ -65,6 +65,7 @@ final class User implements ClassifiedFieldsInterface
         $this->username = self::normalizeUsername($username);
         self::assertVerifiable($email, $emailVerified, 'email address');
         self::assertVerifiable($phoneNumber, $phoneNumberVerified, 'phone number');
+        self::assertPhoneNumber($phoneNumber);
         $this->notificationChannels = ChosenChannels::none();
     }
 
@@ -77,6 +78,8 @@ final class User implements ClassifiedFieldsInterface
         ?EmailAddress $email = null,
         bool $emailVerified = false,
         ?UserSource $source = null,
+        ?Profile $profile = null,
+        ?string $phoneNumber = null,
     ): self {
         return new self(
             $id,
@@ -85,8 +88,8 @@ final class User implements ClassifiedFieldsInterface
             $username,
             $email,
             $emailVerified,
-            Profile::empty(),
-            null,
+            $profile ?? Profile::empty(),
+            $phoneNumber,
             false,
             null,
             $now,
@@ -129,12 +132,7 @@ final class User implements ClassifiedFieldsInterface
     public function changePhoneNumber(?string $phoneNumber, bool $verified, DateTimeImmutable $now): void
     {
         self::assertVerifiable($phoneNumber, $verified, 'phone number');
-        if ($phoneNumber !== null && ! PlainText::holds($phoneNumber, PlainText::MAX_PHONE_NUMBER_LENGTH)) {
-            throw new InvalidArgumentException(sprintf(
-                'A phone number is plain text of at most %d characters, with no control, format or line separator character.',
-                PlainText::MAX_PHONE_NUMBER_LENGTH,
-            ));
-        }
+        self::assertPhoneNumber($phoneNumber);
         if ($phoneNumber === $this->phoneNumber && $verified === $this->phoneNumberVerified) {
             return;
         }
@@ -267,10 +265,31 @@ final class User implements ClassifiedFieldsInterface
         return $this->tenant->selfServedClaims->opens($claim) && ! $this->source->holds($claim);
     }
 
+    /**
+     * The groups of a person are part of what a directory reads of them (RFC 7643 §4.1.2).
+     */
+    public function membershipChanged(DateTimeImmutable $now): void
+    {
+        $this->changed($now);
+    }
+
     private function changed(DateTimeImmutable $now): void
     {
         $this->updatedAt = $now;
         ++$this->version;
+    }
+
+    /**
+     * @throws InvalidArgumentException
+     */
+    private static function assertPhoneNumber(?string $phoneNumber): void
+    {
+        if ($phoneNumber !== null && ! PlainText::holds($phoneNumber, PlainText::MAX_PHONE_NUMBER_LENGTH)) {
+            throw new InvalidArgumentException(sprintf(
+                'A phone number is plain text of at most %d characters, with no control, format or line separator character.',
+                PlainText::MAX_PHONE_NUMBER_LENGTH,
+            ));
+        }
     }
 
     /**

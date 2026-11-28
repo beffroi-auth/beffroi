@@ -30,7 +30,7 @@ final class GroupVersionTest extends TestCase
     }
 
     /**
-     * RFC 7644 §3.14, RFC 7232 §2.1, RFC 7643 §3.1 and §4.2
+     * RFC 7644 §3.14, RFC 9110 §8.8.1, RFC 7643 §3.1 and §4.2
      *
      * @param Closure(Group, DateTimeImmutable): void $change
      */
