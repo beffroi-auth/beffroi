@@ -11,6 +11,7 @@ use function array_flip;
 use function array_map;
 use function array_unique;
 use function array_values;
+use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Oidc\Domain\AuthorizationDetails\AuthorizationDetails;
 use Beffroi\Oidc\Domain\Ciba\DeliveryModeInterface;
 use Beffroi\Oidc\Domain\Ciba\NotifiesTheClientInterface;
@@ -247,6 +248,12 @@ final readonly class ClientRegistration
         if (! self::isClientIdentifier($this->clientId)) {
             throw new InvalidArgumentException(sprintf(
                 'The client identifier "%s" must be made of visible ASCII characters (RFC 6749 appendix A.1).',
+                $this->clientId,
+            ));
+        }
+        if (! AClient::holds($this->clientId)) {
+            throw new InvalidArgumentException(sprintf(
+                'The client identifier "%s" is longer than the 255 characters an act names its client by (decision 0066).',
                 $this->clientId,
             ));
         }

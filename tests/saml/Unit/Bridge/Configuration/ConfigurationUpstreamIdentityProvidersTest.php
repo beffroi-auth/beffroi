@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Saml\Tests\Unit\Bridge\Configuration;
 
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
+use Beffroi\Core\Domain\Event\PersonProvisioned;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Saml\Bridge\Configuration\ConfigurationUpstreamIdentityProviders;
@@ -12,6 +15,7 @@ use Beffroi\Saml\Tests\Fixture\IdentityProviderDocuments;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use function str_repeat;
 
 /**
  * spec/saml.md S-42, S-44, S-45, section 6.10 step 1
@@ -262,6 +266,31 @@ final class ConfigurationUpstreamIdentityProvidersTest extends TestCase
 
         // When
         new ConfigurationUpstreamIdentityProviders('acme', ['idp.acme.example' => self::declaration(['acme.example'])], new FixedProfileClaims());
+    }
+
+    /**
+     * S-42, SAML Metadata §2.2.1, decision 0066: what a sign-in through the provider writes names it, under the longest
+     * entity ID a declaration accepts.
+     */
+    #[Test]
+    public function theLongestEntityIdADeclarationAcceptsNamesTheAuthorOfThePersonItProvisions(): void
+    {
+        // Given
+        $entityId = 'https://idp.acme.example/' . str_repeat('e', 999);
+        $identityProviders = new ConfigurationUpstreamIdentityProviders('acme', [$entityId => self::declaration(['acme.example'])], new FixedProfileClaims());
+        $provider = ($identityProviders->find(Fixtures::tenant('acme'), $entityId) ?? static::fail('The identity provider is not declared.'))->provider();
+
+        // When
+        $author = new PersonProvisioned(
+            Fixtures::now(),
+            Fixtures::tenant('acme'),
+            new Subject('provisioned-subject'),
+            $provider->name,
+            Fixtures::context(),
+        )->author();
+
+        // Then
+        static::assertEquals(new AnUpstreamProvider($entityId), $author);
     }
 
     #[Test]

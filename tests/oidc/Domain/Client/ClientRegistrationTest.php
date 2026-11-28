@@ -41,6 +41,7 @@ use Beffroi\Oidc\Tests\Fixture\Shapes;
 use function array_map;
 use function hrtime;
 use function range;
+use function str_repeat;
 
 /**
  * RFC 7591 §2
@@ -549,6 +550,17 @@ final class ClientRegistrationTest extends TestCase
         yield 'client id beyond ASCII (RFC 6749 appendix A.1)' => [
             static fn (): ClientRegistration => new ClientRegistration('démo', new ClientPresentation('Name'), Methods::none(), false, $uris, Shapes::jwt()),
             'visible ASCII',
+        ];
+        yield 'client id longer than an act names its client by (decision 0066)' => [
+            static fn (): ClientRegistration => new ClientRegistration(
+                str_repeat('d', 256),
+                new ClientPresentation('Name'),
+                Methods::none(),
+                false,
+                $uris,
+                Shapes::jwt(),
+            ),
+            'longer than the 255 characters an act names its client by',
         ];
         yield 'empty name' => [
             static fn (): ClientRegistration => new ClientRegistration('demo', new ClientPresentation(''), Methods::none(), false, $uris, Shapes::jwt()),

@@ -29,6 +29,11 @@ All notable changes to this project are documented in this file, in reverse chro
   kind of the author. The archive of a person and the journal of the administration API name the author by an object,
   `{"kind": "administrator"}` in the archive, the whole document in the API and in `beffroi:user:journal --format=json`,
   where both gave a string: the TUI 0.2.0 or later reads it, and an older TUI refuses the journal of a person.
+- `beffroi/core`, `beffroi/oidc`: a name an author is built from is held to the author's rule where it is declared, so
+  that an act always names its author (decision 0066). An upstream provider is named by up to 1024 characters, the
+  longest entity ID (SAML Metadata §2.2.1), and `UpstreamProvider` refuses a name its author does not hold; a client
+  registration, declared or registered, refuses an identifier longer than the 255 characters an act names its client by.
+  `AClient::holds()`, `ADirectory::holds()` and `AnUpstreamProvider::holds()` give the rule to a declaration.
 - `beffroi/beffroi`, **upgrading**: stop the processes that dispatch messages, the planes of the provider, of the
   protocol and of the administration, then let the worker drain the four lanes, `async_priority_high`,
   `async_priority_medium`, `async_priority_low` and `async_notifications`, the logout tokens whose issue it retries
