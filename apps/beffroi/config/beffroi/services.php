@@ -44,6 +44,7 @@ use App\Administration\RateLimitedPersonsBudget;
 use App\Doctor\ClientsSignedWithHeldKeys;
 use App\Doctor\ChainHoldsTogether;
 use App\Doctor\NotificationsLanePatience;
+use App\Doctor\UsernamesComparedByTheirForm;
 use Beffroi\Oidc\Application\Secret\SecretDrawer;
 use Beffroi\Oidc\Application\Secret\UserCodeDrawer;
 use Beffroi\Core\Port\RandomnessInterface;
@@ -1218,6 +1219,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(LaneBacklogs::class)->args([service('messenger.receiver_locator')]);
     $services->set(InstanceStatistics::class);
     $services->set(ClientsSignedWithHeldKeys::class)->arg('$sources', tagged_iterator('beffroi.oidc.client_source'))->tag('beffroi.doctor_check');
+    $services->set(UsernamesComparedByTheirForm::class)->tag('beffroi.doctor_check');
     foreach ([JournalChain::class, ClaimHistoryChain::class, DisclosureChain::class] as $chain) {
         $services->set('beffroi.doctor.chain.' . $chain, ChainHoldsTogether::class)->arg('$chain', service($chain))->tag('beffroi.doctor_check');
     }
