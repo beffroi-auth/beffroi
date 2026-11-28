@@ -91,6 +91,9 @@ final readonly class EndSessionHandler
         return $session->isActive($now) ? $session : null;
     }
 
+    /**
+     * The person asked for the logout through her browser at the relying party: the end is hers (decision 0066).
+     */
     private function end(EndSessionRequest $request, AuthenticationSession $session, RequestContext $context): LoggedOut
     {
         $this->sessions->end($session, SessionEnd::RelyingParty, new ThePerson(), $context);
