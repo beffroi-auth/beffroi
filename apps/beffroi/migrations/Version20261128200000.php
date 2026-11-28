@@ -23,7 +23,7 @@ final class Version20261128200000 extends AbstractMigration
     {
         $this->abortIf(! $this->platform instanceof PostgreSQLPlatform, 'This migration is written for PostgreSQL.');
 
-        $this->addSql('CREATE TABLE beffroi_blind_index_derivation (tenant_id UUID NOT NULL, derivation INT NOT NULL, unicode_version VARCHAR(16) NOT NULL, refused INT NOT NULL, joined INT NOT NULL, derived_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, PRIMARY KEY (tenant_id))');
+        $this->addSql('CREATE TABLE beffroi_blind_index_derivation (tenant_id UUID NOT NULL, derivation INT NOT NULL, unicode_version VARCHAR(16) NOT NULL, refused INT NOT NULL, joined INT NOT NULL, derived_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, reserved JSON NOT NULL, PRIMARY KEY (tenant_id))');
         $this->addSql('ALTER TABLE beffroi_blind_index_derivation ADD CONSTRAINT beffroi_blind_index_derivation_tenant FOREIGN KEY (tenant_id) REFERENCES beffroi_tenant (id)');
     }
 

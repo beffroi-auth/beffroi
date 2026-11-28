@@ -12,6 +12,8 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Precis\UsernameCaseMapped;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Port\ExclusiveSectionsInterface;
+use function array_keys;
 use function bin2hex;
 use Closure;
 use function count;
@@ -30,7 +32,8 @@ use Symfony\Component\Uid\Uuid;
  * Two walks: the first names the usernames RFC 8265 §3.3 refuses and the persons whose usernames one tag would join,
  * the second writes the tags of each person under the projections of this build, and a tag drawn at random for each
  * person joined, whom no lookup finds until renamed rather than one found under the name of the other. The derivation
- * is recorded at the end (BlindIndexDerivations).
+ * is recorded at the end with the tag of each name the persons joined share, which nobody takes meanwhile
+ * (BlindIndexDerivations).
  */
 #[AsCommand(
     name: self::NAME,
@@ -52,6 +55,7 @@ final readonly class UserReindexCommand
         private EntityManagers $managers,
         private TenantBlindIndexes $indexes,
         private BlindIndexDerivations $derivations,
+        private ExclusiveSectionsInterface $sections,
     ) {
     }
 
@@ -66,6 +70,14 @@ final readonly class UserReindexCommand
         if ($tenant === null) {
             return Command::FAILURE;
         }
+
+        // Alone among the processes of the deployment: two servers starting at once would otherwise both walk, and the
+        // second write the tag of a person the first set aside and an administrator renamed meanwhile.
+        return $this->sections->exclusively(self::NAME . ' ' . $tenant->slug, fn (): int => $this->reindex($io, $tenant, $whenDue));
+    }
+
+    private function reindex(SymfonyStyle $io, Tenant $tenant, bool $whenDue): int
+    {
         if ($whenDue && $this->derivations->isCurrent($tenant)) {
             $io->success(sprintf('The blind indexes of the tenant "%s" are derived under the projections of this build.', $tenant->slug));
 
@@ -83,7 +95,8 @@ final readonly class UserReindexCommand
             } catch (UsernameRefusedException) {
                 $refused[] = [$user->id->toRfc4122(), PrintedText::of($user->username)];
             }
-            // A tag and an identifier per person, never their usernames: a large tenant must fit in the memory of a console.
+            // A tag and an identifier per person, the username of a refused one alone, which it prints: a large tenant must
+            // fit in the memory of a console.
             $tag = $usernames->of($user->username);
             $id = $user->id->toBinary();
             if (isset($first[$tag])) {
@@ -105,7 +118,7 @@ final readonly class UserReindexCommand
             $this->write($manager, $user, $set ? bin2hex(random_bytes(32)) : $usernames->of($user->username));
             $derived += $set ? 0 : 1;
         });
-        $this->derivations->record($tenant, count($refused), count($left));
+        $this->derivations->record($tenant, count($refused), count($left), array_keys($joined));
 
         $io->success(sprintf('The blind indexes of %d person(s) of the tenant "%s" were derived again.', $derived, $tenant->slug));
         if ($refused !== []) {
@@ -117,7 +130,7 @@ final readonly class UserReindexCommand
         }
         foreach ($joined as $ids) {
             $io->warning(sprintf(
-                '%d persons have usernames RFC 8265 §3.3.4 compares as one, and no lookup finds them until they are renamed. Rename all of them but one with "beffroi:user:rename <identifier> <username>", then run this command again.',
+                '%d persons have usernames RFC 8265 §3.3.4 compares as one: no lookup finds them, and nobody else takes their username, until they are renamed. Rename all of them but one with "beffroi:user:rename <identifier> <username>", then run this command again.',
                 count($ids),
             ));
             [$rows, $before] = self::holders($manager, $ids);

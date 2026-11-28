@@ -73,6 +73,14 @@ final readonly class BlindIndexedColumns
     }
 
     /**
+     * The address as 0.1 folded it, which a lookup tries beside the fold of the column.
+     */
+    public static function emailAsFoldedBefore(): BlindIndexedColumn
+    {
+        return new BlindIndexedColumn(User::class, 'email', 'emailIndex', new LowercasedEmailAddress(), 'emailIndex as folded before');
+    }
+
+    /**
      * @return array<class-string, list<BlindIndexedColumn>>
      */
     public static function byEntity(): array

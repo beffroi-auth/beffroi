@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Command;
 
+use App\Command\UserReindexCommand;
 use function array_map;
 use function explode;
 use App\Tests\Symfony\Functional\MessageHandler\RecordingEventHandler;
@@ -566,6 +567,27 @@ final class ProvisioningTest extends ConsoleTestCase
         // Then
         static::assertSame(Command::FAILURE, $tester->getStatusCode());
         static::assertStringContainsString('No person is created or renamed in the tenant', self::flattened($tester));
+    }
+
+    /**
+     * RFC 8265 §3.3.4, RFC 7644 §5: the name a pair the reindex set aside shares leads to nobody, and nobody takes it.
+     */
+    #[Test]
+    public function theUsernameAPairTheReindexSetAsideSharesIsNotTaken(): void
+    {
+        // Given
+        self::personOf01('alice', 'alice');
+        self::personOf01('Alice', 'other-alice');
+        self::console(UserReindexCommand::NAME);
+
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => 'ALICE',
+        ]);
+
+        // Then
+        static::assertSame(Command::FAILURE, $tester->getStatusCode());
+        static::assertStringContainsString('A user named "ALICE" already exists', self::flattened($tester));
     }
 
     #[Test]

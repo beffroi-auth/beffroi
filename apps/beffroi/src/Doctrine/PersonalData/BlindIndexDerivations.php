@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Doctrine\PersonalData;
 
+use function array_filter;
+use function array_values;
+use Beffroi\Core\Domain\PersonalData\BlindIndex;
 use Beffroi\Core\Domain\PersonalData\ClassifiedFieldsInterface;
 use Beffroi\Core\Domain\PersonalData\FieldClassificationInterface;
 use Beffroi\Core\Domain\PersonalData\NoPersonalDatum;
@@ -19,14 +22,16 @@ use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use IntlChar;
+use function is_array;
 use function is_numeric;
 use function is_string;
+use function json_decode;
 use Psr\Clock\ClockInterface;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 
 /**
- * A row per tenant: what beffroi:user:reindex last derived the tags of its persons under. A tenant created by this
- * build has no person, and is recorded at its creation.
+ * A row per tenant: what beffroi:user:reindex last derived the tags of its persons under, and the tags it reserved. A
+ * tenant created by this build has no person, and is recorded at its creation.
  */
 final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
 {
@@ -47,7 +52,7 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
     {
         $row = $this->connection
             ->createQueryBuilder()
-            ->select('derivation', 'unicode_version', 'refused', 'joined', 'derived_at')
+            ->select('derivation', 'unicode_version', 'refused', 'joined', 'derived_at', 'reserved')
             ->from(self::TABLE)
             ->where('tenant_id = :tenant')
             ->setParameter('tenant', $tenant->id, UuidType::NAME)
@@ -62,16 +67,18 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
             self::integer($row['refused']),
             self::integer($row['joined']),
             new DateTimeImmutable(is_string($row['derived_at']) ? $row['derived_at'] : '@0'),
+            self::tags($row['reserved']),
         );
     }
 
     /**
      * @param int $refused the persons whose username the profile refuses
      * @param int $joined the persons whose usernames it compares as the username of another
+     * @param list<string> $reserved the tag of each username several persons hold
      */
-    public function record(Tenant $tenant, int $refused, int $joined): void
+    public function record(Tenant $tenant, int $refused, int $joined, array $reserved = []): void
     {
-        $this->connection->transactional(function (Connection $connection) use ($tenant, $refused, $joined): void {
+        $this->connection->transactional(function (Connection $connection) use ($tenant, $refused, $joined, $reserved): void {
             $connection->delete(
                 self::TABLE,
                 [
@@ -90,6 +97,7 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
                     'refused' => $refused,
                     'joined' => $joined,
                     'derived_at' => $this->clock->now(),
+                    'reserved' => $reserved,
                 ],
                 [
                     'tenant_id' => UuidType::NAME,
@@ -98,6 +106,7 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
                     'refused' => Types::INTEGER,
                     'joined' => Types::INTEGER,
                     'derived_at' => Types::DATETIME_IMMUTABLE,
+                    'reserved' => Types::JSON,
                 ],
             );
         });
@@ -127,6 +136,7 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
             'refused' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'joined' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'derived_at' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
+            'reserved' => new BlindIndex(),
         ];
     }
 
@@ -140,6 +150,7 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
             ->addColumn(Column::editor()->setUnquotedName('refused')->setTypeName(Types::INTEGER)->create())
             ->addColumn(Column::editor()->setUnquotedName('joined')->setTypeName(Types::INTEGER)->create())
             ->addColumn(Column::editor()->setUnquotedName('derived_at')->setTypeName(Types::DATETIME_IMMUTABLE)->create())
+            ->addColumn(Column::editor()->setUnquotedName('reserved')->setTypeName(Types::JSON)->create())
             ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('tenant_id')->create())
             ->addForeignKeyConstraint(
                 ForeignKeyConstraint::editor()
@@ -155,5 +166,15 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
     private static function integer(mixed $value): int
     {
         return is_numeric($value) ? (int) $value : 0;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function tags(mixed $value): array
+    {
+        $tags = is_string($value) ? json_decode($value, true) : null;
+
+        return is_array($tags) ? array_values(array_filter($tags, is_string(...))) : [];
     }
 }

@@ -6,19 +6,30 @@ namespace App\Doctrine\PersonalData;
 
 use DateTimeImmutable;
 use IntlChar;
+use function in_array;
 
 /**
- * What the last beffroi:user:reindex of a tenant derived its tags under, and how many persons it named.
+ * What the last beffroi:user:reindex of a tenant derived its tags under, how many persons it named, and the tags of the
+ * usernames it found held by several persons, reserved so that nobody takes the name they share.
  */
 final readonly class RecordedDerivation
 {
+    /**
+     * @param list<string> $reserved
+     */
     public function __construct(
         public int $derivation,
         public string $unicodeVersion,
         public int $refused,
         public int $joined,
         public DateTimeImmutable $derivedAt,
+        public array $reserved = [],
     ) {
+    }
+
+    public function reserves(string $tag): bool
+    {
+        return in_array($tag, $this->reserved, true);
     }
 
     /**

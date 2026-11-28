@@ -4,7 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Command;
 
+use App\Command\ConfiguredTenant;
 use App\Command\UserReindexCommand;
+use App\Doctrine\EntityManagers;
+use App\Doctrine\PersonalData\TenantBlindIndexes;
+use Beffroi\Core\Port\ExclusiveSectionsInterface;
+use function array_map;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Beffroi\Core\Domain\Identity\User;
+use Closure;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use App\Command\UserRenameCommand;
 use App\Doctrine\PersonalData\BlindIndexDerivations;
 use App\Doctrine\PersonalData\BlindIndexedColumns;
 use Beffroi\Core\Domain\Identity\EmailAddress;
@@ -89,6 +101,42 @@ final class ReindexTest extends ConsoleTestCase
     }
 
     /**
+     * RFC 6532 §3.1: 0.1 folded the local part without bringing it to NFC, which a compatibility ideograph tells apart.
+     */
+    #[Test]
+    public function beforeTheReindexAPersonOf01IsFoundByAnAddressWhoseFoldChanged(): void
+    {
+        // Given
+        $address = new EmailAddress("\u{F900}@acme.example");
+        $bob = self::user('bob', 'bob-subject');
+        $bob->changeEmail($address, false, self::now());
+        self::users()->save($bob);
+        self::entityManager()
+            ->getConnection()
+            ->update(
+                'beffroi_user',
+                [
+                    'email_index' => self::service(TenantBlindIndexes::class, TenantBlindIndexes::class)->of(
+                        BlindIndexedColumns::emailAsFoldedBefore(),
+                    )->of($address->value),
+                ],
+                [
+                    'id' => $bob->id,
+                ],
+                [
+                    'id' => UuidType::NAME,
+                ],
+            );
+        self::reload();
+
+        // When
+        $found = self::users()->findAllByEmail(self::tenant(), $address);
+
+        // Then
+        static::assertSame([$bob->id->toRfc4122()], array_map(static fn (User $user): string => $user->id->toRfc4122(), $found));
+    }
+
+    /**
      * RFC 8265 §3.3.4
      */
     #[Test]
@@ -156,7 +204,7 @@ final class ReindexTest extends ConsoleTestCase
 
         // Then
         static::assertStringContainsString(
-            '2 persons have usernames RFC 8265 §3.3.4 compares as one, and no lookup finds them until they are renamed.',
+            '2 persons have usernames RFC 8265 §3.3.4 compares as one: no lookup finds them, and nobody else takes their username, until they are renamed.',
             self::flattened($tester),
         );
         static::assertMatchesRegularExpression(
@@ -235,6 +283,85 @@ final class ReindexTest extends ConsoleTestCase
             ['alice.martin@acme.example', null],
             [self::users()->find($other->id)?->email?->value, self::users()->findByUsername(self::tenant(), 'Alice')],
         );
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function onceThePairIsRenamedTheNextReindexGivesItsLastPersonTheirUsernameBack(): void
+    {
+        // Given
+        $alice = self::personOf01('alice', 'alice');
+        $other = self::personOf01('Alice', 'other-alice');
+        self::console(UserReindexCommand::NAME);
+        self::console(UserRenameCommand::NAME, [
+            'user' => $other->id->toRfc4122(),
+            'username' => 'alice.martin',
+        ]);
+
+        // When
+        self::console(UserReindexCommand::NAME);
+
+        // Then
+        static::assertTrue(self::users()->findByUsername(self::tenant(), 'ALICE')?->id->equals($alice->id));
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function onceThePairIsRenamedTheNextReindexReservesItsUsernameNoLonger(): void
+    {
+        // Given
+        self::personOf01('alice', 'alice');
+        $other = self::personOf01('Alice', 'other-alice');
+        self::console(UserReindexCommand::NAME);
+        self::console(UserRenameCommand::NAME, [
+            'user' => $other->id->toRfc4122(),
+            'username' => 'alice.martin',
+        ]);
+
+        // When
+        self::console(UserReindexCommand::NAME);
+
+        // Then
+        static::assertSame([], self::derivations()->recorded(self::tenant())?->reserved);
+    }
+
+    /**
+     * Two servers starting at once walk the tenant one after the other, the second finding nothing due.
+     */
+    #[Test]
+    public function itWalksInTheSectionEveryProcessOfTheDeploymentShares(): void
+    {
+        // Given
+        $sections = new class implements ExclusiveSectionsInterface {
+            /**
+             * @var list<string>
+             */
+            public array $entered = [];
+
+            public function exclusively(string $name, Closure $section): mixed
+            {
+                $this->entered[] = $name;
+
+                return $section();
+            }
+        };
+        $command = new UserReindexCommand(
+            self::service(ConfiguredTenant::class, ConfiguredTenant::class),
+            self::service(EntityManagers::class, EntityManagers::class),
+            self::service(TenantBlindIndexes::class, TenantBlindIndexes::class),
+            self::derivations(),
+            $sections,
+        );
+
+        // When
+        $command(new SymfonyStyle(new ArrayInput([]), new NullOutput()));
+
+        // Then
+        static::assertSame([sprintf('beffroi:user:reindex %s', self::tenant()->slug)], $sections->entered);
     }
 
     #[Test]

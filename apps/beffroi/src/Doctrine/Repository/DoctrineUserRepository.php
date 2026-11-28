@@ -7,6 +7,8 @@ namespace App\Doctrine\Repository;
 use App\Doctrine\EntityManagers;
 use App\Doctrine\PersonalData\BlindIndexDerivations;
 use App\Doctrine\PersonalData\BlindIndexedColumns;
+use App\Doctrine\PersonalData\FoldedEmailAddress;
+use App\Doctrine\PersonalData\LowercasedEmailAddress;
 use App\Doctrine\PersonalData\TenantBlindIndexes;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\EmailAddress;
@@ -73,13 +75,20 @@ final readonly class DoctrineUserRepository extends DoctrineRepository implement
         return $found;
     }
 
+    /**
+     * Under the fold of the column, and under the one 0.1 wrote, which differs for a local part not in NFC alone.
+     */
     public function findAllByEmail(Tenant $tenant, EmailAddress $email): array
     {
         $column = BlindIndexedColumns::of(User::class, 'email');
+        $tags = [$this->indexes->of($column)->of($email->value)];
+        if (new LowercasedEmailAddress()->project($email->value) !== new FoldedEmailAddress()->project($email->value)) {
+            $tags[] = $this->indexes->of(BlindIndexedColumns::emailAsFoldedBefore())->of($email->value);
+        }
 
         return array_values($this->repository()->findBy([
             'tenant' => $tenant,
-            $column->tag => $this->indexes->of($column)->of($email->value),
+            $column->tag => $tags,
         ]));
     }
 
@@ -104,16 +113,33 @@ final readonly class DoctrineUserRepository extends DoctrineRepository implement
      */
     public function save(User $user): void
     {
-        if ($this->namesAnew($user) && ! $this->derivations->isCurrent($user->tenant)) {
-            throw new UsernameUniquenessPendingException(sprintf(
-                'No person is created or renamed in the tenant "%s" until its usernames are all compared by their enforced form: run "beffroi:user:reindex".',
-                $user->tenant->slug,
-            ));
+        if ($this->namesAnew($user)) {
+            $this->assertTheUsernameIsFree($user);
         }
         try {
             $this->store($user);
         } catch (UniqueConstraintViolationException $exception) {
             throw UserAlreadyExistsException::writtenMeanwhile($exception);
+        }
+    }
+
+    /**
+     * The name a pair beffroi:user:reindex set aside shares is reserved: no lookup finds them, and nobody else takes it.
+     *
+     * @throws UsernameUniquenessPendingException
+     * @throws UserAlreadyExistsException
+     */
+    private function assertTheUsernameIsFree(User $user): void
+    {
+        $recorded = $this->derivations->recorded($user->tenant);
+        if ($recorded?->isCurrent() !== true) {
+            throw new UsernameUniquenessPendingException(sprintf(
+                'No person is created or renamed in the tenant "%s" until its usernames are all compared by their enforced form: run "beffroi:user:reindex".',
+                $user->tenant->slug,
+            ));
+        }
+        if ($recorded->reserves($this->indexes->of(BlindIndexedColumns::of(User::class, 'username'))->of($user->username))) {
+            throw UserAlreadyExistsException::username($user->username);
         }
     }
 

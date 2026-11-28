@@ -201,6 +201,29 @@ final class AdministrationApiDescriptionTest extends AdministrationTestCase
     }
 
     /**
+     * RFC 8265 §3.3.4, RFC 7644 §5
+     */
+    #[Test]
+    public function aRenameIntoTheUsernameAPairTheReindexSetAsideSharesIsAConflict(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        self::personOf01('carol', 'carol');
+        self::personOf01('Carol', 'other-carol');
+        self::reindex();
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $response = $this->patch($bob, $token, '{"username": "carol"}');
+
+        // Then
+        static::assertSame(
+            [Response::HTTP_CONFLICT, 'conflict', 'bob'],
+            [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
+        );
+    }
+
+    /**
      * RFC 8265 §3.3.4
      */
     #[Test]
