@@ -8,18 +8,20 @@ use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use DateTimeImmutable;
+use Symfony\Component\Uid\Uuid;
 
 final readonly class UpstreamMembershipRemoved implements ConcernsAPersonInterface
 {
     public const string NAME = 'upstream_membership.removed';
 
     /**
-     * @param string $group    the name of the group, which names an organisational unit and not a person
+     * @param string $group    the name of the group when it happened, which names an organisational unit and not a person; a rename leaves the identifier
      * @param string $provider the upstream provider whose assertion no longer maps to the group, by the identifier the deployment declares it under
      */
     public function __construct(
         public Tenant $tenant,
         public Subject $person,
+        public Uuid $groupId,
         public string $group,
         public string $provider,
         public DateTimeImmutable $occurredAt,

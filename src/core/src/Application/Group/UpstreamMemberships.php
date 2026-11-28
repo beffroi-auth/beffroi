@@ -63,14 +63,17 @@ final readonly class UpstreamMemberships
             }
         }
 
+        $removed = [];
         foreach ($left as $membership) {
-            $this->memberships->remove($membership);
+            if ($this->memberships->remove($membership)) {
+                $removed[] = $membership;
+            }
         }
         foreach ($joined as $membership) {
             $this->memberships->save($membership);
         }
 
-        return new UpstreamMembershipChange(self::groupsOf($joined), self::groupsOf($left), $now);
+        return new UpstreamMembershipChange(self::groupsOf($joined), self::groupsOf($removed), $now);
     }
 
     /**

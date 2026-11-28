@@ -45,6 +45,7 @@ use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Port\AtomicWritesInterface;
 use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\LinkedIdentityRepositoryInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
@@ -54,11 +55,11 @@ use Beffroi\Core\Tests\Fixture\FixedClaims;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use Beffroi\Core\Tests\Fixture\WritesAsTheyCome;
-use function count;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Closure;
 use RuntimeException;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -684,9 +685,9 @@ final class JustInTimeProvisioningTest extends TestCase
                 $this->stored->save($membership);
             }
 
-            public function remove(GroupMembership $membership): void
+            public function remove(GroupMembership $membership): bool
             {
-                $this->stored->remove($membership);
+                return $this->stored->remove($membership);
             }
         };
         $provisioning = $this->provisioningDrawing(new SymfonyUuidGenerator(), memberships: $memberships);
@@ -723,8 +724,9 @@ final class JustInTimeProvisioningTest extends TestCase
                 throw new RuntimeException('The membership could not be written.');
             }
 
-            public function remove(GroupMembership $membership): void
+            public function remove(GroupMembership $membership): bool
             {
+                return false;
             }
         };
         $provisioning = $this->provisioningDrawing(new SymfonyUuidGenerator(), memberships: $memberships);
@@ -746,7 +748,7 @@ final class JustInTimeProvisioningTest extends TestCase
         }
 
         // Then
-        static::assertSame([], $this->events->of(PersonProvisioned::class));
+        static::assertSame([], $this->events->events);
     }
 
     /**
@@ -756,16 +758,18 @@ final class JustInTimeProvisioningTest extends TestCase
     public function aFirstSignInAnnouncesTheGroupsTheProviderGrants(): void
     {
         // Given
+        $members = $this->members();
         $context = Fixtures::context();
 
         // When
-        $alice = $this->signInAsserting($this->members(), ['staff'], context: $context);
+        $alice = $this->signInAsserting($members, ['staff'], context: $context);
 
         // Then
         $announced = $this->events->of(UpstreamMembershipGranted::class);
         static::assertCount(1, $announced);
         static::assertSame($this->tenant, $announced[0]->tenant);
         static::assertSame($alice->subject, $announced[0]->person);
+        static::assertSame($members->groupsOf(['staff'])[0]->id, $announced[0]->groupId);
         static::assertSame('Staff', $announced[0]->group);
         static::assertSame(self::PROVIDER, $announced[0]->provider);
         static::assertEquals($this->clock->now(), $announced[0]->occurredAt);
@@ -792,6 +796,7 @@ final class JustInTimeProvisioningTest extends TestCase
         static::assertCount(1, $announced);
         static::assertSame($this->tenant, $announced[0]->tenant);
         static::assertSame($alice->subject, $announced[0]->person);
+        static::assertSame($members->groupsOf(['staff'])[0]->id, $announced[0]->groupId);
         static::assertSame('Staff', $announced[0]->group);
         static::assertSame(self::PROVIDER, $announced[0]->provider);
         static::assertEquals($this->clock->now(), $announced[0]->occurredAt);
@@ -807,12 +812,13 @@ final class JustInTimeProvisioningTest extends TestCase
         // Given
         $members = $this->members();
         $this->signInAsserting($members, ['staff']);
+        $events = new RecordingEventDispatcher();
 
         // When
-        $this->signInAsserting($members, ['staff']);
+        $this->signInAsserting($members, ['staff'], $this->provisioningDrawing(new SymfonyUuidGenerator(), events: $events));
 
         // Then
-        static::assertSame([1, 0], [count($this->events->of(UpstreamMembershipGranted::class)), count($this->events->of(UpstreamMembershipRemoved::class))]);
+        static::assertSame([], $events->events);
     }
 
     /**
@@ -881,6 +887,41 @@ final class JustInTimeProvisioningTest extends TestCase
     {
         yield 'a group granted at the first sign-in' => [null, ['staff']];
         yield 'a group taken away at a later sign-in' => [['staff'], []];
+    }
+
+    /**
+     * beffroi/saml S-56
+     *
+     * @param list<string>|null $before
+     * @param list<string>      $asserted
+     */
+    #[Test]
+    #[DataProvider('provideSignInsThatChangeAMembership')]
+    public function aSignInWhoseUnitIsTakenBackAnnouncesNoMembership(?array $before, array $asserted): void
+    {
+        // Given
+        $members = $this->members();
+        if ($before !== null) {
+            $this->signInAsserting($members, $before);
+        }
+        $writes = new class implements AtomicWritesInterface {
+            public function atomically(Closure $writes): mixed
+            {
+                $writes();
+
+                throw new RuntimeException('The unit could not be committed.');
+            }
+        };
+        $events = new RecordingEventDispatcher();
+
+        // When
+        try {
+            $this->signInAsserting($members, $asserted, $this->provisioningDrawing(new SymfonyUuidGenerator(), events: $events, writes: $writes));
+        } catch (RuntimeException) {
+        }
+
+        // Then
+        static::assertSame([], [...$events->of(UpstreamMembershipGranted::class), ...$events->of(UpstreamMembershipRemoved::class)]);
     }
 
     /**
@@ -1021,8 +1062,9 @@ final class JustInTimeProvisioningTest extends TestCase
                 throw MembershipAlreadyHeldException::writtenMeanwhile(new RuntimeException('The unique constraint refused the row.'));
             }
 
-            public function remove(GroupMembership $membership): void
+            public function remove(GroupMembership $membership): bool
             {
+                return false;
             }
         };
         $provisioning = $this->provisioningDrawing(new SymfonyUuidGenerator(), memberships: $memberships);
@@ -1043,7 +1085,10 @@ final class JustInTimeProvisioningTest extends TestCase
             static::fail('The sign-in was not refused.');
         } catch (UpstreamProvisioningRefusedException $refusal) {
             // Then
-            static::assertSame([UpstreamProvisioningRefusalReason::MembershipWrittenMeanwhile, null], [$refusal->reason, $refusal->getPrevious()]);
+            static::assertSame(
+                [UpstreamProvisioningRefusalReason::MembershipWrittenMeanwhile, null, []],
+                [$refusal->reason, $refusal->getPrevious(), $this->events->of(UpstreamMembershipGranted::class)],
+            );
         }
     }
 
@@ -1062,6 +1107,7 @@ final class JustInTimeProvisioningTest extends TestCase
         ?GroupMembershipRepositoryInterface $memberships = null,
         ?UserRepositoryInterface $users = null,
         ?EventDispatcherInterface $events = null,
+        ?AtomicWritesInterface $writes = null,
     ): JustInTimeProvisioning {
         return new JustInTimeProvisioning(
             $identities ?? $this->identities,
@@ -1070,7 +1116,7 @@ final class JustInTimeProvisioningTest extends TestCase
             $this->linker,
             $events ?? $this->events,
             $this->clock,
-            $this->writes,
+            $writes ?? $this->writes,
             $uuids,
             new UpstreamMemberships($this->memberships, $memberships ?? $this->memberships, new SymfonyUuidGenerator(), $this->clock),
         );

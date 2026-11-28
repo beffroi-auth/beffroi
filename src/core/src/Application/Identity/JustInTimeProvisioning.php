@@ -223,10 +223,14 @@ final readonly class JustInTimeProvisioning
             return;
         }
         foreach ($change->removed as $group) {
-            $this->events->dispatch(new UpstreamMembershipRemoved($user->tenant, $user->subject, $group->name, $provider->name, $change->replacedAt, $context));
+            $this->events->dispatch(
+                new UpstreamMembershipRemoved($user->tenant, $user->subject, $group->id, $group->name, $provider->name, $change->replacedAt, $context),
+            );
         }
         foreach ($change->granted as $group) {
-            $this->events->dispatch(new UpstreamMembershipGranted($user->tenant, $user->subject, $group->name, $provider->name, $change->replacedAt, $context));
+            $this->events->dispatch(
+                new UpstreamMembershipGranted($user->tenant, $user->subject, $group->id, $group->name, $provider->name, $change->replacedAt, $context),
+            );
         }
     }
 

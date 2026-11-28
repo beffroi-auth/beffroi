@@ -1455,11 +1455,11 @@
       </trans-unit>
       <trans-unit id="act.upstream_membership.granted" resname="act.upstream_membership.granted">
         <source>act.upstream_membership.granted</source>
-        <target>Προσθήκη σε ομάδα μέσω του οργανισμού σας</target>
+        <target>Προσθήκη σε ομάδα κατά τη σύνδεση μέσω του οργανισμού σας</target>
       </trans-unit>
       <trans-unit id="act.upstream_membership.removed" resname="act.upstream_membership.removed">
         <source>act.upstream_membership.removed</source>
-        <target>Αφαίρεση από ομάδα μέσω του οργανισμού σας</target>
+        <target>Αφαίρεση από ομάδα κατά τη σύνδεση μέσω του οργανισμού σας</target>
       </trans-unit>
       <trans-unit id="act.consent.granted" resname="act.consent.granted">
         <source>act.consent.granted</source>

@@ -14,6 +14,7 @@ use Beffroi\Core\Domain\Group\GroupSource;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -94,6 +95,38 @@ final class UpstreamMembershipsTest extends TestCase
 
         // Then
         static::assertSame([[], [$this->sales]], [$change->granted, $change->removed]);
+    }
+
+    #[Test]
+    public function aMembershipAnotherWriteTookAwayFirstIsNotSaidTakenAway(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['admins-guid', 'sales-guid'], $this->mapping);
+        $removedMeanwhile = new readonly class($this->memberships) implements GroupMembershipRepositoryInterface {
+            public function __construct(
+                private GroupMembershipRepositoryInterface $stored,
+            ) {
+            }
+
+            public function save(GroupMembership $membership): void
+            {
+                $this->stored->save($membership);
+            }
+
+            public function remove(GroupMembership $membership): bool
+            {
+                $this->stored->remove($membership);
+
+                return false;
+            }
+        };
+        $upstream = new UpstreamMemberships($this->memberships, $removedMeanwhile, new SymfonyUuidGenerator(), $this->clock);
+
+        // When
+        $change = $upstream->replace($this->user, ['admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([], $change->removed);
     }
 
     #[Test]

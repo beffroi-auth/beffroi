@@ -1455,11 +1455,11 @@
       </trans-unit>
       <trans-unit id="act.upstream_membership.granted" resname="act.upstream_membership.granted">
         <source>act.upstream_membership.granted</source>
-        <target>Über Ihre Organisation zu einer Gruppe hinzugefügt</target>
+        <target>Bei einer Anmeldung über Ihre Organisation zu einer Gruppe hinzugefügt</target>
       </trans-unit>
       <trans-unit id="act.upstream_membership.removed" resname="act.upstream_membership.removed">
         <source>act.upstream_membership.removed</source>
-        <target>Über Ihre Organisation aus einer Gruppe entfernt</target>
+        <target>Bei einer Anmeldung über Ihre Organisation aus einer Gruppe entfernt</target>
       </trans-unit>
       <trans-unit id="act.consent.granted" resname="act.consent.granted">
         <source>act.consent.granted</source>

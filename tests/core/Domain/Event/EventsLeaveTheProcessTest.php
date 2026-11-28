@@ -144,6 +144,7 @@ final class EventsLeaveTheProcessTest extends TestCase
         yield 'a member an upstream provider added to a group' => [new UpstreamMembershipGranted(
             $tenant,
             $user->subject,
+            Uuid::v7(),
             'auditors',
             'https://idp.acme.example/saml',
             $now,
@@ -152,6 +153,7 @@ final class EventsLeaveTheProcessTest extends TestCase
         yield 'a member an upstream provider took out of a group' => [new UpstreamMembershipRemoved(
             $tenant,
             $user->subject,
+            Uuid::v7(),
             'auditors',
             'https://idp.acme.example/saml',
             $now,

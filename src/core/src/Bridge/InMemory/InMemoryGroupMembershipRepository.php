@@ -29,9 +29,12 @@ final class InMemoryGroupMembershipRepository implements GroupMembershipReposito
         $this->memberships[$membership->id->toRfc4122()] = $membership;
     }
 
-    public function remove(GroupMembership $membership): void
+    public function remove(GroupMembership $membership): bool
     {
+        $held = isset($this->memberships[$membership->id->toRfc4122()]);
         unset($this->memberships[$membership->id->toRfc4122()]);
+
+        return $held;
     }
 
     public function membersOf(Group $group, Pagination $pagination): Listing

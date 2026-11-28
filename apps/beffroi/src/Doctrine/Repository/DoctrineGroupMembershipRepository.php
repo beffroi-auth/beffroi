@@ -17,6 +17,7 @@ use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\GroupsOfAPersonInterface;
 use Beffroi\Core\Port\MembersOfAGroupInterface;
 use SortDirection;
+use function sprintf;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 
 /**
@@ -79,8 +80,23 @@ final readonly class DoctrineGroupMembershipRepository extends DoctrineRepositor
         }
     }
 
-    public function remove(GroupMembership $membership): void
+    /**
+     * Through the connection, not the unit of work, which deletes a row already gone without a word: of two
+     * concurrent removals of one membership, one only deletes it. The membership leaves the unit of work whatever the
+     * count, so that no later flush of the request writes it again.
+     */
+    public function remove(GroupMembership $membership): bool
     {
-        $this->discard($membership);
+        $manager = $this->manager();
+        $metadata = $manager->getClassMetadata(GroupMembership::class);
+        $removed =
+            $manager->getConnection()->executeStatement(
+                sprintf('DELETE FROM %s WHERE %s = :id', $metadata->getTableName(), $metadata->getColumnName('id')),
+                ['id' => $membership->id],
+                ['id' => UuidType::NAME],
+            ) === 1;
+        $manager->detach($membership);
+
+        return $removed;
     }
 }
