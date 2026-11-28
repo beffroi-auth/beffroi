@@ -6,6 +6,7 @@ namespace Beffroi\Core\Domain\Credential;
 
 use Beffroi\Core\Domain\Precis\OpaqueString;
 use Beffroi\Core\Exception\PasswordRefusedException;
+use function hash_equals;
 use SensitiveParameter;
 use function sprintf;
 
@@ -47,5 +48,15 @@ final readonly class PlainPassword
             );
         }
         $this->value = $enforced;
+    }
+
+    /**
+     * RFC 8265 §4.2.3: the password typed again is this one when its enforced form is identical octet for octet.
+     */
+    public function confirmedBy(#[SensitiveParameter] string $again): bool
+    {
+        $typed = TypedPassword::of($again);
+
+        return $typed !== null && hash_equals($this->value, $typed->enforced);
     }
 }

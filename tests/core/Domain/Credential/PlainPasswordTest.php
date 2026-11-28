@@ -210,6 +210,43 @@ final class PlainPasswordTest extends TestCase
     }
 
     /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aPasswordTypedAgainInAnotherFormIsConfirmed(): void
+    {
+        // Given
+        $password = new PlainPassword("correct\u{00A0}horse battery staple", self::alone());
+
+        // When / Then
+        static::assertTrue($password->confirmedBy("correct horse battery\u{3000}staple"));
+    }
+
+    /**
+     * RFC 8265 §4.2.3, §4.1
+     */
+    #[Test]
+    #[DataProvider('provideConfirmationsOfAnotherPassword')]
+    public function aPasswordTypedAgainAsAnotherOneIsNotConfirmed(string $again): void
+    {
+        // Given
+        $password = new PlainPassword(self::A_PASSWORD, self::alone());
+
+        // When / Then
+        static::assertFalse($password->confirmedBy($again));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideConfirmationsOfAnotherPassword(): iterable
+    {
+        yield 'another password' => ['correct horse battery stable'];
+        yield 'the same letters in capitals, rule 3 of RFC 8265 §4.2.2' => ['Correct Horse Battery Staple'];
+        yield 'what the profile refuses' => ["correct horse battery staple\u{0009}"];
+    }
+
+    /**
      * Decision 0025
      */
     private static function alone(): PasswordLength

@@ -66,6 +66,22 @@ final class ANewPasswordFromATicketTest extends BrowserTestCase
         static::assertTrue(self::service('test.beffroi.password_hasher', PasswordHasherInterface::class)->verify($this->passwordOfAlice()->hash, self::POSED));
     }
 
+    /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aPasswordTypedAgainInAnotherFormConfirmsIt(): void
+    {
+        // Given
+        $issued = $this->issue();
+
+        // When
+        $this->pose($issued, "seven brass owls\u{00A0}guard the winter orchard", self::POSED);
+
+        // Then
+        static::assertTrue(self::service('test.beffroi.password_hasher', PasswordHasherInterface::class)->verify($this->passwordOfAlice()->hash, self::POSED));
+    }
+
     #[Test]
     public function theBrowserGoesOnToTheAccountWhereItSignsIn(): void
     {
