@@ -1387,7 +1387,7 @@
       </trans-unit>
       <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
         <source>act.session_tokens.revoked</source>
-        <target>Zugriff einer Anwendung mit der Sitzung widerrufen</target>
+        <target>Anwendung mit der Sitzung abgemeldet</target>
       </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>

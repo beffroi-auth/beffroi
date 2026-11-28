@@ -1387,7 +1387,7 @@
       </trans-unit>
       <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
         <source>act.session_tokens.revoked</source>
-        <target>Uygulamanın erişimi oturumla birlikte iptal edildi</target>
+        <target>Uygulamadan oturumla birlikte çıkış yapıldı</target>
       </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>

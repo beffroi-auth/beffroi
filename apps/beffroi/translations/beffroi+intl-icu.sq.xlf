@@ -1387,7 +1387,7 @@
       </trans-unit>
       <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
         <source>act.session_tokens.revoked</source>
-        <target>Qasje e aplikacionit e revokuar me mbylljen e sesionit</target>
+        <target>Aplikacioni u shkëput bashkë me sesionin</target>
       </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>
