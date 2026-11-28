@@ -121,7 +121,7 @@ What says where a provenance came from (`../docs/11-architecture/coeur.md` §3.5
 **Quality.**
 
 ```bash
-castor phpunit            # tests with coverage, which pcov produces (.ci-tools/php/coverage/pcov.ini, read only by this task)
+castor phpunit [--no-coverage]  # tests with coverage, which pcov produces (.ci-tools/php/coverage/pcov.ini, read only by this task); --no-coverage measures nothing, as the CI does on every version of PHP but the one the mutation job reads
 castor app-phpunit        # the suite of the application, which the three suites of the task above do not cover: the kernel of apps/beffroi, on the PostgreSQL the stack publishes on the loopback address and the KMS of apps/beffroi/.env.test, the migrations played before the first test and the rows emptied before each one; the Application workflow runs the same task with a database service beside it
 castor phpstan            # level max: the identity provider's packages under the baseline, then each SAML package under its own configuration, no baseline and the bans of its section 8, then castor phpstan-saml-rules
 castor phpstan-saml-rules # the proof of those bans: PHPStan with the rules of beffroi/saml (.ci-tools/phpstan-saml-rules.neon) on tests/saml/PhpStan/Fixture, one line per banned form carrying its "// error: <message>" and the lines that must pass, the report compared to the markers; red on a refusal missing and on one nobody expected, so a new form of a ban is a new line there

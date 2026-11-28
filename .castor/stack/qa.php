@@ -187,6 +187,10 @@ function phpunit(
         description: 'Run the test files in parallel processes, through paratest, which merges the coverage of its workers itself; "auto" is what it makes of the cores it finds. One process is PHPUnit itself, which is what debugging a single test wants',
     )]
     string $processes = '1',
+    #[AsOption(
+        description: 'Measure nothing, pcov left off and no report written: what a run nobody reads the coverage of wants, and what an image without pcov needs, paratest choosing a driver as soon as a report is asked of it',
+    )]
+    bool $noCoverage = false,
     #[AsRawTokens]
     array $args = [],
 ): void {
@@ -200,9 +204,7 @@ function phpunit(
             '--',
             $parallel ? 'paratest' : 'phpunit',
             ...($parallel ? ['--processes=' . $processes] : []),
-            '--coverage-xml',
-            '.ci-tools/coverage',
-            '--log-junit=.ci-tools/coverage/junit.xml',
+            ...($noCoverage ? [] : ['--coverage-xml', '.ci-tools/coverage', '--log-junit=.ci-tools/coverage/junit.xml']),
             '--configuration',
             '.ci-tools/phpunit.xml.dist',
             '--display-warnings',
@@ -211,7 +213,7 @@ function phpunit(
         ],
         // XDEBUG_MODE stays "off": php-code-coverage measures with pcov whenever it is enabled.
         [],
-        '.ci-tools/php/coverage',
+        $noCoverage ? null : '.ci-tools/php/coverage',
     );
 }
 

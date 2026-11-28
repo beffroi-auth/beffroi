@@ -175,7 +175,7 @@ jobs:
       # itself, and each of them gets a compiled container, a database and a key storage of its own from the
       # TEST_TOKEN the kernel reads (issue #529). Measured on sixteen cores, 47 s against 239 s. Without
       # coverage on the versions nothing reads it of, some of whose images carry no pcov.
-      - run: castor phpunit --processes=auto ${{ !matrix.coverage && '-- --no-coverage' || '' }}
+      - run: castor phpunit --processes=auto ${{ !matrix.coverage && '--no-coverage' || '' }}
       # The XML coverage and the JUnit report feed the mutation testing job, which does not run the tests again.
       # They go through the cache of Actions, keyed by the run, and not as an artifact: artifacts count against
       # the storage of the account (500 MB on the Free plan, about 65 MB per run), the cache is an allowance of
