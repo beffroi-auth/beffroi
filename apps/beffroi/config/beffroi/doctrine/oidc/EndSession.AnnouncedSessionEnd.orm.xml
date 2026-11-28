@@ -11,7 +11,7 @@
     <entity name="Beffroi\Oidc\Domain\EndSession\AnnouncedSessionEnd" table="beffroi_announced_session_end">
         <id name="session" association-key="true"/>
         <one-to-one field="session" target-entity="Beffroi\Core\Domain\Session\AuthenticationSession">
-            <join-column name="session_id" referenced-column-name="id" nullable="false" on-delete="CASCADE"/>
+            <join-column name="session_id" referenced-column-name="id" on-delete="CASCADE"/>
         </one-to-one>
         <many-to-one field="tenant" target-entity="Beffroi\Core\Domain\Tenant\Tenant">
             <join-column name="tenant_id" referenced-column-name="id" nullable="false"/>
