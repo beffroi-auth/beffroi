@@ -6,7 +6,7 @@ All notable changes to this project are documented in this file, in reverse chro
 
 ### Added
 
-- Nothing.
+- `beffroi/core`: `SealedMessageBody::tenantOf()` reads the tenant a sealed message names, without opening it.
 
 ### Changed
 
@@ -51,7 +51,14 @@ All notable changes to this project are documented in this file, in reverse chro
 
 ### Fixed
 
-- Nothing.
+- `beffroi/beffroi`: the stamps of a queued message that are not routing are sealed with it, to the message key of its
+  tenant, instead of travelling in clear beside the sealed body. The error details Messenger adds when a handler fails,
+  whose message can name a person, no longer reach a lane or the failure transport in clear. Five stamps stay in clear,
+  each read before a body opens or when it never does: the tenant, the count of retries, the bus, the transport a
+  failure came from, and the sealed stamps themselves. A stamp no rule names, of Messenger or of the provider, is
+  sealed. A stamp a message written before this version carries in clear still reads back, and is sealed the next time
+  the message is written. The message key the sealed stamps of a failed message are sealed to is kept from retirement
+  as the key of its body is.
 
 ## 0.1.1 - TBD
 

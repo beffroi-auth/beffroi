@@ -13,13 +13,16 @@ use Symfony\Component\Messenger\Transport\Serialization\SerializerInterface;
 use Symfony\Component\Messenger\Transport\SetupableTransportInterface;
 
 /**
- * A sealed body written to a Doctrine transport of a database a test holds, as Messenger writes it.
+ * A sealed body and its headers written to a Doctrine transport of a database a test holds, as Messenger writes them.
  */
 final readonly class QueuedBodies
 {
-    public static function send(Connection $connection, string $dsn, string $sealedBody): void
+    /**
+     * @param array<string, string> $headers
+     */
+    public static function send(Connection $connection, string $dsn, string $sealedBody, array $headers = []): void
     {
-        $transport = new DoctrineTransportFactory(self::registryOf($connection))->createTransport($dsn, [], self::serializerOf($sealedBody));
+        $transport = new DoctrineTransportFactory(self::registryOf($connection))->createTransport($dsn, [], self::serializerOf($sealedBody, $headers));
         if ($transport instanceof SetupableTransportInterface) {
             $transport->setup();
         }
@@ -56,11 +59,18 @@ final readonly class QueuedBodies
         };
     }
 
-    private static function serializerOf(string $sealedBody): SerializerInterface
+    /**
+     * @param array<string, string> $headers
+     */
+    private static function serializerOf(string $sealedBody, array $headers): SerializerInterface
     {
-        return new readonly class($sealedBody) implements SerializerInterface {
+        return new readonly class($sealedBody, $headers) implements SerializerInterface {
+            /**
+             * @param array<string, string> $headers
+             */
             public function __construct(
                 private string $sealedBody,
+                private array $headers,
             ) {
             }
 
@@ -73,7 +83,7 @@ final readonly class QueuedBodies
             {
                 return [
                     'body' => $this->sealedBody,
-                    'headers' => [],
+                    'headers' => $this->headers,
                 ];
             }
         };
