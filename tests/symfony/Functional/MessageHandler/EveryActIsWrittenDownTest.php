@@ -17,6 +17,8 @@ use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Oidc\Domain\Claims\ClaimNames;
 use Beffroi\Oidc\Domain\Event\ConsentGranted;
 use Beffroi\Oidc\Domain\Event\PersonReadByAnAdministrator;
+use Beffroi\Oidc\Domain\Event\PushedRequestRefusalReason;
+use Beffroi\Oidc\Domain\Event\PushedRequestRefused;
 use Beffroi\Oidc\Domain\Event\ClientAuthenticationFailed;
 use Beffroi\Oidc\Domain\Event\ClientAuthenticationFailureReason;
 use Beffroi\Oidc\Domain\Scope\Scope;
@@ -187,6 +189,33 @@ final class EveryActIsWrittenDownTest extends DatabaseTestCase
         // Then
         $act = self::onlyAct();
         static::assertSame([null, 'unknown_client', 'client_secret_post'], [$act->client, $act->reason, $act->method]);
+    }
+
+    /**
+     * Decision 0062, RFC 9126 §4
+     */
+    #[Test]
+    public function aRefusedPushedRequestSaysWhyItWasRefused(): void
+    {
+        // When
+        self::announce(new PushedRequestRefused(self::now(), self::tenant(), PushedRequestRefusalReason::Expired, 'oidc-demo', 'oidc-demo', self::context()));
+
+        // Then
+        $act = self::onlyAct();
+        static::assertSame([PushedRequestRefused::NAME, 'expired_request_uri', null], [$act->act, $act->reason, $act->method]);
+    }
+
+    /**
+     * Decision 0062
+     */
+    #[Test]
+    public function aRefusedPushedRequestNamesTheClientThatPresentedIt(): void
+    {
+        // When
+        self::announce(new PushedRequestRefused(self::now(), self::tenant(), PushedRequestRefusalReason::OtherClient, 'spa', 'oidc-demo', self::context()));
+
+        // Then
+        static::assertSame('spa', self::onlyAct()->client);
     }
 
     #[Test]

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Controller;
 
 use function base64_encode;
+use Beffroi\Oidc\Domain\Event\PushedRequestRefused;
 use Beffroi\Oidc\Domain\PushedAuthorization\RequestUri;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -151,6 +153,35 @@ final class PushedAuthorizationTest extends BrowserTestCase
 
         // Then
         static::assertSame(Response::HTTP_BAD_REQUEST, $this->browser->getResponse()->getStatusCode());
+    }
+
+    /**
+     * RFC 9126 §2.2, decision 0062
+     */
+    #[Test]
+    public function aReferencePresentedUnderAnIdentifierNobodyRegisteredIsWrittenWithItsReasonAndNoClient(): void
+    {
+        // Given
+        $requestUri = $this->pushedRequestUri();
+
+        // When
+        $this->browser->request('GET', '/authorize', [
+            'client_id' => 'a-client-nobody-registered',
+            'request_uri' => $requestUri,
+        ]);
+
+        // Then
+        static::assertSame(
+            [[
+                'reason' => 'other_client',
+                'client' => null,
+            ]],
+            self::service('doctrine.dbal.default_connection', Connection::class)
+                ->fetchAllAssociative(
+                    'SELECT reason, client FROM beffroi_journal WHERE act = ?',
+                    [PushedRequestRefused::NAME],
+                ),
+        );
     }
 
     /**

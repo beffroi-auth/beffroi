@@ -12,6 +12,7 @@ use Beffroi\Core\Tests\Fixture\FakePasswordHasher;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use Beffroi\Oidc\Application\PushedAuthorization\PushedAuthorizationRequestResolver;
+use Beffroi\Oidc\Bridge\InMemory\InMemoryClientRepository;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryPushedAuthorizationRecordRepository;
 use Beffroi\Oidc\Domain\Client\Client;
 use Beffroi\Oidc\Domain\Event\PushedRequestRefusalReason;
@@ -48,10 +49,13 @@ final class PushedAuthorizationRequestResolverTest extends TestCase
         $this->tenant = Fixtures::tenant();
         $this->context = Fixtures::context();
         $this->client = Clients::confidential($this->tenant, new FakePasswordHasher()->hash(Clients::SECRET));
+        $clients = new InMemoryClientRepository();
+        $clients->save($this->client);
+        $clients->save(Clients::public($this->tenant));
         $this->requests = new InMemoryPushedAuthorizationRecordRepository();
         $this->events = new RecordingEventDispatcher();
         $this->clock = new MockClock('2026-09-22T12:00:00+00:00');
-        $this->resolver = new PushedAuthorizationRequestResolver($this->requests, $this->clock, $this->events);
+        $this->resolver = new PushedAuthorizationRequestResolver($this->requests, $clients, $this->clock, $this->events);
     }
 
     #[Test]
@@ -235,6 +239,52 @@ final class PushedAuthorizationRequestResolverTest extends TestCase
         static::assertSame('spa', $event->presentedBy);
         static::assertSame('oidc-demo', $event->pushedBy);
         static::assertSame($this->tenant, $event->tenant);
+    }
+
+    /**
+     * Decision 0062
+     */
+    #[Test]
+    public function aRefusalNamesNoClientTheTenantDoesNotHold(): void
+    {
+        // Given
+        $requestUri = $this->push();
+
+        // When
+        try {
+            $this->resolver->resolve(
+                $this->tenant,
+                [
+                    'client_id' => 'a-client-nobody-registered',
+                    'request_uri' => $requestUri->value,
+                ],
+                $this->context,
+            );
+        } catch (InvalidRequestUriException) {
+        }
+
+        // Then
+        static::assertNull(($this->events->of(PushedRequestRefused::class)[0] ?? static::fail('Nothing was refused.'))->presentedBy);
+    }
+
+    /**
+     * Decision 0062
+     */
+    #[Test]
+    public function aReferenceOfAnotherTenantNamesNoneOfItsClients(): void
+    {
+        // Given
+        $requestUri = $this->push();
+
+        // When
+        try {
+            $this->resolver->resolve(Fixtures::tenant('other', 'https://id.other.example'), self::query($requestUri), $this->context);
+        } catch (InvalidRequestUriException) {
+        }
+
+        // Then
+        $event = $this->events->of(PushedRequestRefused::class)[0] ?? static::fail('Nothing was refused.');
+        static::assertSame([null, null], [$event->presentedBy, $event->pushedBy]);
     }
 
     #[Test]

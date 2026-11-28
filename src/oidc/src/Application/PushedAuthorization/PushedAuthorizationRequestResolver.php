@@ -13,6 +13,7 @@ use Beffroi\Oidc\Domain\PushedAuthorization\PushedAuthorizationRecord;
 use Beffroi\Oidc\Domain\PushedAuthorization\RequestUri;
 use Beffroi\Oidc\Exception\InvalidRequestUriException;
 use Beffroi\Oidc\Exception\OAuth2Exception;
+use Beffroi\Oidc\Port\ClientRepositoryInterface;
 use Beffroi\Oidc\Port\PushedAuthorizationRecordRepositoryInterface;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -28,6 +29,7 @@ final readonly class PushedAuthorizationRequestResolver
 
     public function __construct(
         private PushedAuthorizationRecordRepositoryInterface $records,
+        private ClientRepositoryInterface $clients,
         private ClockInterface $clock,
         private EventDispatcherInterface $events,
     ) {
@@ -51,13 +53,13 @@ final readonly class PushedAuthorizationRequestResolver
             throw $this->refuse($tenant, $context, PushedRequestRefusalReason::Unknown, $clientId, null);
         }
         if (! $record->tenant->equals($tenant) || $record->clientId !== $clientId) {
-            throw $this->refuse($tenant, $context, PushedRequestRefusalReason::OtherClient, $clientId, $record->clientId);
+            throw $this->refuse($tenant, $context, PushedRequestRefusalReason::OtherClient, $clientId, $record);
         }
         if ($record->isExpired($this->clock->now())) {
-            throw $this->refuse($tenant, $context, PushedRequestRefusalReason::Expired, $clientId, $record->clientId);
+            throw $this->refuse($tenant, $context, PushedRequestRefusalReason::Expired, $clientId, $record);
         }
         if ($record->isUsed()) {
-            throw $this->refuse($tenant, $context, PushedRequestRefusalReason::AlreadyUsed, $clientId, $record->clientId);
+            throw $this->refuse($tenant, $context, PushedRequestRefusalReason::AlreadyUsed, $clientId, $record);
         }
 
         return $record;
@@ -75,15 +77,18 @@ final readonly class PushedAuthorizationRequestResolver
     }
 
     /**
-     * The audit trail gets the reason; the client reads one error whatever it ran into.
+     * The audit trail gets the reason and the clients the tenant holds (decision 0062); the client reads one error
+     * whatever it ran into.
      */
     private function refuse(
         Tenant $tenant,
         RequestContext $context,
         PushedRequestRefusalReason $reason,
-        ?string $presentedBy,
-        ?string $pushedBy,
+        ?string $named,
+        ?PushedAuthorizationRecord $record,
     ): OAuth2Exception {
+        $presentedBy = $named === null ? null : $this->clients->findByClientId($tenant, $named)?->registration->clientId;
+        $pushedBy = $record !== null && $record->tenant->equals($tenant) ? $record->clientId : null;
         $this->events->dispatch(new PushedRequestRefused($this->clock->now(), $tenant, $reason, $presentedBy, $pushedBy, $context));
 
         return new InvalidRequestUriException(self::REFUSED);
