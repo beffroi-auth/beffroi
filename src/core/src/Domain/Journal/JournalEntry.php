@@ -33,7 +33,7 @@ final class JournalEntry implements ClassifiedFieldsInterface
 
     public function __construct(
         public private(set) Uuid $id,
-        public readonly Tenant $tenant,
+        public private(set) Tenant $tenant,
         public readonly string $act,
         public readonly DateTimeImmutable $occurredAt,
         public readonly RequestContext $context,
@@ -57,6 +57,22 @@ final class JournalEntry implements ClassifiedFieldsInterface
                 ));
             }
         }
+    }
+
+    /**
+     * The same act, its tenant as another object holds it: an act never moves to another tenant.
+     *
+     * @throws InvalidArgumentException when the tenant is another one
+     */
+    public function withTenant(Tenant $tenant): self
+    {
+        if (! $tenant->id->equals($this->tenant->id)) {
+            throw new InvalidArgumentException('An act of the journal stays in the tenant it was written for.');
+        }
+        $entry = clone $this;
+        $entry->tenant = $tenant;
+
+        return $entry;
     }
 
     /**
