@@ -196,6 +196,8 @@ function phpunit(
 ): void {
     // Paratest and not shards: PHPUnit refuses to merge the XML coverage reports the mutation job reads.
     $parallel = $processes !== '1';
+    // The raw tokens carry the options of this task as well, and paratest knows no --no-coverage.
+    $args = array_values(array_filter($args, static fn (string $token): bool => $token !== '--no-coverage'));
 
     phpqa(
         [
