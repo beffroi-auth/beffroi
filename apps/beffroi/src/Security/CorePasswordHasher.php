@@ -53,7 +53,7 @@ final readonly class CorePasswordHasher implements PasswordHasherInterface
         try {
             return (
                 TypedPassword::orAsTyped($plainPassword)?->verifiedBy(fn (#[SensitiveParameter] string $form): bool => $this->hasher->verify($hash, $form))
-                === true
+                !== null
             );
         } catch (ExceptionInterface) {
             return false;

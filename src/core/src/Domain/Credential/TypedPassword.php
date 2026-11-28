@@ -65,10 +65,19 @@ final readonly class TypedPassword
      * form, and a refusal then costs as many verifications whichever form a hash was computed over.
      *
      * @param Closure(string): bool $verifies
+     *
+     * @return string|null the form that verified, null when none did
      */
-    public function verifiedBy(Closure $verifies): bool
+    public function verifiedBy(Closure $verifies): ?string
     {
-        return array_any($this->forms, fn ($form) => $verifies($form));
+        // A loop and not array_find(): the frames of that function and of its callback would hold the forms.
+        foreach ($this->forms as $form) {
+            if ($verifies($form)) {
+                return $form;
+            }
+        }
+
+        return null;
     }
 
     private static function enforced(#[SensitiveParameter] string $typed): ?string

@@ -8,7 +8,11 @@ use Beffroi\Core\Domain\Credential\TypedPassword;
 use Beffroi\Core\Domain\Precis\OpaqueString;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use LogicException;
 use PHPUnit\Framework\TestCase;
+use function json_encode;
+use const JSON_PARTIAL_OUTPUT_ON_ERROR;
+use SensitiveParameter;
 use function str_repeat;
 
 final class TypedPasswordTest extends TestCase
@@ -116,12 +120,33 @@ final class TypedPasswordTest extends TestCase
     }
 
     /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aVerificationThatFailsLeavesNoFormInTheArgumentsOfItsTrace(): void
+    {
+        // When
+        try {
+            TypedPassword::orAsTyped("secret\u{00A0}horse")?->verifiedBy(
+                static fn (#[SensitiveParameter] string $form): bool => throw new LogicException('No hasher handles the algorithm.'),
+            );
+            static::fail('The verification did not fail.');
+        } catch (LogicException $exception) {
+            // Then
+            static::assertStringNotContainsString('secret', (string) json_encode($exception->getTrace(), JSON_PARTIAL_OUTPUT_ON_ERROR));
+        }
+    }
+
+    /**
      * RFC 8265 §6.2
      */
     #[Test]
-    public function theBytesAsTypedVerifyWhereTheEnforcedFormDoesNot(): void
+    public function theFormThatVerifiedIsNamed(): void
     {
         // When / Then
-        static::assertTrue(TypedPassword::orAsTyped("foo\u{1680}bar")?->verifiedBy(static fn (string $form): bool => $form === "foo\u{1680}bar"));
+        static::assertSame(
+            "foo\u{1680}bar",
+            TypedPassword::orAsTyped("foo\u{1680}bar")?->verifiedBy(static fn (string $form): bool => $form === "foo\u{1680}bar"),
+        );
     }
 }

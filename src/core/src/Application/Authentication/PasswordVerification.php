@@ -95,7 +95,7 @@ final readonly class PasswordVerification
         $verified = $typed->verifiedBy(fn (#[SensitiveParameter] string $form): bool => $replaced
             ? $this->decoy->verifyNoFaster($hash, $form)
             : $this->hasher->verify($hash, $form));
-        if (! $verified) {
+        if ($verified === null) {
             throw $this->refusals->refuse(
                 $tenant,
                 $context,
@@ -126,8 +126,9 @@ final readonly class PasswordVerification
         $this->attempts->reset($user);
         $now = $this->clock->now();
         $credential->recordUse($now);
-        // A hash computed before the profile is replaced whatever form verified it, so that none is left in the tenant.
-        if ($replaced || $credential->hashedAsTyped) {
+        // A hash of before is replaced whatever form verified it, so that none is left in the tenant; and so is a hash
+        // the bytes as typed verified, which a process of the version before can write over a row that says otherwise.
+        if ($replaced || $credential->hashedAsTyped || $verified !== $typed->enforced) {
             $credential->rehash($this->hasher->hash($typed->enforced), $now);
             $this->credentials->save($credential);
             $this->events->dispatch(new PasswordRehashed($credential, $now, $context));

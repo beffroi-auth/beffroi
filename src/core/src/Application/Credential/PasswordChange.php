@@ -117,6 +117,6 @@ final readonly class PasswordChange
     {
         $password = $credential->hashedAsTyped ? TypedPassword::orAsTyped($typed) : TypedPassword::of($typed);
 
-        return $password?->verifiedBy(fn (#[SensitiveParameter] string $form): bool => $this->hasher->verify($credential->hash, $form)) === true;
+        return $password?->verifiedBy(fn (#[SensitiveParameter] string $form): bool => $this->hasher->verify($credential->hash, $form)) !== null;
     }
 }

@@ -915,6 +915,24 @@ final class PasswordAuthenticatorTest extends TestCase
     }
 
     /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aHashOfTheBytesAsTypedOnARowThatSaysOtherwiseIsReplacedOnceThoseBytesVerifyIt(): void
+    {
+        // Given
+        $hasher = new FakePasswordHasher();
+        $this->carolHeldBefore($hasher->hash('carol pass'));
+        $david = $this->davidHolds($hasher->hash("david\u{00A0}pass"));
+
+        // When
+        $this->authenticator->authenticate($this->tenant, 'david', "david\u{00A0}pass", Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertSame($hasher->hash('david pass')->encoded, $this->credentials->findByUser($david, PasswordCredential::class)[0]?->hash->encoded);
+    }
+
+    /**
      * RFC 8265 §4.2.3
      */
     #[Test]

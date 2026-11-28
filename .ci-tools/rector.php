@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Rector\Config\RectorConfig;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 use Rector\Php71\Rector\FuncCall\RemoveExtraParametersRector;
+use Rector\Php84\Rector\Foreach_\ForeachToArrayAnyRector;
+use Rector\Php84\Rector\Foreach_\ForeachToArrayFindRector;
 use Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitThisCallRector;
 use Rector\PHPUnit\CodeQuality\Rector\ClassMethod\AddInstanceofAssertForNullableArgumentRector;
 use Rector\PHPUnit\Set\PHPUnitSetList;
@@ -66,6 +68,10 @@ $builder->withSkip([
         __DIR__ . '/../src/xml-security',
         __DIR__ . '/../tests/xml-security',
     ],
+    // The forms of a password pass through that loop: array_any() and array_find() would put them in the arguments of
+    // the frames of a stack trace, theirs and their callback's, which #[SensitiveParameter] does not reach.
+    ForeachToArrayAnyRector::class => [__DIR__ . '/../src/core/src/Domain/Credential/TypedPassword.php'],
+    ForeachToArrayFindRector::class => [__DIR__ . '/../src/core/src/Domain/Credential/TypedPassword.php'],
 ]);
 $builder->withParallel();
 // Not in the system temporary directory, which a QA image container does not carry over; the CI caches this one.
