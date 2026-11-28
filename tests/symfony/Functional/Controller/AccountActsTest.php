@@ -20,11 +20,13 @@ use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Port\JournalInterface;
+use Beffroi\Oidc\Domain\Client\ActsAboutTheirClient;
 use Beffroi\Oidc\Domain\Event\ConsentRevoked;
 use Beffroi\Oidc\Domain\Event\ConsentsReadByAnAdministrator;
 use Beffroi\Oidc\Domain\Event\JournalReadByAnAdministrator;
 use Beffroi\Oidc\Domain\Event\PersonReadByAnAdministrator;
 use Beffroi\Oidc\Domain\Event\SessionsReadByAnAdministrator;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use Beffroi\Oidc\Domain\Event\TokensIssued;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -112,6 +114,75 @@ final class AccountActsTest extends BrowserTestCase
         yield 'a credential of theirs revoked' => [CredentialRevoked::NAME];
         yield 'their consents read' => [ConsentsReadByAnAdministrator::NAME];
         yield 'a consent of theirs taken back' => [ConsentRevoked::NAME];
+    }
+
+    /**
+     * Decision 0022
+     */
+    #[Test]
+    #[DataProvider('provideActsAboutTheirClient')]
+    public function theApplicationAnActIsAboutIsNamedUnderIt(string $act, ?string $author): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, $act, 'oidc-demo', author: $author === null ? null : new Subject($author));
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        static::assertSame(
+            [self::client()->registration->presentation->name],
+            $page->filter('tbody tr [data-application]')->each(static fn (Crawler $node): string => $node->text()),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, ?string}>
+     */
+    public static function provideActsAboutTheirClient(): iterable
+    {
+        foreach (ActsAboutTheirClient::NAMES as $act) {
+            yield $act . ', done by the person' => [$act, null];
+            yield $act . ', done by an administrator' => [$act, 'mallory-subject'];
+        }
+    }
+
+    #[Test]
+    public function anApplicationTheTenantNoLongerHoldsIsNamedByItsIdentifier(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, SessionTokensRevoked::NAME, 'an-application-since-deleted');
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        static::assertSame('an-application-since-deleted', $page->filter('tbody tr [data-application]')->text());
+    }
+
+    /**
+     * Decision 0038
+     */
+    #[Test]
+    public function theClientAnAdministratorActedThroughIsNotNamed(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, PersonReadByAnAdministrator::NAME, 'oidc-demo', author: new Subject('mallory-subject'));
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        static::assertCount(0, $page->filter('tbody tr [data-application]'));
     }
 
     #[Test]

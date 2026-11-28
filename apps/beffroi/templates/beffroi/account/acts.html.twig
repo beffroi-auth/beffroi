@@ -4,7 +4,8 @@
    refusals are there on purpose: a line a person does not recognise is what this page is for, and the
    place beside the address is what makes one recognisable (issue #473); it is absent where the enrichment
    found nothing. An act an administrator of the tenant did says so in place of where it came from, and
-   nothing else of them: who they are, where they were and the client they acted through are theirs. An
+   nothing else of them: who they are, where they were and the client they acted through are theirs. The
+   application an act is about is the person's, and is named under it whoever did the act. An
    act is named from the catalogue, so an act this provider comes to write down is named here by being
    translated and this page is not edited.
 
@@ -53,7 +54,12 @@
             <tbody>
                 {% for act in acts %}
                     <tr data-act="{{ act.act }}">
-                        <td data-label="{{ 'acts.what'|trans }}">{{ ('act.' ~ act.act)|trans }}</td>
+                        <td data-label="{{ 'acts.what'|trans }}">
+                            {{- ('act.' ~ act.act)|trans -}}
+                            {%- if applications[act.client] is defined -%}
+                                <span data-application>{{ applications[act.client] }}</span>
+                            {%- endif -%}
+                        </td>
                         <td data-label="{{ 'acts.when'|trans }}"><time datetime="{{ act.occurredAt|date('c') }}">{{ act.occurredAt|beffroi_moment(user) }}</time></td>
                         <td data-label="{{ 'acts.from'|trans }}">
                             {%- if act.author is not null -%}

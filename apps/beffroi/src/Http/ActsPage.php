@@ -6,11 +6,16 @@ namespace App\Http;
 
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Journal\ActsOfAnAccount;
+use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Journal\JournalQuestion;
+use Beffroi\Core\Domain\Listing\Listing;
 use Beffroi\Core\Port\CanPageActsOfAPersonInterface;
 use Beffroi\Oidc\Domain\Administration\ReadsByAnAdministrator;
+use Beffroi\Oidc\Domain\Client\ActsAboutTheirClient;
 use Beffroi\Oidc\Domain\Consent\ConsentActs;
 use Beffroi\Oidc\Domain\EndSession\SessionEndActs;
+use Beffroi\Oidc\Port\ClientRepositoryInterface;
+use function in_array;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -44,6 +49,7 @@ final readonly class ActsPage
         private AskedPeriod $period,
         private AskedWord $word,
         private InteractionPages $pages,
+        private ClientRepositoryInterface $clients,
     ) {
     }
 
@@ -57,13 +63,38 @@ final readonly class ActsPage
             byAnAdministrator: $this->word->either(self::AUTHOR, self::BY_AN_ADMINISTRATOR, self::BY_A_REQUEST),
         );
 
+        $acts = $this->acts->pageOfActs($user, $question, $this->asked->asked());
+
         return $this->pages->render('account/acts.html.twig', [
             'user' => $user,
-            'acts' => $this->acts->pageOfActs($user, $question, $this->asked->asked()),
+            'acts' => $acts,
+            'applications' => $this->applicationsOf($user, $acts),
             'question' => $question,
             'act' => $act,
             'narrowed' => $act !== null || $question->period !== null || $question->byAnAdministrator !== null,
             'offered' => self::ACTS,
         ]);
+    }
+
+    /**
+     * The client an act of the page is about, by the name it presents, or by its identifier once the tenant no longer
+     * holds it.
+     *
+     * @param Listing<JournalEntry> $acts
+     *
+     * @return array<string, string> by the identifier of the client
+     */
+    private function applicationsOf(User $user, Listing $acts): array
+    {
+        $applications = [];
+        foreach ($acts as $act) {
+            $clientId = $act->client;
+            if ($clientId === null || isset($applications[$clientId]) || ! in_array($act->act, ActsAboutTheirClient::NAMES, true)) {
+                continue;
+            }
+            $applications[$clientId] = $this->clients->findByClientId($user->tenant, $clientId)?->registration->presentation->name ?? $clientId;
+        }
+
+        return $applications;
     }
 }

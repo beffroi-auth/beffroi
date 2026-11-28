@@ -9,6 +9,7 @@ use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\RequestContext;
 use DateTimeImmutable;
 use DateTimeInterface;
+use function in_array;
 
 final readonly class ArchivedFacts
 {
@@ -24,11 +25,14 @@ final readonly class ArchivedFacts
 
     /**
      * An act as the archive of the person it concerns holds it: one an administrator of the tenant did says so, and
-     * nothing else of them, neither who they are, nor the client they acted through, nor where they were.
+     * nothing else of them, neither who they are, nor the client they acted through, nor where they were. The client an
+     * act is about is the person's, whoever did it.
+     *
+     * @param list<string> $aboutTheirClient the acts whose client is what they are about
      *
      * @return array<string, mixed>
      */
-    public static function act(JournalEntry $act): array
+    public static function act(JournalEntry $act, array $aboutTheirClient = []): array
     {
         if ($act->author === null) {
             return self::actAsWritten($act);
@@ -37,7 +41,7 @@ final readonly class ArchivedFacts
         return [
             'act' => $act->act,
             'occurred_at' => self::moment($act->occurredAt),
-            'client' => null,
+            'client' => in_array($act->act, $aboutTheirClient, true) ? $act->client : null,
             'from' => null,
             'author' => self::AN_ADMINISTRATOR,
         ];

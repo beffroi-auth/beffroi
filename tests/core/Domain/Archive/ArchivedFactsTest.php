@@ -42,6 +42,22 @@ final class ArchivedFactsTest extends TestCase
         );
     }
 
+    /**
+     * Decision 0038
+     */
+    #[Test]
+    public function anActAboutItsClientThatAnAdministratorDidKeepsTheClient(): void
+    {
+        // Given
+        $act = self::act(new Subject('mallory-subject'));
+
+        // When
+        $facts = ArchivedFacts::act($act, ['administration.person_read']);
+
+        // Then
+        static::assertSame(['tui-of-mallory', null, 'administrator'], [$facts['client'], $facts['from'], $facts['author']]);
+    }
+
     #[Test]
     public function anActNoAdministratorDidIsArchivedWithWhereItCameFrom(): void
     {

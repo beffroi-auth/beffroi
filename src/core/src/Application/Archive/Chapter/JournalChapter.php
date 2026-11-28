@@ -14,8 +14,12 @@ final readonly class JournalChapter implements ArchiveChapterInterface
 {
     public const int READ_AT_ONCE = 500;
 
+    /**
+     * @param list<string> $actsAboutTheirClient the acts whose client is what they are about, which the archive names whoever did them
+     */
     public function __construct(
         private ActsOfAPersonInterface $acts,
+        private array $actsAboutTheirClient = [],
     ) {
     }
 
@@ -31,7 +35,7 @@ final readonly class JournalChapter implements ArchiveChapterInterface
         do {
             $page = $this->acts->everyActOf($user, self::READ_AT_ONCE, $after);
             foreach ($page as $act) {
-                $lines[] = ArchivedFacts::act($act);
+                $lines[] = ArchivedFacts::act($act, $this->actsAboutTheirClient);
                 $after = $act->id;
             }
         } while (count($page) === self::READ_AT_ONCE);
