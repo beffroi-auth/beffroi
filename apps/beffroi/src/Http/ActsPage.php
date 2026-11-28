@@ -10,19 +10,25 @@ use Beffroi\Core\Domain\Journal\JournalQuestion;
 use Beffroi\Core\Port\CanPageActsOfAPersonInterface;
 use Beffroi\Oidc\Domain\Administration\ReadsByAnAdministrator;
 use Beffroi\Oidc\Domain\Consent\ConsentActs;
+use Beffroi\Oidc\Domain\EndSession\SessionEndActs;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The page of the acts of the signed-in person: what they did and what was done to them, the consents they gave or that
- * were taken back included, and the reads an administrator of their tenant made of them, those they made of themselves
- * left out.
+ * were taken back and the tokens an application lost when a session ended included, and the reads an administrator of
+ * their tenant made of them, those they made of themselves left out.
  */
 final readonly class ActsPage
 {
     /**
      * @var list<string>
      */
-    public const array ACTS = [...ActsOfAnAccount::NAMES, ...ConsentActs::NAMES, ...ReadsByAnAdministrator::NAMES];
+    public const array ACTS = [
+        ...ActsOfAnAccount::NAMES,
+        ...SessionEndActs::NAMES,
+        ...ConsentActs::NAMES,
+        ...ReadsByAnAdministrator::NAMES,
+    ];
 
     public const string ACT = 'act';
 

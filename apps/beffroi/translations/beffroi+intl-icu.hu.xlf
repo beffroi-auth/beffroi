@@ -1385,6 +1385,10 @@
         <source>act.session.ended</source>
         <target>Munkamenet befejezve</target>
       </trans-unit>
+      <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
+        <source>act.session_tokens.revoked</source>
+        <target>Alkalmazás hozzáférése visszavonva a munkamenettel együtt</target>
+      </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>
         <target>Bejelentkezési mód hozzáadva</target>

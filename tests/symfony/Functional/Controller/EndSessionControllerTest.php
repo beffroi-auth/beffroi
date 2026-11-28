@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Controller;
 
 use function array_filter;
+use function array_map;
 use function base64_encode;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\AuthenticationSessionRepositoryInterface;
 use Beffroi\Core\Port\TenantKeyRepositoryInterface;
 use Beffroi\Core\Tests\Fixture\Algorithms;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use Beffroi\Oidc\Domain\Secret\DrawnSecret;
 use Beffroi\Oidc\Domain\Token\RefreshToken;
 use Beffroi\Oidc\Port\RefreshTokenRepositoryInterface;
@@ -235,6 +237,44 @@ final class EndSessionControllerTest extends BrowserTestCase
                 'the late one revoked at' => $refreshTokens->findByTokenHash(DrawnSecret::digestOf($late))?->revokedAt?->format(DATE_ATOM),
             ],
         );
+    }
+
+    /**
+     * Decision 0022
+     */
+    #[Test]
+    public function theTokensRevokedAtTheFirstUseOfALateRefreshTokenAreAnActOfTheirOwn(): void
+    {
+        // Given
+        self::signingKey();
+        $session = $this->signIn(self::user('alice'));
+        $idToken = $this->idTokenOfTheBoundBrowser();
+        $this->browser->request('GET', '/logout', [
+            'id_token_hint' => $idToken,
+            'post_logout_redirect_uri' => 'https://demo.test/',
+        ]);
+        self::reload();
+        $late = self::tokensIssuedIn(self::sessions()->find($session->id) ?? static::fail('The session is gone.'))['refresh'];
+        self::forgetEvents();
+
+        // When
+        $this->browser->request(
+            'POST',
+            '/token',
+            [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $late,
+            ],
+            server: [
+                'HTTP_AUTHORIZATION' => 'Basic ' . base64_encode('oidc-demo:demo-secret-of-at-least-32-characters-long'),
+            ],
+        );
+
+        // Then
+        static::assertSame([['oidc-demo', 1, 1]], array_map(
+            static fn (SessionTokensRevoked $act): array => [$act->clientId, $act->refreshTokens, $act->accessTokens],
+            self::events(SessionTokensRevoked::class),
+        ));
     }
 
     /**

@@ -1385,6 +1385,10 @@
         <source>act.session.ended</source>
         <target>Завршена сесија</target>
       </trans-unit>
+      <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
+        <source>act.session_tokens.revoked</source>
+        <target>Отповикан пристап на апликација со завршување на сесијата</target>
+      </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>
         <target>Додаден начин на најава</target>

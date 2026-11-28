@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Administration;
 
+use App\Tests\Symfony\Functional\Controller\TokensOfASession;
 use function array_map;
 use Beffroi\Core\Bridge\Password\Algorithm\Argon2id;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
@@ -17,6 +18,7 @@ use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
 use Beffroi\Oidc\Domain\Event\LogoutTokenIssued;
 use Beffroi\Oidc\Domain\Event\PersonReadByAnAdministrator;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use PHPUnit\Framework\Attributes\Test;
 use function count;
 use function sprintf;
@@ -29,6 +31,8 @@ use Symfony\Component\Uid\Uuid;
  */
 final class AdministrationApiWriteTest extends AdministrationTestCase
 {
+    use TokensOfASession;
+
     #[Test]
     public function anAdministratorEndsAnOpenSessionOfAPerson(): void
     {
@@ -100,6 +104,25 @@ final class AdministrationApiWriteTest extends AdministrationTestCase
 
         // Then
         static::assertSame([['bob-subject', 'alice-subject']], self::authored(AuthenticationSessionEnded::NAME));
+    }
+
+    /**
+     * Decision 0038
+     */
+    #[Test]
+    public function theTokensOfASessionAnAdministratorEndedAreAnActOfThePersonThatNamesThem(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        $session = $this->signIn($bob);
+        self::tokensIssuedIn($session);
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $this->api(self::sessionPath($bob, $session), $token, method: 'DELETE');
+
+        // Then
+        static::assertSame([['bob-subject', 'alice-subject']], self::authored(SessionTokensRevoked::NAME));
     }
 
     /**

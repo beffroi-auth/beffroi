@@ -1385,6 +1385,10 @@
         <source>act.session.ended</source>
         <target>Sesión finalizada</target>
       </trans-unit>
+      <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
+        <source>act.session_tokens.revoked</source>
+        <target>Acceso de una aplicación revocado con la sesión</target>
+      </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>
         <target>Método de inicio de sesión añadido</target>

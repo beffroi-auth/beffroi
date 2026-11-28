@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Tests\Application\EndSession;
 
+use function array_map;
 use DateTimeImmutable;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
+use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Tests\Fixture\FakePasswordHasher;
 use Beffroi\Core\Tests\Fixture\Fixtures;
+use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use Beffroi\Oidc\Application\EndSession\SessionTokensRevocation;
 use Beffroi\Oidc\Application\Token\RefreshTokenRevocation;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryAccessTokenRepository;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryRefreshTokenRepository;
 use Beffroi\Oidc\Domain\Client\Client;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use Beffroi\Oidc\Domain\Token\RefreshToken;
 use Beffroi\Oidc\Domain\Token\RefreshTokenFamily;
 use Beffroi\Oidc\Tests\Fixture\Clients;
@@ -38,6 +43,10 @@ final class SessionTokensRevocationTest extends TestCase
 
     private InMemoryAccessTokenRepository $accessTokens;
 
+    private RecordingEventDispatcher $events;
+
+    private RequestContext $context;
+
     private SessionTokensRevocation $revocation;
 
     protected function setUp(): void
@@ -48,7 +57,9 @@ final class SessionTokensRevocationTest extends TestCase
         $this->endedAt = Fixtures::now()->modify('+5 days');
         $this->refreshTokens = new InMemoryRefreshTokenRepository();
         $this->accessTokens = new InMemoryAccessTokenRepository();
-        $this->revocation = new SessionTokensRevocation(new RefreshTokenRevocation($this->refreshTokens), $this->accessTokens);
+        $this->events = new RecordingEventDispatcher();
+        $this->context = Fixtures::context($this->endedAt);
+        $this->revocation = new SessionTokensRevocation(new RefreshTokenRevocation($this->refreshTokens), $this->accessTokens, $this->events);
     }
 
     #[Test]
@@ -61,7 +72,7 @@ final class SessionTokensRevocationTest extends TestCase
         $current = $this->refreshToken('current', $this->session, $family, '+2 days');
 
         // When
-        $this->revocation->sessionEnded($this->session->id, $this->endedAt);
+        $this->endTheSession();
 
         // Then
         static::assertEquals([$this->endedAt, $this->endedAt], [$rotated->revokedAt, $current->revokedAt]);
@@ -74,7 +85,7 @@ final class SessionTokensRevocationTest extends TestCase
         $elsewhere = $this->refreshToken('elsewhere', Fixtures::session($this->alice));
 
         // When
-        $this->revocation->sessionEnded($this->session->id, $this->endedAt);
+        $this->endTheSession();
 
         // Then
         static::assertFalse($elsewhere->isRevoked());
@@ -92,10 +103,138 @@ final class SessionTokensRevocationTest extends TestCase
         $this->accessTokens->save($elsewhere);
 
         // When
-        $this->revocation->sessionEnded($this->session->id, $this->endedAt);
+        $this->endTheSession();
 
         // Then
         static::assertSame([$elsewhere], $this->accessTokens->all());
+    }
+
+    /**
+     * Decision 0022
+     */
+    #[Test]
+    public function eachClientThatLostATokenIsAnActThatCountsWhatItLost(): void
+    {
+        // Given
+        $other = Clients::public($this->alice->tenant, 'other-app');
+        $this->refreshToken('first', $this->session);
+        $this->refreshToken('second', $this->session, issuedOffset: '+1 hour');
+        $this->accessTokens->save(Tokens::storedAccessToken('opaque', $this->client, $this->session, Fixtures::now()));
+        $this->accessTokens->save(Tokens::storedAccessToken('of-the-other', $other, $this->session, Fixtures::now()));
+
+        // When
+        $this->endTheSession();
+
+        // Then
+        static::assertSame(
+            [['oidc-demo', 2, 1], ['other-app', 0, 1]],
+            array_map(
+                static fn (SessionTokensRevoked $act): array => [$act->clientId, $act->refreshTokens, $act->accessTokens],
+                $this->events->of(SessionTokensRevoked::class),
+            ),
+        );
+    }
+
+    /**
+     * Decision 0022
+     */
+    #[Test]
+    public function theActNamesThePersonTheSessionAndTheMomentAndPlaceOfItsEnd(): void
+    {
+        // Given
+        $this->refreshToken('current', $this->session);
+
+        // When
+        $this->endTheSession();
+
+        // Then
+        $act = $this->events->of(SessionTokensRevoked::class)[0] ?? static::fail('The end of the session raised no act.');
+        static::assertEquals(
+            [$this->alice->tenant, $this->alice->subject, $this->session->id, $this->endedAt, $this->context, null],
+            [$act->tenant, $act->subject(), $act->sessionId, $act->occurredAt, $act->context, $act->author()],
+        );
+    }
+
+    /**
+     * Decision 0038
+     */
+    #[Test]
+    public function theActOfASessionAnAdministratorEndedNamesThem(): void
+    {
+        // Given
+        $this->refreshToken('current', $this->session);
+        $administrator = new Subject('administrator-subject');
+
+        // When
+        $this->revocation->sessionEnded(
+            $this->session->id,
+            $this->endedAt,
+            $this->alice->tenant,
+            $this->alice->subject,
+            $this->context,
+            $administrator,
+        );
+
+        // Then
+        static::assertSame([$administrator], array_map(
+            static fn (SessionTokensRevoked $act): ?Subject => $act->author(),
+            $this->events->of(SessionTokensRevoked::class),
+        ));
+    }
+
+    #[Test]
+    public function aSessionThatHeldNoTokenRaisesNoAct(): void
+    {
+        // Given
+        $this->refreshToken('elsewhere', Fixtures::session($this->alice));
+
+        // When
+        $this->endTheSession();
+
+        // Then
+        static::assertSame([], $this->events->events);
+    }
+
+    #[Test]
+    public function aTokenRevokedBeforeTheEndIsNotCounted(): void
+    {
+        // Given
+        $revoked = $this->refreshToken('revoked', $this->session);
+        $revoked->revoke(Fixtures::now()->modify('+1 day'));
+        $this->refreshToken('current', $this->session);
+
+        // When
+        $this->endTheSession();
+
+        // Then
+        static::assertSame([1], array_map(
+            static fn (SessionTokensRevoked $act): int => $act->refreshTokens,
+            $this->events->of(SessionTokensRevoked::class),
+        ));
+    }
+
+    #[Test]
+    public function aSuccessorSavedAfterTheEndIsCountedAloneWhenItIsRevoked(): void
+    {
+        // Given
+        $family = Tokens::family(Fixtures::now(), $this->client->tenant);
+        $this->refreshToken('rotated', $this->session, $family);
+        $this->endTheSession();
+        $this->refreshToken('successor', $this->session, $family, '+1 hour');
+
+        // When
+        $this->endTheSession();
+
+        // Then
+        static::assertSame([1, 1], array_map(
+            static fn (SessionTokensRevoked $act): int => $act->refreshTokens,
+            $this->events->of(SessionTokensRevoked::class),
+        ));
+    }
+
+    private function endTheSession(): void
+    {
+        $this->revocation->sessionEnded($this->session->id, $this->endedAt, $this->alice->tenant, $this->alice->subject, $this->context);
     }
 
     private function refreshToken(

@@ -18,6 +18,13 @@ final readonly class RevokeTheTokensOfTheSessionHandler
 
     public function __invoke(AuthenticationSessionEnded $event): void
     {
-        $this->revocation->sessionEnded($event->session->id, $event->occurredAt);
+        $this->revocation->sessionEnded(
+            $event->session->id,
+            $event->occurredAt,
+            $event->tenant,
+            $event->subject(),
+            $event->context,
+            $event->administrator,
+        );
     }
 }

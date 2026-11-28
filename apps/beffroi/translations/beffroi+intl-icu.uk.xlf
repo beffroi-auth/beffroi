@@ -1385,6 +1385,10 @@
         <source>act.session.ended</source>
         <target>Сеанс завершено</target>
       </trans-unit>
+      <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
+        <source>act.session_tokens.revoked</source>
+        <target>Доступ застосунку відкликано разом із сеансом</target>
+      </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>
         <target>Додано спосіб входу</target>

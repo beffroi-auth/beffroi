@@ -21,6 +21,12 @@ final readonly class RevokeWhatOutlivedTheSessionHandler
 
     public function __invoke(RefreshTokenOutlivedItsSession $event): void
     {
-        $this->revocation->sessionEnded($event->sessionId, $event->sessionEndedAt);
+        $this->revocation->sessionEnded(
+            $event->sessionId,
+            $event->sessionEndedAt,
+            $event->tenant,
+            $event->subject,
+            $event->context,
+        );
     }
 }

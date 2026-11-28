@@ -12,6 +12,7 @@ use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
 use Beffroi\Oidc\Domain\Administration\ReadsByAnAdministrator;
 use Beffroi\Oidc\Domain\Consent\ConsentActs;
+use Beffroi\Oidc\Domain\EndSession\SessionEndActs;
 use Beffroi\Oidc\Domain\Event\LogoutTokenGivenUp;
 use Beffroi\Oidc\Domain\Event\LogoutTokenIssued;
 use Beffroi\Oidc\Domain\Event\TokensIssued;
@@ -44,7 +45,12 @@ final class ReadsByAnAdministratorTest extends TestCase
     public function everyActOfAPersonThatNamesAnAdministratorIsOnTheirPageOrIsNamedAsOffIt(): void
     {
         // Given
-        $onThePage = [...ReadsByAnAdministrator::NAMES, ...ConsentActs::NAMES, ...array_keys(self::OFF_THE_PAGE)];
+        $onThePage = [
+            ...ReadsByAnAdministrator::NAMES,
+            ...ConsentActs::NAMES,
+            ...SessionEndActs::NAMES,
+            ...array_keys(self::OFF_THE_PAGE),
+        ];
 
         // When
         $named = self::actsOfAPersonNamingTheirAuthor();

@@ -1385,6 +1385,10 @@
         <source>act.session.ended</source>
         <target>Oturum sonlandırıldı</target>
       </trans-unit>
+      <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
+        <source>act.session_tokens.revoked</source>
+        <target>Uygulamanın erişimi oturumla birlikte iptal edildi</target>
+      </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>
         <target>Giriş yöntemi eklendi</target>

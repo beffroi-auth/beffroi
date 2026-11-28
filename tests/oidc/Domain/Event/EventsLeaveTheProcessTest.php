@@ -37,6 +37,7 @@ use Beffroi\Oidc\Domain\Event\InitialAccessTokenIssued;
 use Beffroi\Oidc\Domain\Event\InitialAccessTokenRevoked;
 use Beffroi\Oidc\Domain\Event\RegisteredClientDeleted;
 use Beffroi\Oidc\Domain\Event\RefreshTokenRotated;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use Beffroi\Oidc\Domain\Event\TokenRevoked;
 use Beffroi\Oidc\Domain\Event\TokensIssued;
 use Beffroi\Oidc\Domain\Event\PersonReadByAnAdministrator;
@@ -276,6 +277,27 @@ final class EventsLeaveTheProcessTest extends TestCase
             $next->tokenHash,
             $next->expiresAt,
             $context,
+        )];
+        yield 'the tokens of a client revoked at the end of a session' => [new SessionTokensRevoked(
+            $now,
+            $session->tenant,
+            $clientId,
+            $subject,
+            $session->id,
+            2,
+            1,
+            $context,
+        )];
+        yield 'the tokens of a client revoked at the end of a session an administrator ended' => [new SessionTokensRevoked(
+            $now,
+            $session->tenant,
+            $clientId,
+            $subject,
+            $session->id,
+            1,
+            0,
+            $context,
+            new Subject('administrator-subject'),
         )];
         yield 'an access token revoked' => [new TokenRevoked(
             $now,
