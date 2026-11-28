@@ -109,9 +109,9 @@ final class AdministrationApiPersonsBudgetTest extends AdministrationTestCase
 
         // Then
         static::assertSame(
-            [['alice-subject', null, self::CLIENT]],
+            [['alice-subject', ['kind' => 'administrator', 'subject' => 'alice-subject'], self::CLIENT]],
             array_map(
-                static fn (JournalEntry $act): array => [$act->subject?->value, $act->author, $act->client],
+                static fn (JournalEntry $act): array => [$act->subject?->value, $act->author?->toDocument(), $act->client],
                 self::entityManager()->getRepository(JournalEntry::class)->findBy(['act' => ReadRefusedToAnAdministrator::NAME]),
             ),
         );
