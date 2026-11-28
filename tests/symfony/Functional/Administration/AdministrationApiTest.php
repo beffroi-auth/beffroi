@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Administration;
 
 use function array_column;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Notification\ChosenChannels;
@@ -201,7 +203,11 @@ final class AdministrationApiTest extends AdministrationTestCase
 
         // Then
         $entry = self::entityManager()->getRepository(JournalEntry::class)->findOneBy(['act' => $act]);
-        static::assertSame(['bob-subject', 'alice-subject', self::CLIENT], [$entry?->subject?->value, $entry?->author?->value, $entry?->client]);
+        static::assertEquals(['bob-subject', new AnAdministrator(new Subject('alice-subject')), self::CLIENT], [
+            $entry?->subject?->value,
+            $entry?->author,
+            $entry?->client,
+        ]);
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Identity;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Application\Identity\MailEncryptionChoice;
 use Beffroi\Core\Bridge\InMemory\InMemoryClaimHistory;
 use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
@@ -68,7 +69,7 @@ final class MailEncryptionChoiceTest extends TestCase
         static::assertSame(MailEncryptionChoice::CHANGED, $changes[0]->claim);
         static::assertSame('smime 9F2C', $changes[0]->was);
         static::assertSame('smime 51AB', $changes[0]->became);
-        static::assertNull($changes[0]->author);
+        static::assertEquals(new ThePerson(), $changes[0]->author);
     }
 
     #[Test]

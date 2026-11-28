@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Administration;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Identity\PersonEnabling;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -37,7 +38,7 @@ final readonly class AdministeredEnabling
         $user = $this->persons->find($administrator->tenant, $person);
         if ($user !== null) {
             $this->delivered->spend($administrator, 1, $context);
-            if (! $this->enabling->enableByAnAdministrator($user, $administrator->user->subject, $context)) {
+            if (! $this->enabling->enable($user, new AnAdministrator($administrator->user->subject), $context)) {
                 $this->delivery->to($administrator, $user, $context);
             }
         }

@@ -7,7 +7,6 @@ namespace App\MessageHandler;
 use Beffroi\Core\Application\Journal\ActRecording;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
-use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
 use Beffroi\Core\Domain\Event\SaysWhyItWasRefusedInterface;
 use Beffroi\Oidc\Domain\Event\MayConcernAClientInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -27,9 +26,9 @@ final readonly class WriteTheActDownHandler
             $event->name(),
             $event->occurredAt,
             $event->context,
+            $event->author(),
             $event instanceof ConcernsAPersonInterface ? $event->subject() : null,
             $event instanceof MayConcernAClientInterface ? $event->clientId : null,
-            $event instanceof NamesItsAuthorInterface ? $event->author() : null,
             $event instanceof SaysWhyItWasRefusedInterface ? $event->refusalReason() : null,
             $event instanceof SaysWhyItWasRefusedInterface ? $event->refusedMethod() : null,
         );

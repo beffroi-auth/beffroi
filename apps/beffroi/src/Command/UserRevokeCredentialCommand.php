@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use App\Http\RequestContextFactory;
 use Beffroi\Core\Application\Credential\CredentialRevocation;
 use Beffroi\Core\Domain\Credential\RevocableCredentialInterface;
@@ -78,7 +79,7 @@ final readonly class UserRevokeCredentialCommand
             return Command::SUCCESS;
         }
 
-        $this->revocation->revoke($credential, $this->contexts->fromConsole(self::NAME));
+        $this->revocation->revoke($credential, new TheHost(), $this->contexts->fromConsole(self::NAME));
         $io->success(sprintf(
             'The %s "%s" of the user "%s" is revoked; it never authenticates again.',
             $kind,

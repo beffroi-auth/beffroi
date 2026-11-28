@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Doctrine\PersonalData;
 
 use DateTimeImmutable;
 use function array_values;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Archive\PersonalArchive;
 use Beffroi\Core\Domain\Credential\Attestation\AttestationEvidence;
 use Beffroi\Core\Domain\Credential\PasskeyCredential;
@@ -331,6 +332,7 @@ final readonly class SealedRows
             self::VALUES['beffroi_claim_change']['became'],
             $this->now,
             $this->context(),
+            new ThePerson(),
         );
         $this->service('test.beffroi.claim_history', ClaimHistoryInterface::class)->record($change);
 

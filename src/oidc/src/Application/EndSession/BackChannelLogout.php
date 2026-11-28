@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\EndSession;
 
-use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Exception\KeyNotFoundException;
@@ -32,35 +32,35 @@ final readonly class BackChannelLogout
     }
 
     /**
-     * @param Subject|null $administrator the administrator of the tenant who ended the session, whom each logout token names as the author of its act
+     * @param AuthorInterface $author who ended the session, whom each logout token names as the author of its act
      *
      * @throws KeyNotFoundException
      * @throws KmsUnavailableException
      */
-    public function sessionEnded(AuthenticationSession $session, RequestContext $context, ?Subject $administrator = null): void
+    public function sessionEnded(AuthenticationSession $session, RequestContext $context, AuthorInterface $author): void
     {
         $later = [];
         foreach ($this->clients->ofSession($session->id) as $client) {
             try {
-                $this->tell($client, $session, $context, $administrator);
+                $this->tell($client, $session, $context, $author);
             } catch (ClientKeysUnavailableException) {
                 $later[] = $client;
             }
         }
         // After the loop: a failure in it has the end of the session handled again, which would leave a client twice.
         foreach ($later as $client) {
-            $this->retries->issueLater($client, $session, $context, $administrator);
+            $this->retries->issueLater($client, $session, $context, $author);
         }
     }
 
     /**
-     * @param Subject|null $administrator the administrator of the tenant who ended the session, whom the logout token names as the author of its act
+     * @param AuthorInterface $author who ended the session, whom the logout token names as the author of its act
      *
      * @throws KeyNotFoundException
      * @throws KmsUnavailableException
      * @throws ClientKeysUnavailableException when the client encrypts its ID tokens and publishes no key that can be read for it, or one that receives no JWE
      */
-    public function tell(Client $client, AuthenticationSession $session, RequestContext $context, ?Subject $administrator = null): void
+    public function tell(Client $client, AuthenticationSession $session, RequestContext $context, AuthorInterface $author): void
     {
         $logoutUri = $client->registration->backChannelLogoutUri;
         if ($logoutUri === null) {
@@ -76,7 +76,7 @@ final readonly class BackChannelLogout
             $session->id,
             $this->tokens->issue($client, $session, $now),
             $context,
-            $administrator,
+            $author,
         ));
     }
 }

@@ -7,6 +7,7 @@ namespace App\Tests\Symfony\Functional\Command;
 use function array_map;
 use function explode;
 use App\Tests\Symfony\Functional\MessageHandler\RecordingEventHandler;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Bridge\Password\Algorithm\Argon2id;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Event\PersonCreated;
@@ -404,10 +405,10 @@ final class ProvisioningTest extends ConsoleTestCase
     }
 
     /**
-     * Decision 0022
+     * Decisions 0022 and 0066
      */
     #[Test]
-    public function theCreationOfAUserIsAnActOfTheirsThatNamesNoAdministrator(): void
+    public function theCreationOfAUserIsAnActOfTheirsThatNamesTheHost(): void
     {
         // When
         self::console('beffroi:user:create', [
@@ -417,8 +418,8 @@ final class ProvisioningTest extends ConsoleTestCase
         // Then
         $user = self::service('test.beffroi.users', UserRepositoryInterface::class)
             ->findByUsername(self::tenant(), 'bob') ?? static::fail('The user is not stored.');
-        static::assertSame([[$user->subject->value, null]], array_map(
-            static fn (JournalEntry $act): array => [$act->subject?->value, $act->author?->value],
+        static::assertEquals([[$user->subject->value, new TheHost()]], array_map(
+            static fn (JournalEntry $act): array => [$act->subject?->value, $act->author],
             self::entityManager()->getRepository(JournalEntry::class)->findBy(['act' => PersonCreated::NAME]),
         ));
     }

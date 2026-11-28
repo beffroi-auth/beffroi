@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Group;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\GroupCreated;
 use Beffroi\Core\Domain\Group\Group;
 use Beffroi\Core\Domain\Group\GroupSource;
@@ -36,7 +39,7 @@ final readonly class GroupProvisioner
      */
     public function create(Tenant $tenant, string $name, RequestContext $context): Group
     {
-        return $this->createOnce($tenant, $name, $context, null);
+        return $this->createOnce($tenant, $name, $context, new TheHost());
     }
 
     /**
@@ -47,14 +50,14 @@ final readonly class GroupProvisioner
      */
     public function createByAnAdministrator(Tenant $tenant, string $name, Subject $administrator, RequestContext $context): Group
     {
-        return $this->createOnce($tenant, $name, $context, $administrator);
+        return $this->createOnce($tenant, $name, $context, new AnAdministrator($administrator));
     }
 
     /**
      * @throws InvalidArgumentException
      * @throws GroupAlreadyExistsException
      */
-    private function createOnce(Tenant $tenant, string $name, RequestContext $context, ?Subject $administrator): Group
+    private function createOnce(Tenant $tenant, string $name, RequestContext $context, AuthorInterface $author): Group
     {
         if ($this->groups->findByName($tenant, $name) !== null) {
             throw GroupAlreadyExistsException::named($name);
@@ -62,7 +65,7 @@ final readonly class GroupProvisioner
         $now = $this->clock->now();
         $group = new Group($this->uuids->timeOrdered(), $tenant, $name, GroupSource::Local, $now);
         $this->groups->save($group);
-        $this->events->dispatch(new GroupCreated($tenant, $group->name, $now, $context, $administrator));
+        $this->events->dispatch(new GroupCreated($tenant, $group->name, $now, $context, $author));
 
         return $group;
     }

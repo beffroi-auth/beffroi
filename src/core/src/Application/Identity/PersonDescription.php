@@ -9,9 +9,9 @@ use function array_keys;
 use Beffroi\Core\Application\Identity\Member\ClaimMember;
 use Beffroi\Core\Application\Identity\Member\MemberInterface;
 use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\PersonDescribed;
 use Beffroi\Core\Domain\Identity\ClaimChange;
-use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Notification\ChannelSnapshot;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -26,9 +26,9 @@ use function sprintf;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * What an administrator of the tenant says of a person, written whole or not at all (decision 0038): each value that
- * changed is a row of the history of the person, and the description one act of theirs, both naming the administrator.
- * What the upstream source of the person holds stays its own.
+ * What an administrator of the tenant or a directory says of a person, written whole or not at all (decision 0038): each
+ * value that changed is a row of the history of the person, and the description one act of theirs, both naming the
+ * author (decision 0066). What the upstream source of the person holds stays its own.
  */
 final readonly class PersonDescription
 {
@@ -65,13 +65,13 @@ final readonly class PersonDescription
      *
      * @return list<string> the names of what changed, none when every value was said as it is
      */
-    public function describeByAnAdministrator(User $user, array $said, Subject $administrator, RequestContext $context): array
+    public function describe(User $user, array $said, AuthorInterface $author, RequestContext $context): array
     {
         $members = $this->membersSaid($said);
         $before = $this->read($user, $members);
         $channels = ChannelSnapshot::of($user);
         $now = $this->clock->now();
-        $changed = $this->writes->atomically(function () use ($user, $said, $members, $before, $now, $context, $administrator): array {
+        $changed = $this->writes->atomically(function () use ($user, $said, $members, $before, $now, $context, $author): array {
             foreach ($members as $member) {
                 $member->say($user, $said[$member->name()], $now);
             }
@@ -81,7 +81,7 @@ final readonly class PersonDescription
             foreach ($this->read($user, $members) as $name => $became) {
                 $was = $before[$name] ?? null;
                 if ($was !== $became) {
-                    $this->history->record(new ClaimChange(Uuid::v7(), $user, $name, $was, $became, $now, $context, $administrator));
+                    $this->history->record(new ClaimChange(Uuid::v7(), $user, $name, $was, $became, $now, $context, $author));
                     $changed[] = $name;
                 }
             }
@@ -89,7 +89,7 @@ final readonly class PersonDescription
             return $changed;
         });
         if ($changed !== []) {
-            $this->events->dispatch(new PersonDescribed($user->tenant, $user->subject, $changed, $now, $context, $administrator));
+            $this->events->dispatch(new PersonDescribed($user->tenant, $user->subject, $changed, $now, $context, $author));
         }
         $this->channelChanges->tell($channels, $user, $now);
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -40,5 +42,10 @@ final readonly class CredentialChangeNotTold implements ConcernsAPersonInterface
     public function subject(): Subject
     {
         return $this->subject;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new TheHost();
     }
 }

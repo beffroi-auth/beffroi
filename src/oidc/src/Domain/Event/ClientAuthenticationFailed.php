@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Event\SaysWhyItWasRefusedInterface;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -40,5 +42,10 @@ final readonly class ClientAuthenticationFailed implements MayConcernAClientInte
     public function refusedMethod(): ?string
     {
         return $this->method;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new AnUnauthenticatedCaller();
     }
 }

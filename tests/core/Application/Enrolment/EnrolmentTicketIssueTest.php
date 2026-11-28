@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Enrolment;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Enrolment\EnrolmentTicketIssue;
 use Beffroi\Core\Application\Ticket\TicketIssuing;
 use Beffroi\Core\Bridge\InMemory\InMemoryEnrolmentTicketRepository;
@@ -105,7 +107,7 @@ final class EnrolmentTicketIssueTest extends TestCase
     }
 
     #[Test]
-    public function theActOfATicketTheOperatorIssuedNamesNoAuthor(): void
+    public function theActOfATicketTheHostIssuedNamesIt(): void
     {
         // When
         $this->issue->issue($this->alice, Fixtures::context($this->clock->now()));
@@ -113,7 +115,7 @@ final class EnrolmentTicketIssueTest extends TestCase
         // Then
         $acts = $this->events->of(EnrolmentTicketIssued::class);
         static::assertCount(1, $acts);
-        static::assertNull($acts[0]->author());
+        static::assertEquals(new TheHost(), $acts[0]->author());
     }
 
     /**
@@ -132,7 +134,7 @@ final class EnrolmentTicketIssueTest extends TestCase
         $acts = $this->events->of(EnrolmentTicketIssued::class);
         static::assertCount(1, $acts);
         static::assertSame($issued->ticket, $acts[0]->ticket);
-        static::assertSame($administrator, $acts[0]->author());
+        static::assertEquals(new AnAdministrator($administrator), $acts[0]->author());
     }
 
     #[Test]

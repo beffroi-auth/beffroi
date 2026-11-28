@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -42,5 +44,10 @@ final readonly class UserAuthenticated implements ConcernsAPersonInterface, Sess
     public function sessionId(): Uuid
     {
         return $this->session->id;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new ThePerson();
     }
 }

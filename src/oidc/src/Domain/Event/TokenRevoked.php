@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace Beffroi\Oidc\Domain\Event;
 
 use DateTimeImmutable;
+use Beffroi\Core\Domain\Author\AClient;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Symfony\Component\Uid\Uuid;
 
+/**
+ * RFC 7009 §2
+ */
 final readonly class TokenRevoked implements ConcernsAPersonInterface
 {
     public const string NAME = 'token.revoked';
@@ -20,6 +25,7 @@ final readonly class TokenRevoked implements ConcernsAPersonInterface
     public const string ACCESS_TOKEN = 'access_token';
 
     /**
+     * @param string $revokedBy the client that revoked it, by the identifier it was registered under
      * @param string $tokenType "refresh_token" or "access_token"
      * @param list<string> $revokedAccessTokenHashes
      */
@@ -44,5 +50,10 @@ final readonly class TokenRevoked implements ConcernsAPersonInterface
     public function subject(): ?Subject
     {
         return $this->subject;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new AClient($this->revokedBy);
     }
 }

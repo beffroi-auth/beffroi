@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Application\Identity;
 
 use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\PersonDescribedThemselves;
 use Beffroi\Core\Domain\Identity\Claim\ClaimInterface;
 use Beffroi\Core\Domain\Identity\ClaimChange;
@@ -51,7 +52,7 @@ final readonly class SelfDescription
             $this->users->save($user);
             // Saying a claim again is an act the journal keeps, not a change the history keeps.
             if ($was !== $became) {
-                $this->history->record(new ClaimChange(Uuid::v7(), $user, $claim->name(), $was, $became, $now, $context));
+                $this->history->record(new ClaimChange(Uuid::v7(), $user, $claim->name(), $was, $became, $now, $context, new ThePerson()));
             }
         });
         $this->events->dispatch(new PersonDescribedThemselves($user, $claim->name(), $became === null, $now, $context));

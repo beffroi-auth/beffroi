@@ -6,6 +6,11 @@ namespace App\Tests\Symfony\Functional\Controller;
 
 use App\Http\AskedPage;
 use App\Http\ClaimChangesPage;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
@@ -41,32 +46,39 @@ final class AccountClaimChangesTest extends BrowserTestCase
     }
 
     /**
-     * @return iterable<string, array{string|null, string}>
+     * @return iterable<string, array{AuthorInterface, string, string}>
      */
     public static function authors(): iterable
     {
-        yield 'a change the person made' => [null, 'person'];
-        yield 'a change an administrator made' => ['administrator-subject', 'administrator'];
+        yield 'a change the person made' => [new ThePerson(), 'person', 'You'];
+        yield 'a change an administrator made' => [
+            new AnAdministrator(new Subject('administrator-subject')),
+            'administrator',
+            'An administrator of your organisation',
+        ];
+        yield 'a change a directory made, by its name' => [new ADirectory('Entra <ID>'), 'directory', 'The directory Entra <ID>'];
     }
 
     /**
-     * Decision 0038: the person reads that an administrator of their organisation made a change, never which one.
+     * Decisions 0038 and 0066: the person reads that an administrator of their organisation made a change, never which
+     * one, and the name of a directory that made one.
      */
     #[Test]
     #[DataProvider('authors')]
-    public function eachChangeSaysWhetherThePersonOrAnAdministratorMadeIt(?string $author, string $said): void
+    public function eachChangeSaysWhoMadeIt(AuthorInterface $author, string $kind, string $said): void
     {
         // Given
         $alice = self::user('alice');
         $this->signIn($alice);
-        self::aChange($alice, 'Ada', 'Augusta', author: $author === null ? null : new Subject($author));
+        self::aChange($alice, 'Ada', 'Augusta', author: $author);
         self::reload();
 
         // When
         $page = $this->changesPage();
 
         // Then
-        static::assertSame([$said], $page->filter('tbody tr[data-change] td[data-author]')->extract(['data-author']));
+        $cell = $page->filter('tbody tr[data-change] td[data-author]');
+        static::assertSame([[$kind], $said], [$cell->extract(['data-author']), $cell->text()]);
     }
 
     #[Test]
@@ -224,33 +236,60 @@ final class AccountClaimChangesTest extends BrowserTestCase
     }
 
     /**
-     * Decision 0038
+     * Decision 0066: a change written before changes named the kind of their author is the person's when it names
+     * nobody, and an administrator's when it names a bare subject.
+     *
+     * @param list<string> $kinds
      */
     #[Test]
     #[DataProvider('provideAuthors')]
-    public function whoMadeTheChangeIsReadApart(string $by, string $author): void
+    public function theChangesOfAKindOfAuthorAreReadApart(string $by, array $kinds): void
     {
         // Given
         $alice = self::user('alice');
         $this->signIn($alice);
         self::aChange($alice, 'Ada', 'Augusta');
-        self::aChange($alice, 'Augusta', 'Ada', author: new Subject('mallory-subject'));
+        self::aChange($alice, 'Augusta', 'Ada', author: new AnAdministrator(new Subject('mallory-subject')));
+        self::aChange($alice, 'Ada', 'Augusta', author: new ADirectory('Entra ID'));
+        self::aChange($alice, 'Augusta', 'Ada', author: new TheHost());
+        self::aChange($alice, 'Ada', 'Augusta', claim: 'family_name');
+        self::aChange($alice, 'Augusta', 'Ada', claim: 'given_name');
+        self::entityManager()->getConnection()->executeStatement("UPDATE beffroi_claim_change SET author = NULL WHERE claim = 'family_name'");
+        self::entityManager()->getConnection()->executeStatement("UPDATE beffroi_claim_change SET author = 'mallory-subject' WHERE claim = 'given_name'");
         self::reload();
 
         // When
         $page = $this->changesPage([ClaimChangesPage::AUTHOR => $by]);
 
         // Then
-        static::assertSame([$author], $page->filter('tbody tr[data-change] td[data-author]')->extract(['data-author']));
+        static::assertSame($kinds, $page->filter('tbody tr[data-change] td[data-author]')->extract(['data-author']));
     }
 
     /**
-     * @return iterable<string, array{string, string}>
+     * @return iterable<string, array{string, list<string>}>
      */
     public static function provideAuthors(): iterable
     {
-        yield 'what an administrator made' => [ClaimChangesPage::BY_AN_ADMINISTRATOR, 'administrator'];
-        yield 'what the person made' => [ClaimChangesPage::BY_THE_PERSON, 'person'];
+        yield 'what an administrator made' => ['administrator', ['administrator', 'administrator']];
+        yield 'what the person made' => ['person', ['person', 'person']];
+        yield 'what a directory made' => ['directory', ['directory']];
+        yield 'what the host made' => ['host', ['host']];
+    }
+
+    #[Test]
+    public function theKindsOfAuthorAreOffered(): void
+    {
+        // Given
+        $this->signIn(self::user('alice'));
+
+        // When
+        $page = $this->changesPage();
+
+        // Then
+        static::assertSame(
+            ['', 'person', 'administrator', 'client', 'directory', 'upstream', 'unauthenticated', 'host'],
+            $page->filter('select[name="by"] option')->extract(['value']),
+        );
     }
 
     #[Test]
@@ -280,7 +319,7 @@ final class AccountClaimChangesTest extends BrowserTestCase
         ?string $became,
         string $ago = 'now',
         string $claim = 'nickname',
-        ?Subject $author = null,
+        AuthorInterface $author = new ThePerson(),
     ): void {
         $at = self::currentSecond()->modify($ago);
         self::service('test.beffroi.claim_history', ClaimHistoryInterface::class)

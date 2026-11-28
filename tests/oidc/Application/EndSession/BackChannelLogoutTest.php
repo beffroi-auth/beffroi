@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Tests\Application\EndSession;
 
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
 use Beffroi\Core\Domain\Identity\Subject;
 use DateInterval;
@@ -31,6 +35,7 @@ use Beffroi\Oidc\Tests\Fixture\FakeLogoutTokenDelivery;
 use Beffroi\Oidc\Tests\Fixture\Jwts;
 use Beffroi\Oidc\Tests\Fixture\RecordingLogoutTokenRetries;
 use Beffroi\Oidc\Tests\Fixture\Tokens;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Beffroi\Oidc\Tests\Fixture\Subjects;
@@ -85,7 +90,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn(Clients::withBackChannelLogout($this->session->tenant, 'third', 'https://third.example/logout'));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame(['first', 'second', 'third'], array_map(
@@ -105,7 +110,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn(Clients::withBackChannelLogout($this->session->tenant, 'listening', 'https://listening.example/logout'));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame(['listening'], array_map(
@@ -126,7 +131,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn($client, 'second-grant');
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertCount(1, $this->events->of(LogoutTokenIssued::class));
@@ -143,7 +148,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->grants->save(Tokens::code('unused-code', $client, $this->session, Fixtures::now()));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame([], $this->events->of(LogoutTokenIssued::class));
@@ -163,7 +168,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->grants->save($grant);
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame([], $this->events->of(LogoutTokenIssued::class));
@@ -180,7 +185,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn($client);
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         [$event] = $this->events->of(LogoutTokenIssued::class);
@@ -191,22 +196,33 @@ final class BackChannelLogoutTest extends TestCase
     }
 
     /**
-     * Decision 0038
+     * Decisions 0038 and 0066
      */
     #[Test]
-    public function theLogoutTokenOfASessionAnAdministratorEndedNamesThem(): void
+    #[DataProvider('provideAuthors')]
+    public function theLogoutTokenOfASessionNamesWhoEndedIt(AuthorInterface $author): void
     {
         // Given
         $this->signedIn(Clients::withBackChannelLogout($this->session->tenant, 'first', 'https://first.example/logout'));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new Subject('administrator-subject'));
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), $author);
 
         // Then
-        static::assertSame(['administrator-subject'], array_map(
-            static fn (LogoutTokenIssued $event): ?string => $event->author()?->value,
+        static::assertSame([$author], array_map(
+            static fn (LogoutTokenIssued $event): AuthorInterface => $event->author(),
             $this->events->of(LogoutTokenIssued::class),
         ));
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface}>
+     */
+    public static function provideAuthors(): iterable
+    {
+        yield 'the person' => [new ThePerson()];
+        yield 'an administrator' => [new AnAdministrator(new Subject('administrator-subject'))];
+        yield 'a directory' => [new ADirectory('Entra ID')];
     }
 
     /**
@@ -217,13 +233,13 @@ final class BackChannelLogoutTest extends TestCase
     {
         // Given
         $this->signedIn(self::unreachable($this->session));
-        $administrator = new Subject('administrator-subject');
+        $administrator = new AnAdministrator(new Subject('administrator-subject'));
 
         // When
         $this->logout->sessionEnded($this->ended(), Fixtures::context(), $administrator);
 
         // Then
-        static::assertSame([$administrator], array_column($this->retries->later, 'administrator'));
+        static::assertSame([$administrator], array_column($this->retries->later, 'author'));
     }
 
     /**
@@ -236,7 +252,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn(self::unreachable($this->session));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame([], $this->events->of(LogoutTokenIssued::class));
@@ -255,7 +271,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn(Clients::withBackChannelLogout($this->session->tenant, 'listening', 'https://listening.example/logout'));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame(['listening'], array_map(
@@ -274,7 +290,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn(self::offItsCurve($this->session));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame([], $this->events->of(LogoutTokenIssued::class));
@@ -293,7 +309,7 @@ final class BackChannelLogoutTest extends TestCase
         $this->signedIn(Clients::withBackChannelLogout($this->session->tenant, 'also-listening', 'https://also-listening.example/logout'));
 
         // When
-        $this->logout->sessionEnded($this->ended(), Fixtures::context());
+        $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame(['listening', 'also-listening'], array_map(
@@ -319,7 +335,7 @@ final class BackChannelLogoutTest extends TestCase
 
         // When
         try {
-            $this->logout->sessionEnded($this->ended(), Fixtures::context());
+            $this->logout->sessionEnded($this->ended(), Fixtures::context(), new ThePerson());
         } catch (KeyNotFoundException) {
         }
 
@@ -337,7 +353,7 @@ final class BackChannelLogoutTest extends TestCase
         $client = Clients::withBackChannelLogout($this->session->tenant, 'first', 'https://first.example/logout');
 
         // When
-        $this->logout->tell($client, $this->ended(), Fixtures::context());
+        $this->logout->tell($client, $this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         [$event] = $this->events->of(LogoutTokenIssued::class);
@@ -350,7 +366,7 @@ final class BackChannelLogoutTest extends TestCase
     public function aClientThatNoLongerRegistersAUriIsNotToldLater(): void
     {
         // When
-        $this->logout->tell(Clients::public($this->session->tenant, 'silent'), $this->ended(), Fixtures::context());
+        $this->logout->tell(Clients::public($this->session->tenant, 'silent'), $this->ended(), Fixtures::context(), new ThePerson());
 
         // Then
         static::assertSame([], $this->events->of(LogoutTokenIssued::class));

@@ -25,6 +25,8 @@ use App\Doctrine\Type\PasswordAlgorithmType;
 use App\Doctrine\Type\PasswordHashType;
 use App\Doctrine\Type\ProfileType;
 use App\Doctrine\Type\UserSourceType;
+use App\Doctrine\Type\JournalAuthorType;
+use App\Doctrine\Type\ClaimChangeAuthorType;
 use App\Doctrine\Type\MailEncryptionKeyType;
 use App\Doctrine\Type\ChosenChannelsType;
 use App\Doctrine\Type\AuthenticationSnapshotType;
@@ -110,6 +112,8 @@ final class BeffroiExtension extends AbstractExtension
         IssuerType::NAME => IssuerType::class,
         SectorIdentifierType::NAME => SectorIdentifierType::class,
         SubjectType::NAME => SubjectType::class,
+        JournalAuthorType::NAME => JournalAuthorType::class,
+        ClaimChangeAuthorType::NAME => ClaimChangeAuthorType::class,
         EmailAddressType::NAME => EmailAddressType::class,
         AddressType::NAME => AddressType::class,
         AuthenticationProofsType::NAME => AuthenticationProofsType::class,

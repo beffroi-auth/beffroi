@@ -1333,9 +1333,41 @@
         <source>acts.from</source>
         <target>Źródło</target>
       </trans-unit>
-      <trans-unit id="acts.by_an_administrator" resname="acts.by_an_administrator">
-        <source>acts.by_an_administrator</source>
+      <trans-unit id="author.person" resname="author.person">
+        <source>author.person</source>
+        <target>Ty</target>
+      </trans-unit>
+      <trans-unit id="author.administrator" resname="author.administrator">
+        <source>author.administrator</source>
         <target>Administrator Twojej organizacji</target>
+      </trans-unit>
+      <trans-unit id="author.directory.named" resname="author.directory.named">
+        <source>author.directory.named</source>
+        <target>Katalog {name}</target>
+      </trans-unit>
+      <trans-unit id="author.client" resname="author.client">
+        <source>author.client</source>
+        <target>Aplikacja</target>
+      </trans-unit>
+      <trans-unit id="author.directory" resname="author.directory">
+        <source>author.directory</source>
+        <target>Katalog</target>
+      </trans-unit>
+      <trans-unit id="author.upstream" resname="author.upstream">
+        <source>author.upstream</source>
+        <target>Dostawca tożsamości</target>
+      </trans-unit>
+      <trans-unit id="author.upstream.named" resname="author.upstream.named">
+        <source>author.upstream.named</source>
+        <target>Dostawca tożsamości {name}</target>
+      </trans-unit>
+      <trans-unit id="author.unauthenticated" resname="author.unauthenticated">
+        <source>author.unauthenticated</source>
+        <target>Ktoś, kto nie był zalogowany</target>
+      </trans-unit>
+      <trans-unit id="author.host" resname="author.host">
+        <source>author.host</source>
+        <target>Ta usługa</target>
       </trans-unit>
       <trans-unit id="acts.none" resname="acts.none">
         <source>acts.none</source>
@@ -1352,10 +1384,6 @@
       <trans-unit id="acts.filter.from_anywhere" resname="acts.filter.from_anywhere">
         <source>acts.filter.from_anywhere</source>
         <target>Wszystkie</target>
-      </trans-unit>
-      <trans-unit id="acts.filter.from_a_request" resname="acts.filter.from_a_request">
-        <source>acts.filter.from_a_request</source>
-        <target>Przeglądarka lub aplikacja</target>
       </trans-unit>
       <trans-unit id="account.acts.state" resname="account.acts.state">
         <source>account.acts.state</source>
@@ -1716,10 +1744,6 @@
       <trans-unit id="changes.title" resname="changes.title">
         <source>changes.title</source>
         <target>Historia zmian</target>
-      </trans-unit>
-      <trans-unit id="changes.by_you" resname="changes.by_you">
-        <source>changes.by_you</source>
-        <target>Ty</target>
       </trans-unit>
       <trans-unit id="changes.none_matching" resname="changes.none_matching">
         <source>changes.none_matching</source>
