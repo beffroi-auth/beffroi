@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace Beffroi\Core\Tests\Application\Author;
 
 use Beffroi\Core\Application\Author\Authors;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
+use Beffroi\Core\Domain\Author\AuthorKindInterface;
+use Beffroi\Core\Domain\Author\UnauthenticatedKind;
+use Beffroi\Core\Domain\Author\UpstreamKind;
+use Beffroi\Core\Domain\Encoding\Document;
 use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Author\AdministratorKind;
@@ -65,6 +71,8 @@ final class AuthorsTest extends TestCase
         ];
         yield 'a client, by its identifier' => [new AClient('oidc-demo'), ['kind' => 'client', 'client_id' => 'oidc-demo']];
         yield 'a directory, by its name' => [new ADirectory('Entra ID'), ['kind' => 'directory', 'name' => 'Entra ID']];
+        yield 'an upstream provider, by its name' => [new AnUpstreamProvider('Acme SSO'), ['kind' => 'upstream', 'name' => 'Acme SSO']];
+        yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller(), ['kind' => 'unauthenticated']];
         yield 'the host' => [new TheHost(), ['kind' => 'host']];
     }
 
@@ -96,6 +104,10 @@ final class AuthorsTest extends TestCase
         yield 'an administrator without their subject' => [['kind' => 'administrator'], 'An administrator who acted is named by the subject of their account.'];
         yield 'a client without its identifier' => [['kind' => 'client'], 'A client that acted is named by the identifier it was registered under.'];
         yield 'a directory without its name' => [['kind' => 'directory'], 'A directory that acted is named by the name the deployment declares it under.'];
+        yield 'an upstream provider without its name' => [
+            ['kind' => 'upstream'],
+            'An upstream provider that acted is named by the name the deployment declares it under.',
+        ];
         yield 'an administrator named by a subject that is not one' => [
             ['kind' => 'administrator', 'subject' => 'two words'],
             'The subject "two words" must be made of printable ASCII characters without spaces.',
@@ -113,8 +125,47 @@ final class AuthorsTest extends TestCase
         new Authors([new PersonKind(), new PersonKind()]);
     }
 
+    #[Test]
+    public function aKindThatDoesNotNameItselfInLowercaseLettersIsRefused(): void
+    {
+        // Given
+        $kind = new class implements AuthorKindInterface {
+            public function kind(): string
+            {
+                return 'up_stream';
+            }
+
+            public function fromDocument(Document $document): AuthorInterface
+            {
+                return new ThePerson();
+            }
+        };
+
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('A kind of author names itself in lowercase letters, not "up_stream".');
+
+        // When
+        new Authors([$kind]);
+    }
+
+    #[Test]
+    public function theKindsAreTheNamesTheWiredKindsGiveThemselves(): void
+    {
+        // When / Then
+        static::assertSame(['person', 'administrator', 'client', 'directory', 'upstream', 'unauthenticated', 'host'], self::authors()->kinds());
+    }
+
     private static function authors(): Authors
     {
-        return new Authors([new PersonKind(), new AdministratorKind(), new ClientKind(), new DirectoryKind(), new HostKind()]);
+        return new Authors([
+            new PersonKind(),
+            new AdministratorKind(),
+            new ClientKind(),
+            new DirectoryKind(),
+            new UpstreamKind(),
+            new UnauthenticatedKind(),
+            new HostKind(),
+        ]);
     }
 }

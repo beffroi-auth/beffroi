@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Beffroi\Core\Tests\Domain\Archive;
 
 use Beffroi\Core\Domain\Archive\ArchivedFacts;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
 use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Author\AnAdministrator;
@@ -25,13 +27,15 @@ use Symfony\Component\Uid\Uuid;
 final class ArchivedFactsTest extends TestCase
 {
     /**
-     * Decision 0038, RGPD article 15(4)
+     * Decisions 0038 and 0066, RGPD article 15(4): an administrator, or the host acting at the order of its operator,
+     * neither by who they are nor by where they were.
      */
     #[Test]
-    public function anActAnAdministratorDidIsArchivedByTheirRoleAlone(): void
+    #[DataProvider('provideAuthorsToldByTheirRole')]
+    public function anActOfAnAuthorToldByTheirRoleIsArchivedByThatRoleAlone(AuthorInterface $author, string $role): void
     {
         // Given
-        $act = self::act(new AnAdministrator(new Subject('mallory-subject')));
+        $act = self::act($author);
 
         // When
         $facts = ArchivedFacts::act($act);
@@ -43,10 +47,19 @@ final class ArchivedFactsTest extends TestCase
                 'occurred_at' => '2026-09-15T10:00:00+00:00',
                 'client' => null,
                 'from' => null,
-                'author' => ['kind' => 'administrator'],
+                'author' => ['kind' => $role],
             ],
             $facts,
         );
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface, string}>
+     */
+    public static function provideAuthorsToldByTheirRole(): iterable
+    {
+        yield 'an administrator' => [new AnAdministrator(new Subject('mallory-subject')), 'administrator'];
+        yield 'the host' => [new TheHost(), 'host'];
     }
 
     /**
@@ -79,7 +92,8 @@ final class ArchivedFactsTest extends TestCase
         yield 'the person' => [new ThePerson(), ['kind' => 'person']];
         yield 'a client' => [new AClient('oidc-demo'), ['kind' => 'client', 'client_id' => 'oidc-demo']];
         yield 'a directory, by its name' => [new ADirectory('Entra ID'), ['kind' => 'directory', 'name' => 'Entra ID']];
-        yield 'the host' => [new TheHost(), ['kind' => 'host']];
+        yield 'an upstream provider, by its name' => [new AnUpstreamProvider('Acme SSO'), ['kind' => 'upstream', 'name' => 'Acme SSO']];
+        yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller(), ['kind' => 'unauthenticated']];
         yield 'nobody, written before acts named the kind of their author' => [null, null];
     }
 

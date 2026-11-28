@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
-use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -17,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 /**
  * RFC 7009 §2
  */
-final readonly class TokenRevoked implements ConcernsAPersonInterface, NamesItsAuthorInterface
+final readonly class TokenRevoked implements ConcernsAPersonInterface
 {
     public const string NAME = 'token.revoked';
 

@@ -942,6 +942,14 @@ La réponse revient à {redirect_uri}.</target>
         <source>author.directory</source>
         <target>annuaire</target>
       </trans-unit>
+      <trans-unit id="87ce3b8936" resname="author.upstream">
+        <source>author.upstream</source>
+        <target>fournisseur d'identité</target>
+      </trans-unit>
+      <trans-unit id="b135954852" resname="author.unauthenticated">
+        <source>author.unauthenticated</source>
+        <target>non connecté</target>
+      </trans-unit>
       <trans-unit id="dca0d401b2" resname="author.host">
         <source>author.host</source>
         <target>l'hôte</target>

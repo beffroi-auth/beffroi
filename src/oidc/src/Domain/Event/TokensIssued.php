@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AClient;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -54,5 +56,10 @@ final readonly class TokensIssued implements ClientInUseInterface, ConcernsAPers
     public function subject(): ?Subject
     {
         return $this->subject;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new AClient($this->clientId);
     }
 }

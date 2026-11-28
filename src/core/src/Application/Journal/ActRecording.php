@@ -27,9 +27,9 @@ final readonly class ActRecording
         string $act,
         DateTimeImmutable $occurredAt,
         RequestContext $context,
+        AuthorInterface $author,
         ?Subject $subject = null,
         ?string $client = null,
-        ?AuthorInterface $author = null,
         ?string $reason = null,
         ?string $method = null,
     ): void {

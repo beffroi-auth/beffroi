@@ -8,7 +8,7 @@ namespace Beffroi\Core\Domain\Author;
  * The provider acting of itself, by its schedule or a purge, or at the order of its operator, by the console, whose
  * provenance names the user of the shell (decision 0038).
  */
-final readonly class TheHost implements AuthorInterface
+final readonly class TheHost implements ToldByItsRoleInterface
 {
     public const string KIND = 'host';
 

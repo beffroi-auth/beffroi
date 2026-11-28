@@ -14,7 +14,7 @@ use DateTimeImmutable;
 /**
  * An act of the tenant and of no person.
  */
-final readonly class TenantContactChanged implements NamesItsAuthorInterface
+final readonly class TenantContactChanged implements DomainEventInterface
 {
     public const string NAME = 'tenant.contact_changed';
 

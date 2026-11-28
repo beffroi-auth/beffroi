@@ -48,6 +48,14 @@ final readonly class PlainText
     }
 
     /**
+     * Nothing but separators, controls and joiners, which show nothing on the line, whatever their script.
+     */
+    public static function isBlank(string $value): bool
+    {
+        return preg_match('/^[\p{Z}\p{Cc}\x{200C}\x{200D}]*$/u', $value) === 1;
+    }
+
+    /**
      * OIDC Core §5.1.1: lines separated by a line feed, or by a carriage return and a line feed, and nothing else that
      * a line of text may not hold.
      */

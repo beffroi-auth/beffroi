@@ -33,7 +33,7 @@ final class JournalEntry implements ClassifiedFieldsInterface
     public const int WORD_LENGTH = 64;
 
     /**
-     * @param AuthorInterface|null $author null when the event names no author, or for an act written before acts named the kind of their author
+     * @param AuthorInterface|null $author null only for an act written before acts named their author, the person's or the host's
      */
     public function __construct(
         public private(set) Uuid $id,

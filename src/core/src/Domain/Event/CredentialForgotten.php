@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Credential\Credential;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -35,5 +37,10 @@ final readonly class CredentialForgotten implements ConcernsAPersonInterface
     public function subject(): Subject
     {
         return $this->credential->user->subject;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new TheHost();
     }
 }

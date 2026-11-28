@@ -6,12 +6,11 @@ namespace Beffroi\Core\Domain\Author;
 
 use Beffroi\Core\Domain\Encoding\PlainText;
 use Beffroi\Core\Exception\InvalidArgumentException;
-use function trim;
 
 /**
  * A directory, by the name the deployment declares it under (decision 0063), which the person reads on their pages.
  */
-final readonly class ADirectory implements AuthorInterface
+final readonly class ADirectory implements ToldByItsNameInterface
 {
     public const string KIND = 'directory';
 
@@ -23,7 +22,7 @@ final readonly class ADirectory implements AuthorInterface
     public function __construct(
         public string $name,
     ) {
-        if (trim($name) === '' || ! PlainText::holds($name, PlainText::MAX_LENGTH)) {
+        if (PlainText::isBlank($name) || ! PlainText::holds($name, PlainText::MAX_LENGTH)) {
             throw new InvalidArgumentException('A directory is named by the name the deployment declares it under, plain text and never blank.');
         }
     }
@@ -31,6 +30,11 @@ final readonly class ADirectory implements AuthorInterface
     public function kind(): string
     {
         return self::KIND;
+    }
+
+    public function name(): string
+    {
+        return $this->name;
     }
 
     public function toDocument(): array

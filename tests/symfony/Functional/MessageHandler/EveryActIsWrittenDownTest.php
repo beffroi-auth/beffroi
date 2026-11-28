@@ -7,6 +7,12 @@ namespace App\Tests\Symfony\Functional\MessageHandler;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\ClassifiedModel;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
+use Closure;
+use Beffroi\Core\Domain\Session\AuthenticationSession;
+use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Event\PersonProvisioned;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
 use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\AuthorInterface;
@@ -126,6 +132,81 @@ final class EveryActIsWrittenDownTest extends DatabaseTestCase
         yield 'a client, by its identifier' => [new AClient('oidc-demo'), '{"kind":"client","client_id":"oidc-demo"}'];
         yield 'a directory, by its name' => [new ADirectory('Entra ID'), '{"kind":"directory","name":"Entra ID"}'];
         yield 'the host' => [new TheHost(), '{"kind":"host"}'];
+    }
+
+    /**
+     * Decision 0066: no act is written without its author.
+     *
+     * @param Closure(User, AuthenticationSession): DomainEventInterface $event
+     */
+    #[Test]
+    #[DataProvider('provideActsOfEachAuthor')]
+    public function anActNamesItsAuthor(Closure $event, AuthorInterface $author): void
+    {
+        // Given
+        $user = self::user('alice');
+        $session = self::session($user, self::now());
+
+        // When
+        self::announce($event($user, $session));
+
+        // Then
+        static::assertEquals($author, self::onlyAct()->author);
+    }
+
+    /**
+     * @return iterable<string, array{Closure(User, AuthenticationSession): DomainEventInterface, AuthorInterface}>
+     */
+    public static function provideActsOfEachAuthor(): iterable
+    {
+        yield 'a sign-in, the person' => [
+            static fn (User $user, AuthenticationSession $session): DomainEventInterface => new UserAuthenticated($session),
+            new ThePerson(),
+        ];
+        yield 'a refused attempt, an unauthenticated caller' => [
+            static fn (User $user, AuthenticationSession $session): DomainEventInterface => new AuthenticationFailed(
+                self::now(),
+                self::tenant(),
+                self::context(),
+                null,
+                AuthenticationFailureReason::UnknownUser,
+                'nobody',
+                null,
+            ),
+            new AnUnauthenticatedCaller(),
+        ];
+        yield 'a person an upstream provider created, the provider' => [
+            static fn (User $user, AuthenticationSession $session): DomainEventInterface => new PersonProvisioned(
+                self::now(),
+                self::tenant(),
+                $user->subject,
+                'Acme SSO',
+                self::context(),
+            ),
+            new AnUpstreamProvider('Acme SSO'),
+        ];
+        yield 'a load refused to a client, the client' => [
+            static fn (User $user, AuthenticationSession $session): DomainEventInterface => new LoadBudgetSpent(
+                self::now(),
+                self::tenant(),
+                self::context(),
+                'client',
+                '/token',
+                'oidc-demo',
+            ),
+            new AClient('oidc-demo'),
+        ];
+        yield 'a load refused before anybody was known, an unauthenticated caller' => [
+            static fn (User $user, AuthenticationSession $session): DomainEventInterface => new LoadBudgetSpent(
+                self::now(),
+                self::tenant(),
+                self::context(),
+                'origin',
+                '/jwks',
+                null,
+            ),
+            new AnUnauthenticatedCaller(),
+        ];
     }
 
     /**

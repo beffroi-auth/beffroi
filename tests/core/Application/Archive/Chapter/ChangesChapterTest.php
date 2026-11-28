@@ -10,11 +10,13 @@ use Beffroi\Core\Domain\Archive\ArchivedFacts;
 use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Tests\Fixture\Fixtures;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -40,21 +42,31 @@ final class ChangesChapterTest extends TestCase
     }
 
     /**
-     * Decision 0038
+     * Decisions 0038 and 0066
      */
     #[Test]
-    public function aChangeAnAdministratorMadeSaysSoAndNeitherWhoNorWhereFrom(): void
+    #[DataProvider('provideAuthorsToldByTheirRole')]
+    public function aChangeAnAuthorToldByTheirRoleMadeSaysSoAndNeitherWhoNorWhereFrom(AuthorInterface $author, string $role): void
     {
         // Given
         $user = Fixtures::user();
         $history = new InMemoryClaimHistory();
-        $history->record(self::change($user, new AnAdministrator(new Subject('administrator-subject'))));
+        $history->record(self::change($user, $author));
 
         // When
         $lines = new ChangesChapter($history)->of($user);
 
         // Then
-        static::assertSame([['kind' => 'administrator'], null], [$lines[0]['author'], $lines[0]['from']]);
+        static::assertSame([['kind' => $role], null], [$lines[0]['author'], $lines[0]['from']]);
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface, string}>
+     */
+    public static function provideAuthorsToldByTheirRole(): iterable
+    {
+        yield 'an administrator' => [new AnAdministrator(new Subject('administrator-subject')), 'administrator'];
+        yield 'the host' => [new TheHost(), 'host'];
     }
 
     /**

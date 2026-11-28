@@ -15,7 +15,7 @@ use DateTimeImmutable;
  * A key the tenant signs its mail with, removed by an administrator and served no more: an act of the tenant and of no
  * person.
  */
-final readonly class MailSigningKeyRemoved implements NamesItsAuthorInterface
+final readonly class MailSigningKeyRemoved implements DomainEventInterface
 {
     public const string NAME = 'tenant.mail_signing_key_removed';
 

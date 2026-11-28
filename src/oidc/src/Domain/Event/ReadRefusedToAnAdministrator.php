@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -40,5 +42,10 @@ final readonly class ReadRefusedToAnAdministrator implements ConcernsAClientInte
     public function subject(): Subject
     {
         return $this->administrator;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new AnAdministrator($this->administrator);
     }
 }
