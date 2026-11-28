@@ -200,6 +200,7 @@ final class AccountPasswordTest extends BrowserTestCase
     {
         yield 'shorter than the fifteen characters the floor asks' => ['short', 'too_short'];
         yield 'a word written twice' => ['passwordpassword', 'too_weak'];
+        yield 'a tabulation, which the profile refuses' => ["my cat is a \u{0009}by and a long one", 'disallowed_character'];
     }
 
     #[Test]

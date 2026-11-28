@@ -77,6 +77,23 @@ final class LoginTest extends BrowserTestCase
     }
 
     /**
+     * RFC 8265 §4.2.3, RFC 7644 §5
+     */
+    #[Test]
+    public function aPasswordTypedInAnotherFormThanItWasSetInSignsThePersonIn(): void
+    {
+        // Given
+        $user = self::userWithPassword('alice', self::PASSWORD);
+        $interaction = $this->authorize();
+
+        // When
+        $this->submitLogin($interaction, 'alice', "correct\u{00A0}horse battery\u{3000}staple");
+
+        // Then
+        static::assertTrue($this->boundSession()->user->id->equals($user->id));
+    }
+
+    /**
      * OIDC Core §2, RFC 8176 §2, Architecture §3.2, §3.5
      */
     #[Test]

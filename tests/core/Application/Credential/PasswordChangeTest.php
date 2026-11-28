@@ -421,6 +421,73 @@ final class PasswordChangeTest extends TestCase
         static::assertSame([], $this->attempts->attempts);
     }
 
+    /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function thePasswordInUseTypedInAnotherFormThanItWasSetInIsAccepted(): void
+    {
+        // Given
+        $credential = $this->passwordInUse();
+
+        // When
+        $this->change->change($this->alice, "correct\u{00A0}horse battery staple", Fixtures::plainPassword(self::POSED), Fixtures::context());
+
+        // Then
+        static::assertTrue($this->hasher->verify($credential->hash, self::POSED));
+    }
+
+    /**
+     * RFC 8265 §6.2
+     */
+    #[Test]
+    public function aPasswordInUseHashedAsItWasTypedIsAcceptedTypedSo(): void
+    {
+        // Given
+        $credential = $this->passwordInUse("correct\u{00A0}horse battery staple");
+
+        // When
+        $this->change->change($this->alice, "correct\u{00A0}horse battery staple", Fixtures::plainPassword(self::POSED), Fixtures::context());
+
+        // Then
+        static::assertTrue($this->hasher->verify($credential->hash, self::POSED));
+    }
+
+    /**
+     * RFC 8265 §4.1, §4.3
+     */
+    #[Test]
+    public function aPasswordInUseTheProfileRefusesIsNotTheOneInUse(): void
+    {
+        // Given
+        $this->passwordInUse("my cat is a \u{0009}by");
+
+        // When
+        try {
+            $this->change->change($this->alice, "my cat is a \u{0009}by", Fixtures::plainPassword(self::POSED), Fixtures::context());
+            static::fail('A password the profile refuses was taken for the one in use.');
+        } catch (PasswordChangeRefusedException $exception) {
+            // Then
+            static::assertSame(PasswordChangeRefusal::WrongPassword, $exception->refusal);
+        }
+    }
+
+    /**
+     * RFC 8265 §8.2
+     */
+    #[Test]
+    public function thePasswordPosedIsHeldInTheFormTheProfileEnforces(): void
+    {
+        // Given
+        $credential = $this->passwordInUse();
+
+        // When
+        $this->change->change($this->alice, self::IN_USE, Fixtures::plainPassword("a horse walks\u{3000}into a bar"), Fixtures::context());
+
+        // Then
+        static::assertSame($this->hasher->hash(self::POSED)->encoded, $credential->hash->encoded);
+    }
+
     private function changeAsking(BreachedPasswordsOfARecord $breaches, ?FakeAttemptLimiter $attempts = null): PasswordChange
     {
         return new PasswordChange(
@@ -436,9 +503,9 @@ final class PasswordChangeTest extends TestCase
         );
     }
 
-    private function passwordInUse(): PasswordCredential
+    private function passwordInUse(string $hashed = self::IN_USE): PasswordCredential
     {
-        $credential = new PasswordCredential(Uuid::v7(), $this->alice, $this->hasher->hash(self::IN_USE), Fixtures::now());
+        $credential = new PasswordCredential(Uuid::v7(), $this->alice, $this->hasher->hash($hashed), Fixtures::now());
         $this->credentials->save($credential);
 
         return $credential;

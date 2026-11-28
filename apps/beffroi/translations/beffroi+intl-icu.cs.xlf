@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Heslo se nepodařilo zkontrolovat. Zkuste to znovu.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Toto heslo obsahuje nepovolený znak. Odstraňte ho.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Hesla se neshodují.</target>

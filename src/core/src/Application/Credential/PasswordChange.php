@@ -9,6 +9,7 @@ use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Credential\PasswordChangeRefusal;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Credential\PlainPassword;
+use Beffroi\Core\Domain\Credential\TypedPassword;
 use Beffroi\Core\Domain\Event\PasswordChanged;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -81,7 +82,7 @@ final readonly class PasswordChange
                 'Too many attempts at the password in use; it is not verified until the limit lets one through.',
             );
         }
-        if (! $this->hasher->verify($credential->hash, $inUse)) {
+        if (! $this->verifies($credential, $inUse)) {
             throw new PasswordChangeRefusedException(
                 PasswordChangeRefusal::WrongPassword,
                 'What was typed is not the password in use.',
@@ -104,5 +105,15 @@ final readonly class PasswordChange
         $this->credentials->save($credential);
         $this->events->dispatch(new PasswordChanged($credential, $now, $context));
         $this->notifier->tell(new CredentialChange($user, PasswordChanged::NAME, $now, $credential->kind()));
+    }
+
+    /**
+     * @throws LogicException when no hasher of this deployment handles the algorithm the stored hash names
+     */
+    private function verifies(PasswordCredential $credential, #[SensitiveParameter] string $typed): bool
+    {
+        $verifies = fn (#[SensitiveParameter] string $form): bool => $this->hasher->verify($credential->hash, $form);
+
+        return TypedPassword::of($typed)?->verifiedBy($verifies) !== null;
     }
 }

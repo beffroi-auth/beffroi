@@ -148,6 +148,11 @@ final class ANewPasswordFromATicketTest extends BrowserTestCase
         yield 'two passwords that differ' => [self::POSED, 'seven brass owls guard the summer orchard', 'not_confirmed'];
         yield 'a password too short' => ['owls', 'owls', 'too_short'];
         yield 'the password in use' => [self::IN_USE, self::IN_USE, 'same_as_before'];
+        yield 'a tabulation, which the profile refuses' => [
+            "my cat is a \u{0009}by and a long one",
+            "my cat is a \u{0009}by and a long one",
+            'disallowed_character',
+        ];
     }
 
     #[Test]

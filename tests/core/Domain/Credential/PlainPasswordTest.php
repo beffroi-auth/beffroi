@@ -18,7 +18,7 @@ use function strlen;
 use function substr;
 
 /**
- * NIST SP 800-63B §3.1.1.2, CVE-2013-1443
+ * NIST SP 800-63B §3.1.1.2, CVE-2013-1443, RFC 8265 §4.2
  */
 final class PlainPasswordTest extends TestCase
 {
@@ -123,7 +123,71 @@ final class PlainPasswordTest extends TestCase
         yield 'a word written twice' => ['passwordpassword'];
         yield 'a euro sign repeated' => [str_repeat('€', 15)];
         yield 'an emoji repeated' => [str_repeat('😀', 12)];
+    }
+
+    /**
+     * RFC 8265 §4.2.2
+     */
+    #[Test]
+    public function theValueIsTheFormTheProfileEnforces(): void
+    {
+        // When / Then
+        static::assertSame('correct horse battery staple', new PlainPassword("correct\u{00A0}horse battery\u{1680}staple", self::alone())->value);
+    }
+
+    /**
+     * RFC 8265 §4.1, §4.3, RFC 8264 §4.3.3
+     */
+    #[Test]
+    #[DataProvider('providePasswordsTheProfileRefuses')]
+    public function aPasswordTheProfileRefusesIsRefusedForItsCharacter(string $password): void
+    {
+        // When
+        try {
+            new PlainPassword($password, self::alone());
+            static::fail('A password the profile refuses was held.');
+        } catch (PasswordRefusedException $exception) {
+            // Then
+            static::assertSame(PasswordRefusal::DisallowedCharacter, $exception->refusal);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function providePasswordsTheProfileRefuses(): iterable
+    {
+        yield 'a tabulation, example 18 of RFC 8265 §4.3' => ["my cat is a \u{0009}by and a long one"];
         yield 'a letter padded with zero-width spaces' => ['a' . str_repeat("\u{200B}", 14)];
+        yield 'an emoji followed by its variation selector' => ["I love New York \u{2764}\u{FE0F}"];
+    }
+
+    /**
+     * NIST SP 800-63B §3.1.1.2, RFC 8265 §4.2.2 rule 4
+     */
+    #[Test]
+    public function theLengthIsCountedOnTheEnforcedForm(): void
+    {
+        // Then
+        $this->expectException(PasswordRefusedException::class);
+        $this->expectExceptionMessageIs('A password is at least 15 characters long.');
+
+        // When
+        new PlainPassword(str_repeat("e\u{0301}", 8) . 'wxyz', self::alone());
+    }
+
+    /**
+     * NIST SP 800-63B §3.1.1.2, RFC 8265 §4.2.2 rule 2
+     */
+    #[Test]
+    public function theStrengthIsMeasuredOnTheEnforcedForm(): void
+    {
+        // Then
+        $this->expectException(PasswordRefusedException::class);
+        $this->expectExceptionMessageIs('A password this short of length and of alphabet is guessed: make it longer, or several words.');
+
+        // When
+        new PlainPassword(str_repeat("abcd\u{00A0}", 3) . 'a', self::withASecondFactor());
     }
 
     #[Test]

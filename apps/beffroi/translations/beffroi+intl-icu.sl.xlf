@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Gesla ni bilo mogoče preveriti. Poskusite znova.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>To geslo vsebuje nedovoljen znak. Odstranite ga.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Gesli se ne ujemata.</target>

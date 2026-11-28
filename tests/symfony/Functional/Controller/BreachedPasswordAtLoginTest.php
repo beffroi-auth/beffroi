@@ -32,6 +32,23 @@ final class BreachedPasswordAtLoginTest extends BrowserTestCase
         static::assertTrue(self::passwordOf($alice)->isBreached());
     }
 
+    /**
+     * RFC 8265 §8.2
+     */
+    #[Test]
+    public function aPasswordTypedInAnotherFormIsLookedUpInTheFormThatIsHashed(): void
+    {
+        // Given
+        $alice = self::userWithPassword('alice', self::PASSWORD);
+        self::breaches()->names([self::PASSWORD]);
+
+        // When
+        $this->signInOnTheForm('alice', "correct\u{00A0}horse battery staple");
+
+        // Then
+        static::assertTrue(self::passwordOf($alice)->isBreached());
+    }
+
     #[Test]
     public function aPasswordNoListHoldsIsMarkedAsLookedUpAndNotAsFound(): void
     {

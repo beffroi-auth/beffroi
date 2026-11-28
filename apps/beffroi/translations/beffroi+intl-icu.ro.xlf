@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Parola nu a putut fi verificată. Încercați din nou.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Această parolă conține un caracter nepermis. Eliminați-l.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Cele două parole nu coincid.</target>

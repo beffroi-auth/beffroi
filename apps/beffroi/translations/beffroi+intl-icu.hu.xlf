@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>A jelszót nem sikerült ellenőrizni. Próbálja újra.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Ez a jelszó nem engedélyezett karaktert tartalmaz. Távolítsa el.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>A két jelszó nem egyezik.</target>

@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Лозинката не можеше да се провери. Обидете се повторно.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Оваа лозинка содржи недозволен знак. Отстранете го.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Двете лозинки не се совпаѓаат.</target>

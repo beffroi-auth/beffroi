@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Δεν ήταν δυνατός ο έλεγχος του κωδικού πρόσβασης. Δοκιμάστε ξανά.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Αυτός ο κωδικός πρόσβασης περιέχει μη επιτρεπτό χαρακτήρα. Αφαιρέστε τον.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Οι δύο κωδικοί πρόσβασης δεν ταιριάζουν.</target>

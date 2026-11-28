@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Не вдалося перевірити пароль. Спробуйте ще раз.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Цей пароль містить недозволений символ. Видаліть його.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Паролі не збігаються.</target>

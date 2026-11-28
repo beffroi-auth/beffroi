@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Паролата не можа да бъде проверена. Опитайте отново.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Тази парола съдържа непозволен знак. Премахнете го.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Двете пароли не съвпадат.</target>
