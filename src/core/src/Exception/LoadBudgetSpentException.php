@@ -10,6 +10,7 @@ use function sprintf;
 final class LoadBudgetSpentException extends RuntimeException implements ExceptionInterface
 {
     /**
+     * @param non-empty-string $budget
      * @param int $retryAfter seconds, never zero
      * @param string|null $client null for a budget counted on the origin of the request
      */

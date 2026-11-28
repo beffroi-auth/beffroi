@@ -10,6 +10,8 @@ use App\Plane\Plane;
 use App\Tests\Symfony\Functional\Controller\BrowserTestCase;
 use App\Tests\Symfony\Functional\MessageHandler\RecordingEventHandler;
 use Beffroi\Core\Domain\Event\LoadBudgetSpent;
+use Beffroi\Core\Domain\Journal\JournalEntry;
+use function mb_strlen;
 use PHPUnit\Framework\Attributes\Test;
 use function preg_match;
 use function sprintf;
@@ -196,6 +198,24 @@ final class OriginLoadBudgetTest extends BrowserTestCase
         static::assertSame('beffroi_protocol_jwks', $spent[0]->route);
         static::assertNull($spent[0]->client);
         static::assertSame(self::ADDRESS, $spent[0]->context->ipAddress);
+    }
+
+    /**
+     * Decision 0062
+     */
+    #[Test]
+    public function theActOfARefusalCanNameEveryRouteOfThePlanes(): void
+    {
+        // When
+        $longer = [];
+        foreach (self::planeRoutes() as $name => $request) {
+            if (mb_strlen($name) > JournalEntry::WORD_LENGTH) {
+                $longer[] = $name;
+            }
+        }
+
+        // Then
+        static::assertSame([], $longer);
     }
 
     private function spendTheBudget(): void

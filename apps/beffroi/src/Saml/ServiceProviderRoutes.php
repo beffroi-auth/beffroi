@@ -10,7 +10,7 @@ final class ServiceProviderRoutes
 
     public const string METADATA_PATH = '/saml/sp/metadata';
 
-    public const string METADATA_FOR_IDENTITY_PROVIDER = 'beffroi_protocol_saml_service_provider_metadata_for_identity_provider';
+    public const string METADATA_FOR_IDENTITY_PROVIDER = 'beffroi_protocol_saml_sp_metadata_for_identity_provider';
 
     public const string METADATA_FOR_IDENTITY_PROVIDER_PATH = '/saml/sp/metadata/{identityProvider}';
 
