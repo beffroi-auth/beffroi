@@ -6,6 +6,7 @@ namespace App\DependencyInjection;
 
 use function dirname;
 use App\Controller\AccountArchiveRequestController;
+use App\Credential\RateLimitedChannelChangeWindow;
 use App\Doctrine\Type\ActorType;
 use App\Messenger\MessengerContract;
 use App\Doctrine\Type\AddressType;
@@ -232,6 +233,12 @@ final class BeffroiExtension extends AbstractExtension
                     'lock_factory' => 'lock.factory',
                 ];
             }
+            $limiters[RateLimitedChannelChangeWindow::LIMITER] = [
+                'policy' => 'fixed_window',
+                'limit' => RateLimitedChannelChangeWindow::LIMIT,
+                'interval' => RateLimitedChannelChangeWindow::INTERVAL,
+                'lock_factory' => 'lock.factory',
+            ];
             $limiters[AccountArchiveRequestController::LIMITER] = [
                 'policy' => 'sliding_window',
                 'limit' => AccountArchiveRequestController::LIMIT,

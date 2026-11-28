@@ -1101,6 +1101,10 @@
         <source>credential_change.backup_codes.renewed</source>
         <target>Οι εφεδρικοί κωδικοί του λογαριασμού σας ανανεώθηκαν. Ημερομηνία: {when}.</target>
       </trans-unit>
+      <trans-unit id="credential_change.channel.changed" resname="credential_change.channel.changed">
+        <source>credential_change.channel.changed</source>
+        <target>{kind, select, email {Η διεύθυνση email του λογαριασμού σας άλλαξε} phone_number {Ο αριθμός τηλεφώνου του λογαριασμού σας άλλαξε} other {Ένας τρόπος επικοινωνίας μαζί σας άλλαξε}}. Ημερομηνία: {when}.</target>
+      </trans-unit>
       <trans-unit id="c7a1e4f9b3" resname="locale.choose">
         <source>locale.choose</source>
         <target>Γλώσσα</target>

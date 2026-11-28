@@ -10,11 +10,15 @@ use App\Message\TellUserOfCredentialChange;
 use App\Messenger\NotificationRetryPolicy;
 use App\Tests\Symfony\Functional\Command\ConsoleTestCase;
 use App\Messenger\RetrySchedule;
+use Beffroi\Core\Application\Identity\SelfDescription;
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Event\CredentialChangeNotTold;
 use Beffroi\Core\Domain\Event\CredentialEnrolled;
+use Beffroi\Core\Domain\Identity\Claim\PhoneNumber;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Session\RequestContext;
+use Beffroi\Core\Domain\Tenant\SelfServedClaims;
 use Beffroi\Core\Port\ActsOfAPersonInterface;
 use Beffroi\Core\Port\CredentialChangeNotifierInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
@@ -25,6 +29,7 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\Mailer\EventListener\MessageLoggerListener;
 use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Notifier\EventListener\NotificationLoggerListener;
@@ -38,6 +43,8 @@ final class CredentialChangeByMailAndSmsTest extends ConsoleTestCase
     private const string ADDRESS = 'alice@op.test';
 
     private const string NUMBER = '+33600000000';
+
+    private const string ANOTHER_NUMBER = '+33699999999';
 
     /**
      * Nothing listens there: every mail is refused at the connection, as by a server that is down.
@@ -213,6 +220,142 @@ final class CredentialChangeByMailAndSmsTest extends ConsoleTestCase
         static::assertCount(1, self::mails());
     }
 
+    /**
+     * Decision 0049, NIST SP 800-63A-4 §5.3, CNIL délibération n° 2022-100 point 55, BSI TR-03161-2 O.Auth_16
+     */
+    #[Test]
+    public function aNumberTheOperatorChangesIsTextedToTheNumberItReplaced(): void
+    {
+        // Given
+        self::alice(verified: true);
+        self::console('beffroi:user:profile', ['username' => 'alice', '--phone-number' => self::ANOTHER_NUMBER]);
+
+        // When
+        self::work();
+
+        // Then
+        static::assertSame([self::NUMBER], array_map(static fn (MessageInterface $text): ?string => $text->getRecipientId(), self::texts()));
+    }
+
+    /**
+     * Decision 0049, CNIL délibération n° 2022-100 point 55
+     */
+    #[Test]
+    public function aNumberTheOperatorChangesIsWrittenToTheAddressOfThePerson(): void
+    {
+        // Given
+        self::alice(verified: true);
+        self::console('beffroi:user:profile', ['username' => 'alice', '--phone-number' => self::ANOTHER_NUMBER]);
+
+        // When
+        self::work();
+
+        // Then
+        static::assertSame([self::ADDRESS], array_map(static fn (Email $mail): string => $mail->getTo()[0]->getAddress(), self::mails()));
+    }
+
+    /**
+     * Decision 0049, NIST SP 800-63A-4 §5.3, CNIL délibération n° 2022-100 point 55
+     */
+    #[Test]
+    public function aNumberThePersonChangesIsTextedToTheNumberItReplaced(): void
+    {
+        // Given
+        self::describedByThePerson(self::alice(verified: true), self::ANOTHER_NUMBER);
+
+        // When
+        self::work();
+
+        // Then
+        static::assertSame([self::NUMBER], array_map(static fn (MessageInterface $text): ?string => $text->getRecipientId(), self::texts()));
+    }
+
+    /**
+     * Decision 0049
+     */
+    #[Test]
+    public function theTextToTheReplacedNumberCarriesNeitherNumber(): void
+    {
+        // Given
+        self::alice(verified: true);
+        self::console('beffroi:user:profile', ['username' => 'alice', '--phone-number' => self::ANOTHER_NUMBER]);
+
+        // When
+        self::work();
+
+        // Then
+        $text = self::texts()[0]->getSubject();
+        static::assertStringNotContainsString(self::NUMBER, $text);
+        static::assertStringNotContainsString(self::ANOTHER_NUMBER, $text);
+    }
+
+    /**
+     * Decision 0048, decision 0049
+     */
+    #[Test]
+    public function aNumberNobodyVerifiedIsTextedNothingOnceReplaced(): void
+    {
+        // Given
+        self::alice(verified: false);
+        self::console('beffroi:user:profile', ['username' => 'alice', '--phone-number' => self::ANOTHER_NUMBER]);
+
+        // When
+        self::work();
+
+        // Then
+        static::assertSame([], self::texts());
+    }
+
+    /**
+     * Decision 0049
+     */
+    #[Test]
+    public function theSecondChangeOfANumberInAWindowWaitsForItsEndAndTheThirdQueuesNothing(): void
+    {
+        // Given
+        self::alice(verified: true);
+
+        // When
+        foreach (['+33600000001', '+33600000002', '+33600000003'] as $number) {
+            self::console('beffroi:user:profile', ['username' => 'alice', '--phone-number' => $number]);
+        }
+
+        // Then
+        static::assertSame(
+            [
+                ['web_push',        false],
+                ['mail',            false],
+                ['sms',             false],
+                ['replaced_number', false],
+                ['web_push',        true],
+                ['mail',            true],
+                ['sms',             true],
+            ],
+            array_map(
+                static fn (Envelope $envelope): array => [self::notice($envelope)->channel, $envelope->last(DelayStamp::class) !== null],
+                self::queued(),
+            ),
+        );
+    }
+
+    /**
+     * Decision 0049, NIST SP 800-63B-4 §4.6
+     */
+    #[Test]
+    public function aTextThatNeverReachesTheReplacedNumberIsAnActOfThePerson(): void
+    {
+        // Given
+        $_SERVER['BEFFROI_TEST_SMS_DSN'] = self::UNAVAILABLE_SMS_DSN;
+        $alice = self::alice(verified: true);
+        self::console('beffroi:user:profile', ['username' => 'alice', '--phone-number' => self::ANOTHER_NUMBER]);
+
+        // When
+        self::work();
+
+        // Then
+        static::assertCount(1, self::service('test.beffroi.acts', ActsOfAPersonInterface::class)->lastOf($alice, [CredentialChangeNotTold::NAME], 10));
+    }
+
     private static function alice(bool $verified): User
     {
         $alice = self::user();
@@ -221,6 +364,21 @@ final class CredentialChangeByMailAndSmsTest extends ConsoleTestCase
         self::service('test.beffroi.users', UserRepositoryInterface::class)->save($alice);
 
         return $alice;
+    }
+
+    /**
+     * Through the use case the profile page calls, the tenant opening the number to the person for that call alone: the
+     * worker serves a tenant only as its configuration describes it.
+     */
+    private static function describedByThePerson(User $user, string $number): void
+    {
+        $tenant = $user->tenant;
+        $opened = $tenant->selfServedClaims;
+        $tenant->adoptSelfServedClaims(new SelfServedClaims(['phone_number']));
+        self::service('test.beffroi.self_description', SelfDescription::class)
+            ->describe($user, new PhoneNumber(), $number, RequestContext::unknown(self::now()));
+        $tenant->adoptSelfServedClaims($opened);
+        self::service('test.beffroi.users', UserRepositoryInterface::class)->save($user);
     }
 
     private static function tell(User $user): void

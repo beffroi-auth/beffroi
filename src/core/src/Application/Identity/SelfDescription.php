@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Identity;
 
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
 use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\PersonDescribedThemselves;
 use Beffroi\Core\Domain\Identity\Claim\ClaimInterface;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Notification\ChannelSnapshot;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Port\AtomicWritesInterface;
@@ -30,6 +32,7 @@ final readonly class SelfDescription
         private AtomicWritesInterface $writes,
         private EventDispatcherInterface $events,
         private ClockInterface $clock,
+        private ChannelChangeNotice $channelChanges,
     ) {
     }
 
@@ -42,6 +45,7 @@ final readonly class SelfDescription
         $user->source->assertLeaves([$claim->name()]);
         $now = $this->clock->now();
         $was = $claim->of($user);
+        $channels = ChannelSnapshot::of($user);
         $claim->describe($user, $value, $now);
         $became = $claim->of($user);
         $this->writes->atomically(function () use ($user, $claim, $was, $became, $now, $context): void {
@@ -52,5 +56,6 @@ final readonly class SelfDescription
             }
         });
         $this->events->dispatch(new PersonDescribedThemselves($user, $claim->name(), $became === null, $now, $context));
+        $this->channelChanges->tell($channels, $user, $now);
     }
 }

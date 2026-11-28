@@ -8,6 +8,8 @@ use App\Ciba\MailApprovalChannel;
 use App\Ciba\SmsApprovalChannel;
 use App\Configuration\SwitchedServices;
 use App\Credential\CredentialChangeChannels;
+use App\Credential\MailToTheReplacedAddressChannel;
+use App\Credential\SmsToTheReplacedNumberChannel;
 use App\Mail\MailSender;
 use App\Saml\SamlSigning;
 use App\Sms\SmsSender;
@@ -322,6 +324,57 @@ final class RolesFromTheEnvironmentTest extends ConsoleTestCase
     {
         yield 'mail' => ['BEFFROI_TEST_MAIL_DSN', MailSender::CHANNEL];
         yield 'SMS' => ['BEFFROI_TEST_SMS_DSN', SmsSender::CHANNEL];
+    }
+
+    /**
+     * Decision 0048, decision 0049
+     */
+    #[Test]
+    #[DataProvider('provideReplacedChannelsOfADsnTheEnvironmentNames')]
+    public function aChannelThatReachesAReplacedOneTellsWhileTheEnvironmentNamesItsDsn(string $claim, string $channel): void
+    {
+        // When
+        $channels = self::service('test.beffroi.environment_roles.credential_change_channels', CredentialChangeChannels::class)->reaching($claim);
+
+        // Then
+        static::assertSame([$channel], $channels);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideReplacedChannelsOfADsnTheEnvironmentNames(): iterable
+    {
+        yield 'mail' => ['email', MailToTheReplacedAddressChannel::NAME];
+        yield 'SMS' => ['phone_number', SmsToTheReplacedNumberChannel::NAME];
+    }
+
+    /**
+     * Decision 0048, decision 0049
+     */
+    #[Test]
+    #[DataProvider('provideReplacedChannelsOfADsn')]
+    public function aChannelThatReachesAReplacedOneIsAbsentWhileTheEnvironmentNamesNoDsn(string $variable, string $claim, string $channel): void
+    {
+        // Given
+        $this->deploy([
+            $variable => '',
+        ]);
+
+        // When
+        $channels = self::service('test.beffroi.environment_roles.credential_change_channels', CredentialChangeChannels::class)->reaching($claim);
+
+        // Then
+        static::assertNotContains($channel, $channels);
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function provideReplacedChannelsOfADsn(): iterable
+    {
+        yield 'mail' => ['BEFFROI_TEST_MAIL_DSN', 'email', MailToTheReplacedAddressChannel::NAME];
+        yield 'SMS' => ['BEFFROI_TEST_SMS_DSN', 'phone_number', SmsToTheReplacedNumberChannel::NAME];
     }
 
     /**

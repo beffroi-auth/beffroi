@@ -8,10 +8,12 @@ use function array_key_exists;
 use function array_keys;
 use Beffroi\Core\Application\Identity\Member\ClaimMember;
 use Beffroi\Core\Application\Identity\Member\MemberInterface;
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
 use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\PersonDescribed;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Notification\ChannelSnapshot;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Port\AtomicWritesInterface;
@@ -46,6 +48,7 @@ final readonly class PersonDescription
         private AtomicWritesInterface $writes,
         private EventDispatcherInterface $events,
         private ClockInterface $clock,
+        private ChannelChangeNotice $channelChanges,
     ) {
         $byName = [];
         foreach ($members as $member) {
@@ -66,6 +69,7 @@ final readonly class PersonDescription
     {
         $members = $this->membersSaid($said);
         $before = $this->read($user, $members);
+        $channels = ChannelSnapshot::of($user);
         $now = $this->clock->now();
         $changed = $this->writes->atomically(function () use ($user, $said, $members, $before, $now, $context, $author): array {
             foreach ($members as $member) {
@@ -87,6 +91,7 @@ final readonly class PersonDescription
         if ($changed !== []) {
             $this->events->dispatch(new PersonDescribed($user->tenant, $user->subject, $changed, $now, $context, $author));
         }
+        $this->channelChanges->tell($channels, $user, $now);
 
         return $changed;
     }

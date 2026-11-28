@@ -6,7 +6,19 @@ All notable changes to this project are documented in this file, in reverse chro
 
 ### Added
 
-- Nothing.
+- `beffroi/core`: a change of the address or of the phone number of a person is told to every channel that reaches her
+  and to the one it replaced while she held it verified, whoever wrote it (decision 0049). `SelfDescription`,
+  `PersonDescription` and `UserProvisioner::setProfile()` take a `ChannelSnapshot` before the write and hand it to
+  `ChannelChangeNotice` once written, which tells a `CredentialChange` of the act `channel.changed` naming the claim and
+  carrying the `ReplacedChannel`; the three take `ChannelChangeNotice` in their constructor.
+  `ChannelChangeWindowInterface` folds the changes of one channel: the first told at once, the second of its window at
+  the end of the window, the others with it. `CredentialChangeNotifierInterface::tell()` takes the moment a change is
+  told at (`?DateTimeImmutable $at`), which an implementation declares too.
+- `beffroi/beffroi`: `RateLimitedChannelChangeWindow`, two changes of a channel an hour by person, a bound and not a
+  setting; the channels of a replaced address and number (`ReplacedChannelInterface`,
+  `MailToTheReplacedAddressChannel`, `SmsToTheReplacedNumberChannel`), through `MailSender::sendToTheReplaced()` and
+  `SmsSender::sendToTheReplaced()`, the mail encrypted to what the person gave for that address; the notice waits on the
+  lane until the moment the window gives (`DelayStamp`), in the 31 catalogues (`credential_change.channel.changed`).
 
 ### Changed
 

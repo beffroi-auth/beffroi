@@ -6,6 +6,7 @@ namespace Beffroi\Core\Tests\Fixture;
 
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Port\CredentialChangeNotifierInterface;
+use DateTimeImmutable;
 
 final class RecordingCredentialChangeNotifier implements CredentialChangeNotifierInterface
 {
@@ -14,9 +15,15 @@ final class RecordingCredentialChangeNotifier implements CredentialChangeNotifie
      */
     public private(set) array $told = [];
 
-    public function tell(CredentialChange $change): void
+    /**
+     * @var list<DateTimeImmutable|null> when each change was to be told, in the order they were
+     */
+    public private(set) array $toldAt = [];
+
+    public function tell(CredentialChange $change, ?DateTimeImmutable $at = null): void
     {
         $this->told[] = $change;
+        $this->toldAt[] = $at;
     }
 
     /**

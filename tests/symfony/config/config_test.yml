@@ -1402,6 +1402,10 @@ services:
     test.beffroi.credential_change_notifier:
         alias: Beffroi\Core\Port\CredentialChangeNotifierInterface
         public: true
+    # What a person says of themselves on their profile, as the page hands it over (decision 0049)
+    test.beffroi.self_description:
+        alias: Beffroi\Core\Application\Identity\SelfDescription
+        public: true
     test.beffroi.address_confirmation_delivery:
         alias: App\MessageHandler\SendAddressConfirmationHandler
         public: true

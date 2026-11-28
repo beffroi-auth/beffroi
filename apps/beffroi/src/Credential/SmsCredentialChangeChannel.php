@@ -27,6 +27,6 @@ final readonly class SmsCredentialChangeChannel implements CredentialChangeChann
     public function tell(User $user, CredentialChange $change): void
     {
         $notice = $this->notices->of($user, $change);
-        $this->sender->send($user, $notice->title . "\n" . $notice->body . "\n" . $notice->accountPage);
+        $this->sender->send($user, $notice->text());
     }
 }

@@ -19,4 +19,14 @@ final readonly class CredentialChangeNotice
         public string $accountPage,
     ) {
     }
+
+    public function mailText(): string
+    {
+        return $this->body . "\n\n" . $this->accountPage . "\n";
+    }
+
+    public function text(): string
+    {
+        return $this->title . "\n" . $this->body . "\n" . $this->accountPage;
+    }
 }

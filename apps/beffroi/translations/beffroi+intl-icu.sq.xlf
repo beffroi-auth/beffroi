@@ -1101,6 +1101,10 @@
         <source>credential_change.backup_codes.renewed</source>
         <target>Kodet rezervë të llogarisë suaj u rinovuan më {when}.</target>
       </trans-unit>
+      <trans-unit id="credential_change.channel.changed" resname="credential_change.channel.changed">
+        <source>credential_change.channel.changed</source>
+        <target>{kind, select, email {Adresa e email-it e llogarisë suaj u ndryshua} phone_number {Numri i telefonit i llogarisë suaj u ndryshua} other {Një mënyrë për t'ju kontaktuar u ndryshua}} më {when}.</target>
+      </trans-unit>
       <trans-unit id="c7a1e4f9b3" resname="locale.choose">
         <source>locale.choose</source>
         <target>Gjuha</target>

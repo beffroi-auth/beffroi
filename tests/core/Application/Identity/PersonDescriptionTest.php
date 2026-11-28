@@ -16,6 +16,8 @@ use Beffroi\Core\Application\Identity\Member\PhoneNumberVerifiedMember;
 use Beffroi\Core\Application\Identity\Member\UsernameMember;
 use Beffroi\Core\Application\Identity\PersonDescription;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Bridge\InMemory\InMemoryClaimHistory;
 use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
 use Beffroi\Core\Domain\Event\PersonDescribed;
@@ -30,8 +32,10 @@ use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Tests\Fixture\FakeChannelChangeWindow;
 use Beffroi\Core\Tests\Fixture\FixedClaims;
 use Beffroi\Core\Tests\Fixture\Fixtures;
+use Beffroi\Core\Tests\Fixture\RecordingCredentialChangeNotifier;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use Beffroi\Core\Tests\Fixture\WritesAsTheyCome;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -59,12 +63,15 @@ final class PersonDescriptionTest extends TestCase
 
     private WritesAsTheyCome $writes;
 
+    private RecordingCredentialChangeNotifier $notifier;
+
     protected function setUp(): void
     {
         $this->users = new InMemoryUserRepository();
         $this->history = new InMemoryClaimHistory();
         $this->events = new RecordingEventDispatcher();
         $this->writes = new WritesAsTheyCome();
+        $this->notifier = new RecordingCredentialChangeNotifier();
     }
 
     #[Test]
@@ -377,6 +384,67 @@ final class PersonDescriptionTest extends TestCase
     }
 
     /**
+     * Decision 0049, NIST SP 800-63A-4 §5.3, CNIL délibération n° 2022-100 point 55
+     */
+    #[Test]
+    public function anAddressAnAdministratorChangesIsToldToTheOneItReplaced(): void
+    {
+        // Given
+        $alice = $this->alice();
+        $alice->changeEmail(new EmailAddress('alice@acme.example'), true, Fixtures::now());
+
+        // When
+        $this->describe($alice, ['email' => 'alice@elsewhere.example', 'email_verified' => true]);
+
+        // Then
+        static::assertSame(
+            [[ChannelChangeNotice::ACT, 'email', 'alice@acme.example']],
+            array_map(static fn (CredentialChange $change): array => [$change->act, $change->kind, $change->replaced?->value], $this->notifier->told),
+        );
+    }
+
+    /**
+     * Decision 0049
+     */
+    #[Test]
+    public function anAdministratorChangingTheAddressAndTheNumberTellsEachChange(): void
+    {
+        // Given
+        $alice = $this->alice();
+
+        // When
+        $this->describe($alice, ['email' => 'alice@acme.example', 'phone_number' => '+44 1865 000000']);
+
+        // Then
+        static::assertSame(
+            [
+                [ChannelChangeNotice::ACT, 'email'],
+                [ChannelChangeNotice::ACT, 'phone_number'],
+            ],
+            $this->notifier->acts(),
+        );
+    }
+
+    /**
+     * Decision 0049
+     */
+    #[Test]
+    public function aDescriptionRefusedTellsNothing(): void
+    {
+        // Given
+        $alice = $this->aliceOfTheWorkforce();
+
+        // When
+        try {
+            $this->describe($alice, ['email' => 'alice@elsewhere.example']);
+        } catch (InvalidArgumentException) {
+        }
+
+        // Then
+        static::assertSame([], $this->notifier->told);
+    }
+
+    /**
      * A person the upstream provider "workforce" created, which holds her email address and her nickname.
      */
     private function aliceOfTheWorkforce(): User
@@ -419,6 +487,7 @@ final class PersonDescriptionTest extends TestCase
             $this->writes,
             $this->events,
             new MockClock(Fixtures::now()),
+            new ChannelChangeNotice(new FakeChannelChangeWindow(), $this->notifier),
         )->describe($user, $said, $author, Fixtures::context());
     }
 

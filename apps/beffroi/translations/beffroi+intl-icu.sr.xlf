@@ -1101,6 +1101,10 @@
         <source>credential_change.backup_codes.renewed</source>
         <target>Обновљени су резервни кодови вашег налога ({when}).</target>
       </trans-unit>
+      <trans-unit id="credential_change.channel.changed" resname="credential_change.channel.changed">
+        <source>credential_change.channel.changed</source>
+        <target>{kind, select, email {Промењена је имејл адреса вашег налога} phone_number {Промењен је број телефона вашег налога} other {Промењен је начин да вас контактирамо}} ({when}).</target>
+      </trans-unit>
       <trans-unit id="c7a1e4f9b3" resname="locale.choose">
         <source>locale.choose</source>
         <target>Језик</target>

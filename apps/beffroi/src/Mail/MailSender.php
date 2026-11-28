@@ -7,6 +7,8 @@ namespace App\Mail;
 use App\Messenger\NotificationNotDeliveredException;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Notification\ChannelSnapshot;
+use Beffroi\Core\Domain\Notification\ReplacedChannel;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Closure;
 use Psr\Log\LoggerInterface;
@@ -22,7 +24,8 @@ use Symfony\Component\Mime\Message;
 
 /**
  * Writes to the address of a person once it is verified, and to no other, but for the confirmation that establishes
- * an address, which goes to that address before it is verified (decision 0048).
+ * an address, which goes to that address before it is verified (decision 0048), and for the notice of a change, which
+ * goes to the address it replaced as well while the person held it verified (decision 0049).
  */
 final readonly class MailSender
 {
@@ -55,7 +58,32 @@ final readonly class MailSender
             return false;
         }
 
-        return $this->write($user, $verified, $subject, $text, $this->protection->of(...));
+        return $this->write($user, $verified->value, $subject, $text, $this->protection->of(...));
+    }
+
+    /**
+     * Decision 0049, CNIL délibération n° 2022-100 point 55: the notice of a change goes to the address it replaced,
+     * which the person held verified before it, encrypted to what mail to that address was encrypted to.
+     *
+     * @return bool false for a channel that is not an address, or when the deployment cannot write a mail at all, and
+     *              which is sent nothing
+     *
+     * @throws NotificationNotDeliveredException when the transport did not take the mail, or when the mail cannot be
+     *                                           signed or encrypted as it must be
+     */
+    public function sendToTheReplaced(User $user, ReplacedChannel $replaced, string $subject, string $text): bool
+    {
+        if ($replaced->claim !== ChannelSnapshot::EMAIL) {
+            return false;
+        }
+
+        return $this->write(
+            $user,
+            $replaced->value,
+            $subject,
+            $text,
+            fn (User $user, EmailAddress $sender, Email $mail): Message => $this->protection->ofTheReplaced($user, $replaced, $sender, $mail),
+        );
     }
 
     /**
@@ -77,7 +105,7 @@ final readonly class MailSender
             return false;
         }
 
-        return $this->write($user, $held, $subject, $text, $this->protection->ofAConfirmation(...));
+        return $this->write($user, $held->value, $subject, $text, $this->protection->ofAConfirmation(...));
     }
 
     /**
@@ -86,10 +114,10 @@ final readonly class MailSender
      *
      * @throws NotificationNotDeliveredException
      */
-    private function write(User $user, EmailAddress $to, string $subject, #[SensitiveParameter] string $text, Closure $protect): bool
+    private function write(User $user, string $to, string $subject, #[SensitiveParameter] string $text, Closure $protect): bool
     {
         try {
-            $recipient = new Address($to->value);
+            $recipient = new Address($to);
         } catch (MimeException $refusal) {
             $this->logger->warning('An address of the person is not one a mail can carry.', [
                 'tenant' => $user->tenant->slug,

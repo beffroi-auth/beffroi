@@ -8,6 +8,7 @@ use App\Credential\CredentialChangeNotices;
 use App\Locale\Moments;
 use App\Locale\UserTimeZone;
 use App\Tests\Symfony\Fixture\CatalogueNotices;
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Event\BackupCodesRenewed;
 use Beffroi\Core\Domain\Event\CredentialEnrolled;
@@ -84,6 +85,9 @@ final class CredentialChangeNoticesTest extends TestCase
         yield 'a link to add a passkey issued' => [EnrolmentTicketIssued::NAME, null, 'A link to add a passkey to your account was issued'];
         yield 'backup codes renewed' => [BackupCodesRenewed::NAME, 'totp', 'The backup codes of your account were renewed'];
         yield 'a kind the words do not name' => [CredentialEnrolled::NAME, 'smartcard', 'A way of signing in was added to your account'];
+        yield 'an address changed' => [ChannelChangeNotice::ACT, 'email', 'The email address of your account was changed'];
+        yield 'a phone number changed' => [ChannelChangeNotice::ACT, 'phone_number', 'The phone number of your account was changed'];
+        yield 'a channel the words do not name' => [ChannelChangeNotice::ACT, 'pager', 'A way of reaching you was changed'];
     }
 
     #[Test]

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Identity;
 
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Tests\Fixture\FakeChannelChangeWindow;
+use Beffroi\Core\Tests\Fixture\RecordingCredentialChangeNotifier;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
 use Beffroi\Core\Application\Credential\ActivePassword;
 use Beffroi\Core\Application\Credential\BreachedPasswordRefusal;
@@ -83,6 +86,7 @@ final class OneDomainRuleTest extends TestCase
                 new SymfonyUuidGenerator(),
                 $clock,
                 new FixedClaims(),
+                new ChannelChangeNotice(new FakeChannelChangeWindow(), new RecordingCredentialChangeNotifier()),
             ),
             new IdentityLinker($identities, new SymfonyUuidGenerator(), $clock),
             new RecordingEventDispatcher(),

@@ -7,6 +7,7 @@ namespace Beffroi\Core\Application\Identity;
 use Beffroi\Core\Application\Credential\ActivePassword;
 use Beffroi\Core\Application\Credential\BreachedPasswordRefusal;
 use Beffroi\Core\Application\Credential\EnrolmentRefusal;
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Credential\PlainPassword;
 use Beffroi\Core\Domain\Identity\Address;
@@ -15,6 +16,7 @@ use Beffroi\Core\Domain\Identity\Profile;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Identity\UserSource;
+use Beffroi\Core\Domain\Notification\ChannelSnapshot;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\CredentialEnrolmentFailedException;
 use Beffroi\Core\Exception\InvalidArgumentException;
@@ -40,6 +42,7 @@ final readonly class UserProvisioner
         private UuidGeneratorInterface $uuids,
         private ClockInterface $clock,
         private ClaimsInterface $claims,
+        private ChannelChangeNotice $channelChanges,
     ) {
     }
 
@@ -83,6 +86,7 @@ final readonly class UserProvisioner
             $this->claims->named($name)?->field()->assertHolds($value);
         }
         $now = $this->clock->now();
+        $channels = ChannelSnapshot::of($user);
         // The one change the user can refuse comes first.
         if (! $source->holds('phone_number')) {
             $user->changePhoneNumber($phoneNumber, $phoneNumberVerified, $now);
@@ -98,6 +102,7 @@ final readonly class UserProvisioner
             $user->changeAddress($address, $now);
         }
         $this->users->save($user);
+        $this->channelChanges->tell($channels, $user, $now);
 
         return $user;
     }

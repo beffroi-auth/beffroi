@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Saml\Tests\Unit\Application\Upstream;
 
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Tests\Fixture\FakeChannelChangeWindow;
+use Beffroi\Core\Tests\Fixture\RecordingCredentialChangeNotifier;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
 use Beffroi\Core\Application\Credential\ActivePassword;
 use Beffroi\Core\Application\Credential\BreachedPasswordRefusal;
@@ -607,6 +610,7 @@ final class AssertionConsumerServiceTest extends TestCase
                     new SymfonyUuidGenerator(),
                     $this->clock,
                     new FixedClaims(),
+                    new ChannelChangeNotice(new FakeChannelChangeWindow(), new RecordingCredentialChangeNotifier()),
                 ),
                 new IdentityLinker($identities, new SymfonyUuidGenerator(), $this->clock),
                 new RecordingEventDispatcher(),

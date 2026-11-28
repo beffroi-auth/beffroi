@@ -5,17 +5,22 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Administration;
 
 use App\Administration\Controller\UserDescriptionController;
+use App\Message\TellUserOfCredentialChange;
 use function array_map;
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
 use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Event\PersonDescribed;
 use Beffroi\Core\Domain\Identity\ClaimChange;
+use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\ChangesOfAPersonInterface;
+use Beffroi\Core\Port\UserRepositoryInterface;
 use Beffroi\Oidc\Domain\Event\PersonReadByAnAdministrator;
 use PHPUnit\Framework\Attributes\Test;
 use function sprintf;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -199,6 +204,69 @@ final class AdministrationApiDescriptionTest extends AdministrationTestCase
             [Response::HTTP_NOT_FOUND, 'not_found', []],
             [$response->getStatusCode(), self::members($response, ['error'])[0], self::authored(PersonDescribed::NAME)],
         );
+    }
+
+    /**
+     * Decision 0049, NIST SP 800-63A-4 §5.3, CNIL délibération n° 2022-100 point 55
+     */
+    #[Test]
+    public function anAddressThePatchChangesIsToldToTheAddressItReplacedAndToEachChannelOfThePerson(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        $bob->changeEmail(new EmailAddress('bob@example.com'), true, self::now());
+        self::service('test.beffroi.users', UserRepositoryInterface::class)->save($bob);
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $this->patch($bob, $token, '{"claims": {"email": "robert@example.com"}}');
+
+        // Then
+        static::assertSame(
+            [
+                ['web_push',         'bob@example.com'],
+                ['mail',             'bob@example.com'],
+                ['sms',              'bob@example.com'],
+                ['replaced_address', 'bob@example.com'],
+            ],
+            array_map(
+                static fn (TellUserOfCredentialChange $notice): array => [$notice->channel, $notice->change->replaced?->value],
+                $this->channelChangesQueued(),
+            ),
+        );
+    }
+
+    /**
+     * Decision 0049
+     */
+    #[Test]
+    public function aPatchThatLeavesTheChannelsAsTheyWereTellsNothing(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $this->patch($bob, $token, '{"claims": {"nickname": "Bobby"}}');
+
+        // Then
+        static::assertSame([], $this->channelChangesQueued());
+    }
+
+    /**
+     * @return list<TellUserOfCredentialChange> the notices of a change of a channel the process of the API queued
+     */
+    private function channelChangesQueued(): array
+    {
+        $notices = [];
+        foreach ($this->administrationService('test.beffroi.notification_queue', InMemoryTransport::class)->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof TellUserOfCredentialChange && $message->change->act === ChannelChangeNotice::ACT) {
+                $notices[] = $message;
+            }
+        }
+
+        return $notices;
     }
 
     private function patch(User $person, string $token, string $patch, string $contentType = UserDescriptionController::MERGE_PATCH): Response

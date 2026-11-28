@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Identity;
 
+use function array_map;
 use Beffroi\Core\Application\Identity\SelfDescription;
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Bridge\InMemory\InMemoryClaimHistory;
 use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
 use Beffroi\Core\Domain\Event\PersonDescribedThemselves;
@@ -17,7 +20,9 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Tenant\SelfServedClaims;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Tests\Fixture\FakeChannelChangeWindow;
 use Beffroi\Core\Tests\Fixture\Fixtures;
+use Beffroi\Core\Tests\Fixture\RecordingCredentialChangeNotifier;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use Beffroi\Core\Tests\Fixture\WritesAsTheyCome;
 use PHPUnit\Framework\Attributes\Test;
@@ -275,10 +280,48 @@ final class SelfDescriptionTest extends TestCase
         static::assertSame('+33 1 23 45 67 89', $changes[0]->became);
     }
 
+    /**
+     * Decision 0049, NIST SP 800-63A-4 §5.3, CNIL délibération n° 2022-100 point 55
+     */
+    #[Test]
+    public function aNumberThePersonChangesIsToldToTheOneItReplaced(): void
+    {
+        // Given
+        $user = self::user(['phone_number']);
+        $user->changePhoneNumber('+44 1865 000000', true, Fixtures::now());
+        $notifier = new RecordingCredentialChangeNotifier();
+
+        // When
+        self::describing(notifier: $notifier)->describe($user, new PhoneNumber(), '+33 1 23 45 67 89', Fixtures::context());
+
+        // Then
+        static::assertSame(
+            [[ChannelChangeNotice::ACT, 'phone_number', '+44 1865 000000']],
+            array_map(static fn (CredentialChange $change): array => [$change->act, $change->kind, $change->replaced?->value], $notifier->told),
+        );
+    }
+
+    /**
+     * Decision 0049
+     */
+    #[Test]
+    public function aClaimThatIsNoChannelTellsNothing(): void
+    {
+        // Given
+        $notifier = new RecordingCredentialChangeNotifier();
+
+        // When
+        self::describing(notifier: $notifier)->describe(self::user(['nickname']), new Nickname(), 'Ada', Fixtures::context());
+
+        // Then
+        static::assertSame([], $notifier->told);
+    }
+
     private static function describing(
         ?RecordingEventDispatcher $events = null,
         ?InMemoryClaimHistory $history = null,
         ?WritesAsTheyCome $writes = null,
+        ?RecordingCredentialChangeNotifier $notifier = null,
     ): SelfDescription {
         return new SelfDescription(
             new InMemoryUserRepository(),
@@ -286,6 +329,7 @@ final class SelfDescriptionTest extends TestCase
             $writes ?? new WritesAsTheyCome(),
             $events ?? new RecordingEventDispatcher(),
             new MockClock(Fixtures::now()),
+            new ChannelChangeNotice(new FakeChannelChangeWindow(), $notifier ?? new RecordingCredentialChangeNotifier()),
         );
     }
 
