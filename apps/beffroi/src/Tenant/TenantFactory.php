@@ -31,7 +31,7 @@ final readonly class TenantFactory
     /**
      * RFC 9562 §6.6, fixed for the life of the project.
      */
-    private const string NAMESPACE = '55ade059-fda4-45f4-96ca-43dc8ef74d3e';
+    private const string IDENTIFIER_NAMESPACE = '55ade059-fda4-45f4-96ca-43dc8ef74d3e';
 
     /**
      * @param array<array-key, mixed> $authenticationClasses class name to predicate name, in order
@@ -178,6 +178,6 @@ final readonly class TenantFactory
 
     public static function identifier(string $slug): Uuid
     {
-        return Uuid::v5(Uuid::fromString(self::NAMESPACE), $slug);
+        return Uuid::v5(Uuid::fromString(self::IDENTIFIER_NAMESPACE), $slug);
     }
 }

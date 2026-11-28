@@ -15,7 +15,7 @@ An identity provider for the Symfony ecosystem: OAuth 2.0 and OpenID Connect, an
 
 Each directory is split into a read-only mirror, `beffroi-auth/<name>` (`application` for `apps/beffroi`). Issues and pull requests go here.
 
-Requires PHP 8.4 and Symfony 8.2; PHP 8.5 is what runs, locally and in CI. Licensed under MIT.
+Requires PHP 8.4 or later and Symfony 8.2; the CI tests it on PHP 8.4, 8.5 and 8.6, and 8.5 is what runs locally. Licensed under MIT.
 
 ## Development
 
