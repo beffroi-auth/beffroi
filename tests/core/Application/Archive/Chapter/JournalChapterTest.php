@@ -9,6 +9,7 @@ use Beffroi\Core\Tests\Fixture\RecordedActs;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Tests\Fixture\Fixtures;
@@ -31,7 +32,7 @@ final class JournalChapterTest extends TestCase
         );
 
         // When
-        $lines = new JournalChapter($journal)->of($user);
+        $lines = new JournalChapter($journal, [])->of($user);
 
         // Then
         static::assertSame(UserAuthenticated::NAME, $lines[0]['act']);
@@ -59,7 +60,7 @@ final class JournalChapterTest extends TestCase
             Fixtures::context(),
             $user->subject,
             'oidc-demo',
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         ));
 
         // When
@@ -78,7 +79,7 @@ final class JournalChapterTest extends TestCase
         self::acts($journal, $user, [UserAuthenticated::NAME, AuthenticationFailed::NAME, 'archive.asked']);
 
         // When
-        $lines = new JournalChapter($journal)->of($user);
+        $lines = new JournalChapter($journal, [])->of($user);
 
         // Then
         static::assertCount(3, $lines);
@@ -94,7 +95,7 @@ final class JournalChapterTest extends TestCase
         self::acts($journal, $user, array_fill(0, $howMany, UserAuthenticated::NAME));
 
         // When
-        $lines = new JournalChapter($journal)->of($user);
+        $lines = new JournalChapter($journal, [])->of($user);
 
         // Then
         static::assertCount($howMany, $lines);
@@ -109,7 +110,7 @@ final class JournalChapterTest extends TestCase
         self::acts($journal, $user, ['first.act', 'second.act', 'third.act']);
 
         // When
-        $lines = new JournalChapter($journal)->of($user);
+        $lines = new JournalChapter($journal, [])->of($user);
 
         // Then
         static::assertSame(['first.act', 'second.act', 'third.act'], array_column($lines, 'act'));
@@ -126,7 +127,7 @@ final class JournalChapterTest extends TestCase
         self::acts($journal, $grace, [UserAuthenticated::NAME]);
 
         // When / Then
-        static::assertSame([], new JournalChapter($journal)->of($ada));
+        static::assertSame([], new JournalChapter($journal, [])->of($ada));
     }
 
     /**

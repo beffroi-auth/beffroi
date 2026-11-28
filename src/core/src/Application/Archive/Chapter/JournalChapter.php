@@ -19,7 +19,7 @@ final readonly class JournalChapter implements ArchiveChapterInterface
      */
     public function __construct(
         private ActsOfAPersonInterface $acts,
-        private array $actsAboutTheirClient = [],
+        private array $actsAboutTheirClient,
     ) {
     }
 
