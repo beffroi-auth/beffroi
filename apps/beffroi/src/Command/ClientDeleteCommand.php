@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use App\Http\RequestContextFactory;
 use Beffroi\Oidc\Application\Client\Registration\RegisteredClientRemoval;
 use Beffroi\Oidc\Port\ClientStoreInterface;
@@ -58,7 +59,7 @@ final readonly class ClientDeleteCommand
             return Command::FAILURE;
         }
 
-        $this->removal->remove($record, $this->contexts->fromConsole(self::NAME));
+        $this->removal->remove($record, new TheHost(), $this->contexts->fromConsole(self::NAME));
         $io->success(sprintf(
             'The client "%s" is deleted; nothing it was issued can be spent any more.',
             $client->clientId,

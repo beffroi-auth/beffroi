@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Identity;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Listing\Period;
 
 /**
@@ -27,7 +29,7 @@ final readonly class ClaimChangeQuestion
         return (
             $this->period?->holds($change->changedAt) !== false
             && ($this->claim === null || $change->claim === $this->claim)
-            && ($this->byAnAdministrator === null || ($change->author !== null) === $this->byAnAdministrator)
+            && ($this->byAnAdministrator === null || $change->author->kind() === ($this->byAnAdministrator ? AnAdministrator::KIND : ThePerson::KIND))
         );
     }
 }

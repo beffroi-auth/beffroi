@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Identity;
 
+use function implode;
 use function array_map;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Application\Identity\Member\AddressMember;
 use Beffroi\Core\Application\Identity\Member\EmailMember;
 use Beffroi\Core\Application\Identity\Member\EmailVerifiedMember;
@@ -44,6 +48,8 @@ use Symfony\Component\Uid\Uuid;
 final class PersonDescriptionTest extends TestCase
 {
     private const string ADMINISTRATOR = 'administrator-subject';
+
+    private const string WRITTEN_BY_THE_ADMINISTRATOR = 'administrator administrator-subject';
 
     private InMemoryUserRepository $users;
 
@@ -86,7 +92,7 @@ final class PersonDescriptionTest extends TestCase
 
         // Then
         static::assertSame(
-            [['given_name', null, 'Ada', self::ADMINISTRATOR], ['nickname', 'Alice', 'Ada', self::ADMINISTRATOR]],
+            [['given_name', null, 'Ada', self::WRITTEN_BY_THE_ADMINISTRATOR], ['nickname', 'Alice', 'Ada', self::WRITTEN_BY_THE_ADMINISTRATOR]],
             $this->rows($alice),
         );
     }
@@ -116,9 +122,29 @@ final class PersonDescriptionTest extends TestCase
         // Then
         $acts = $this->events->of(PersonDescribed::class);
         static::assertCount(1, $acts);
+        static::assertEquals(
+            ['alice-subject', ['nickname', 'username'], new AnAdministrator(new Subject(self::ADMINISTRATOR))],
+            [$acts[0]->subject()->value, $acts[0]->changed, $acts[0]->author()],
+        );
+    }
+
+    /**
+     * Decision 0066
+     */
+    #[Test]
+    public function aDirectoryThatDescribesIsNamedByEachChangeAndByTheAct(): void
+    {
+        // Given
+        $alice = $this->alice();
+        $directory = new ADirectory('Entra ID');
+
+        // When
+        $this->describe($alice, ['given_name' => 'Ada'], $directory);
+
+        // Then
         static::assertSame(
-            ['alice-subject', ['nickname', 'username'], self::ADMINISTRATOR],
-            [$acts[0]->subject()->value, $acts[0]->changed, $acts[0]->author()->value],
+            [[['given_name', null, 'Ada', 'directory Entra ID']], [$directory]],
+            [$this->rows($alice), array_map(static fn (PersonDescribed $act): AuthorInterface => $act->author(), $this->events->of(PersonDescribed::class))],
         );
     }
 
@@ -288,7 +314,10 @@ final class PersonDescriptionTest extends TestCase
 
         // Then
         static::assertSame(
-            [['email', 'alice@acme.example', 'ada@acme.example', self::ADMINISTRATOR], ['email_verified', 'true', 'false', self::ADMINISTRATOR]],
+            [
+                ['email', 'alice@acme.example', 'ada@acme.example', self::WRITTEN_BY_THE_ADMINISTRATOR],
+                ['email_verified', 'true', 'false', self::WRITTEN_BY_THE_ADMINISTRATOR],
+            ],
             $this->rows($alice),
         );
     }
@@ -380,7 +409,7 @@ final class PersonDescriptionTest extends TestCase
      *
      * @return list<string>
      */
-    private function describe(User $user, array $said): array
+    private function describe(User $user, array $said, AuthorInterface $author = new AnAdministrator(new Subject(self::ADMINISTRATOR))): array
     {
         return new PersonDescription(
             new FixedClaims([new Nickname(), new GivenName(), new Birthdate(), new PhoneNumber()]),
@@ -390,16 +419,16 @@ final class PersonDescriptionTest extends TestCase
             $this->writes,
             $this->events,
             new MockClock(Fixtures::now()),
-        )->describeByAnAdministrator($user, $said, new Subject(self::ADMINISTRATOR), Fixtures::context());
+        )->describe($user, $said, $author, Fixtures::context());
     }
 
     /**
-     * @return list<array{string, string|null, string|null, string|null}> each row of the history of the person, by the name of what changed
+     * @return list<array{string, string|null, string|null, string}> each row of the history of the person, by the name of what changed and its author as written
      */
     private function rows(User $user): array
     {
         $rows = array_map(
-            static fn (ClaimChange $change): array => [$change->claim, $change->was, $change->became, $change->author?->value],
+            static fn (ClaimChange $change): array => [$change->claim, $change->was, $change->became, implode(' ', $change->author->toDocument())],
             $this->history->lastOf($user, 50),
         );
         sort($rows);

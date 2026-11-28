@@ -7,10 +7,17 @@ namespace App\Tests\Symfony\Functional\MessageHandler;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\ClassifiedModel;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AClient;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
 use Beffroi\Core\Domain\Event\LoadBudgetSpent;
+use Beffroi\Core\Domain\Event\PersonDisabled;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Journal\JournalEntry;
@@ -23,6 +30,7 @@ use Beffroi\Oidc\Domain\Scope\Scope;
 use Beffroi\Oidc\Domain\Scope\Scopes;
 use function array_keys;
 use Doctrine\DBAL\Connection;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
@@ -62,9 +70,9 @@ final class EveryActIsWrittenDownTest extends DatabaseTestCase
 
         // Then
         $act = self::onlyAct();
-        static::assertSame(
-            [PersonReadByAnAdministrator::NAME, 'bob-subject', 'alice-subject', 'administration-app'],
-            [$act->act, $act->subject?->value, $act->author?->value, $act->client],
+        static::assertEquals(
+            [PersonReadByAnAdministrator::NAME, 'bob-subject', new AnAdministrator(new Subject('alice-subject')), 'administration-app'],
+            [$act->act, $act->subject?->value, $act->author, $act->client],
         );
     }
 
@@ -85,7 +93,69 @@ final class EveryActIsWrittenDownTest extends DatabaseTestCase
         );
 
         // Then
-        static::assertSame('alice-subject', self::onlyAct()->author?->value);
+        static::assertEquals(new AnAdministrator(new Subject('alice-subject')), self::onlyAct()->author);
+    }
+
+    /**
+     * Decision 0066
+     */
+    #[Test]
+    #[DataProvider('provideAuthors')]
+    public function theAuthorOfAnActIsWrittenAsTheDocumentOfTheirKindAndReadBackAsTheyWere(AuthorInterface $author, string $written): void
+    {
+        // Given
+        $user = self::user('alice');
+
+        // When
+        self::announce(new PersonDisabled(self::tenant(), $user->subject, self::now(), self::context(), $author));
+
+        // Then
+        static::assertEquals([$written, $author], [self::connection()->fetchOne('SELECT author FROM beffroi_journal'), self::onlyAct()->author]);
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface, string}>
+     */
+    public static function provideAuthors(): iterable
+    {
+        yield 'the person' => [new ThePerson(), '{"kind":"person"}'];
+        yield 'an administrator, by the subject of their account' => [
+            new AnAdministrator(new Subject('mallory-subject')),
+            '{"kind":"administrator","subject":"mallory-subject"}',
+        ];
+        yield 'a client, by its identifier' => [new AClient('oidc-demo'), '{"kind":"client","client_id":"oidc-demo"}'];
+        yield 'a directory, by its name' => [new ADirectory('Entra ID'), '{"kind":"directory","name":"Entra ID"}'];
+        yield 'the host' => [new TheHost(), '{"kind":"host"}'];
+    }
+
+    /**
+     * Decision 0060: a row written before acts named the kind of their author is never rewritten, and reads back as it
+     * was written.
+     */
+    #[Test]
+    #[DataProvider('provideAuthorsWrittenBefore')]
+    public function anActWrittenBeforeActsNamedTheKindOfTheirAuthorReadsBackAsItWasWritten(?string $written, ?AuthorInterface $read): void
+    {
+        // Given
+        $user = self::user('alice');
+        self::announce(new PersonDisabled(self::tenant(), $user->subject, self::now(), self::context(), new TheHost()));
+        self::connection()->executeStatement('UPDATE beffroi_journal SET author = ?', [$written]);
+        self::reload();
+
+        // When
+        $act = self::onlyAct();
+
+        // Then
+        static::assertEquals($read, $act->author);
+    }
+
+    /**
+     * @return iterable<string, array{string|null, AuthorInterface|null}>
+     */
+    public static function provideAuthorsWrittenBefore(): iterable
+    {
+        yield 'an administrator, by their bare subject' => ['mallory-subject', new AnAdministrator(new Subject('mallory-subject'))];
+        yield 'the person or the host, by nothing' => [null, null];
     }
 
     #[Test]

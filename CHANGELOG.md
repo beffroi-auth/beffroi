@@ -10,7 +10,22 @@ All notable changes to this project are documented in this file, in reverse chro
 
 ### Changed
 
-- Nothing.
+- `beffroi/core`: an act of the journal and a change of a claim name their author by one of five kinds (decision
+  0066): the person, an administrator of the tenant by the subject of their account, a client by its identifier, a
+  directory by its name, or the host. `NamesItsAuthorInterface::author()`, `JournalEntry::$author` and
+  `ClaimChange::$author` hold an `AuthorInterface` in place of a `Subject`; `PersonCreation::create()`,
+  `PersonDescription::describe()`, `PersonDisabling::disable()` and `PersonEnabling::enable()` take the author in place
+  of their `…ByAnAdministrator()` twin, and `SessionTerminator::end()`, `CredentialRevocation::revoke()`,
+  `ConsentRevocation::revoke()`, `RegisteredClientRemoval::remove()` and `OtherSessionsTermination::endEvery()` take the
+  author their callers name. A token a client revokes (RFC 7009) names that client. Every session a disabling ends
+  ends as an act of administration, the console's included.
+- `beffroi/beffroi`: the journal of a person the administration API answers and `beffroi:user:journal --format=json`
+  name the author of an act by its document, `{"kind": "administrator", "subject": "…"}` for instance, in place of the
+  subject of an administrator, and the archive of a person names who made each act and each change by their kind, an
+  administrator by that kind alone. The migration widens the two columns to text and rewrites no row, the journal and
+  the history being chains whose head the provider signed; it refuses a database where one of them names an
+  administrator by a subject that begins with `{`. A logout token or an event queued before the upgrade does not read
+  back after it.
 
 ### Deprecated
 

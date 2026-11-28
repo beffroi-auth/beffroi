@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Domain\Identity;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Exception\InvalidArgumentException;
@@ -77,7 +78,7 @@ final class ClaimChangeTest extends TestCase
         $this->expectExceptionMessageIs('A change of a claim names the claim.');
 
         // When
-        new ClaimChange(Uuid::v7(), Fixtures::user(), '', 'Ada', 'Augusta', Fixtures::now(), Fixtures::context());
+        new ClaimChange(Uuid::v7(), Fixtures::user(), '', 'Ada', 'Augusta', Fixtures::now(), Fixtures::context(), new ThePerson());
     }
 
     private static function change(?User $user, ?string $was, ?string $became): ClaimChange
@@ -90,6 +91,7 @@ final class ClaimChangeTest extends TestCase
             $became,
             Fixtures::now(),
             Fixtures::context(),
+            new ThePerson(),
         );
     }
 }

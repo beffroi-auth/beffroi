@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\EndSession;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use DateTimeImmutable;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
@@ -92,7 +93,7 @@ final readonly class EndSessionHandler
 
     private function end(EndSessionRequest $request, AuthenticationSession $session, RequestContext $context): LoggedOut
     {
-        $this->sessions->end($session, SessionEnd::RelyingParty, $context);
+        $this->sessions->end($session, SessionEnd::RelyingParty, new ThePerson(), $context);
 
         return new LoggedOut($request, $session, $request->redirect());
     }

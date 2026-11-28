@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
@@ -20,7 +21,6 @@ final readonly class ConsentRevoked implements ConcernsAClientInterface, Concern
      * @param list<Uuid> $revokedGrants
      * @param list<string> $revokedRefreshTokenHashes
      * @param list<string> $revokedAccessTokenHashes
-     * @param Subject|null $administrator the administrator of the tenant who took it back, by the subject of their account; null when the person or the operator of the instance did
      */
     public function __construct(
         public DateTimeImmutable $occurredAt,
@@ -32,7 +32,7 @@ final readonly class ConsentRevoked implements ConcernsAClientInterface, Concern
         public array $revokedRefreshTokenHashes,
         public array $revokedAccessTokenHashes,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
     }
 
@@ -46,8 +46,8 @@ final readonly class ConsentRevoked implements ConcernsAClientInterface, Concern
         return $this->subject;
     }
 
-    public function author(): ?Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return $this->author;
     }
 }

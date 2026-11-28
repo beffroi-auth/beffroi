@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -20,14 +21,11 @@ final readonly class AuthenticationSessionEnded implements ConcernsAPersonInterf
 
     public SessionEnd $endedBy;
 
-    /**
-     * @param Subject|null $administrator the administrator of the tenant who ended it, by the subject of their account
-     */
     public function __construct(
         public AuthenticationSession $session,
         public DateTimeImmutable $occurredAt,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
         $this->tenant = $session->tenant;
         $this->endedBy = $session->endedBy ?? throw new LogicException('The session has not ended.');
@@ -43,8 +41,8 @@ final readonly class AuthenticationSessionEnded implements ConcernsAPersonInterf
         return $this->session->user->subject;
     }
 
-    public function author(): ?Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return $this->author;
     }
 }

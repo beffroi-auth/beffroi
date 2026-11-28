@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Identity;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\PersonalData\ClassifiedFieldsInterface;
 use Beffroi\Core\Domain\PersonalData\FieldClassificationInterface;
 use Beffroi\Core\Domain\PersonalData\NoPersonalDatum;
@@ -22,9 +23,6 @@ final class ClaimChange implements ClassifiedFieldsInterface
 {
     public readonly Tenant $tenant;
 
-    /**
-     * @param Subject|null $author the administrator of the tenant who made the change, by the subject of their account; null when the person made it
-     */
     public function __construct(
         public private(set) Uuid $id,
         public readonly User $user,
@@ -33,7 +31,7 @@ final class ClaimChange implements ClassifiedFieldsInterface
         public readonly ?string $became,
         public readonly DateTimeImmutable $changedAt,
         public readonly RequestContext $context,
-        public readonly ?Subject $author = null,
+        public readonly AuthorInterface $author,
     ) {
         if ($claim === '') {
             throw new InvalidArgumentException('A change of a claim names the claim.');
@@ -55,7 +53,7 @@ final class ClaimChange implements ClassifiedFieldsInterface
         return [
             'claim' =>
                 new NoPersonalDatum('the name of what changed, a claim of OIDC Core §5.1, the username of the account, the key its mail is encrypted to or the channels a person chose, and never a value'),
-            'author' => new NoPersonalDatum(Reason::THE_SUBJECT),
+            'author' => new NoPersonalDatum(Reason::THE_AUTHOR),
             'was' => new Sealed('claim_change'),
             'became' => new Sealed('claim_change'),
             'changedAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),

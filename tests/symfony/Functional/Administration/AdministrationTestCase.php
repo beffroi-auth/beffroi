@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Administration;
 
-use function array_filter;
 use function array_map;
-use function array_values;
 use App\Tests\Symfony\Functional\AppKernel;
 use App\Tests\Symfony\Functional\Controller\PasskeyTestCase;
 use Beffroi\Core\Domain\Group\Group;
 use Beffroi\Core\Domain\Group\GroupMembership;
 use Beffroi\Core\Domain\Group\GroupSource;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\GroupRepositoryInterface;
@@ -263,10 +262,14 @@ abstract class AdministrationTestCase extends PasskeyTestCase
     {
         $acts = self::entityManager()->getRepository(JournalEntry::class)->findBy(['act' => $name]);
 
-        return array_values(array_map(
-            static fn (JournalEntry $act): array => [$act->subject?->value, $act->author?->value],
-            array_filter($acts, static fn (JournalEntry $act): bool => $act->author !== null),
-        ));
+        $administrators = [];
+        foreach ($acts as $act) {
+            if ($act->author instanceof AnAdministrator) {
+                $administrators[] = [$act->subject?->value, $act->author->subject->value];
+            }
+        }
+
+        return $administrators;
     }
 
     /**

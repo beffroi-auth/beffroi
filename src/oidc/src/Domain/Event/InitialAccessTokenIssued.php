@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
-use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use DateTimeImmutable;
@@ -20,15 +20,12 @@ final readonly class InitialAccessTokenIssued implements NamesItsAuthorInterface
 {
     public const string NAME = 'initial_access_token.issued';
 
-    /**
-     * @param Subject|null $administrator the administrator of the tenant who issued it, by the subject of their account; null when the operator of the instance did
-     */
     public function __construct(
         public DateTimeImmutable $occurredAt,
         public Tenant $tenant,
         public Uuid $tokenId,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
     }
 
@@ -37,8 +34,8 @@ final readonly class InitialAccessTokenIssued implements NamesItsAuthorInterface
         return self::NAME;
     }
 
-    public function author(): ?Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return $this->author;
     }
 }

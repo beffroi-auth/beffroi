@@ -6,6 +6,8 @@ namespace Beffroi\Core\Application\Ticket;
 
 use Beffroi\Core\Application\Authentication\OtherSessionsTermination;
 use Beffroi\Core\Application\Totp\TotpEnrolment;
+use Beffroi\Core\Domain\Session\SessionEnd;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Credential\TotpCredential;
 use Beffroi\Core\Domain\Credential\TotpProvisioning;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -64,7 +66,7 @@ final readonly class TotpTicketRedemption
             $ticket,
             fn (): TotpCredential => $this->enrolment->completeInPlaceOfTheOneHeld($ticket->user, $provisioning, $code, $context),
         );
-        $this->sessions->endEvery($ticket->user, $context);
+        $this->sessions->endEvery($ticket->user, SessionEnd::User, new ThePerson(), $context);
 
         return $credential;
     }

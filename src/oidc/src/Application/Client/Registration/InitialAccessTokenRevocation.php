@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Client\Registration;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -30,7 +33,7 @@ final readonly class InitialAccessTokenRevocation
 
     public function revoke(Tenant $tenant, Uuid $id, RequestContext $context): ?InitialAccessToken
     {
-        return $this->revokeOnce($tenant, $id, $context, null);
+        return $this->revokeOnce($tenant, $id, $context, new TheHost());
     }
 
     /**
@@ -38,10 +41,10 @@ final readonly class InitialAccessTokenRevocation
      */
     public function revokeByAnAdministrator(Tenant $tenant, Uuid $id, Subject $administrator, RequestContext $context): ?InitialAccessToken
     {
-        return $this->revokeOnce($tenant, $id, $context, $administrator);
+        return $this->revokeOnce($tenant, $id, $context, new AnAdministrator($administrator));
     }
 
-    private function revokeOnce(Tenant $tenant, Uuid $id, RequestContext $context, ?Subject $administrator): ?InitialAccessToken
+    private function revokeOnce(Tenant $tenant, Uuid $id, RequestContext $context, AuthorInterface $author): ?InitialAccessToken
     {
         $token = $this->issued->find($tenant, $id);
         if ($token === null || $token->isRevoked()) {
@@ -50,7 +53,7 @@ final readonly class InitialAccessTokenRevocation
         $now = $this->clock->now();
         $token->revoke($now);
         $this->tokens->save($token);
-        $this->events->dispatch(new InitialAccessTokenRevoked($now, $tenant, $token->id, $context, $administrator));
+        $this->events->dispatch(new InitialAccessTokenRevoked($now, $tenant, $token->id, $context, $author));
 
         return $token;
     }

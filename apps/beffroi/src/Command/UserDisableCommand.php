@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use App\Http\RequestContextFactory;
 use Beffroi\Core\Application\Identity\PersonDisabling;
 use function sprintf;
@@ -42,7 +43,7 @@ final readonly class UserDisableCommand
             return Command::FAILURE;
         }
 
-        $ended = $this->disabling->disable($user, $this->contexts->fromConsole(self::NAME));
+        $ended = $this->disabling->disable($user, new TheHost(), $this->contexts->fromConsole(self::NAME));
         if ($ended === null) {
             $io->note(sprintf('The user "%s" was disabled already: nothing changed.', PrintedText::inBlock($user->username)));
 

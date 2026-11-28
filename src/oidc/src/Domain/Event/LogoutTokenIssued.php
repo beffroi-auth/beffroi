@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
@@ -18,8 +19,7 @@ final readonly class LogoutTokenIssued implements ConcernsAClientInterface, Conc
     public const string NAME = 'logout_token.issued';
 
     /**
-     * @param Subject      $subject       the subject of the person's account, never the "sub" the token names
-     * @param Subject|null $administrator the administrator of the tenant who ended the session, by the subject of their account
+     * @param Subject $subject the subject of the person's account, never the "sub" the token names
      */
     public function __construct(
         public DateTimeImmutable $occurredAt,
@@ -30,7 +30,7 @@ final readonly class LogoutTokenIssued implements ConcernsAClientInterface, Conc
         public Uuid $sessionId,
         public string $token,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
     }
 
@@ -44,8 +44,8 @@ final readonly class LogoutTokenIssued implements ConcernsAClientInterface, Conc
         return $this->subject;
     }
 
-    public function author(): ?Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return $this->author;
     }
 }

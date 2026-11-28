@@ -10,10 +10,16 @@ use function array_values;
 use App\Http\ActsPage;
 use App\Http\AskedPage;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Event\CredentialRevoked;
+use Beffroi\Core\Domain\Event\PersonDisabled;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -85,7 +91,7 @@ final class AccountActsTest extends BrowserTestCase
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, $act, 'tui-of-mallory', author: new Subject('mallory-subject'));
+        self::record($alice, $act, 'tui-of-mallory', author: new AnAdministrator(new Subject('mallory-subject')));
         self::reload();
         $this->signIn($alice);
 
@@ -114,12 +120,67 @@ final class AccountActsTest extends BrowserTestCase
         yield 'a consent of theirs taken back' => [ConsentRevoked::NAME];
     }
 
+    /**
+     * Decision 0066: the person reads the name of the directory that did it, in place of where it came from.
+     */
+    #[Test]
+    public function anActADirectoryDidIsOnThePageByItsName(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, PersonDisabled::NAME, author: new ADirectory('Entra <ID>'));
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame(
+            ['The directory Entra <ID>', 'directory', false],
+            [$row->filter('[data-author]')->text(), $row->filter('[data-author]')->attr('data-author'), str_contains($row->html(), SealedRows::IP_ADDRESS)],
+        );
+    }
+
+    /**
+     * Decision 0066: an act the person or the host did says where it came from, as it did before acts named their
+     * author.
+     */
+    #[Test]
+    #[DataProvider('provideAuthorsSaidByWhereTheyActedFrom')]
+    public function anActOfTheirOwnOrOfTheHostSaysWhereItCameFrom(?AuthorInterface $author): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, CredentialRevoked::NAME, author: $author);
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame([0, true], [$row->filter('[data-author]')->count(), str_contains($row->html(), SealedRows::IP_ADDRESS)]);
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface|null}>
+     */
+    public static function provideAuthorsSaidByWhereTheyActedFrom(): iterable
+    {
+        yield 'the person' => [new ThePerson()];
+        yield 'the host' => [new TheHost()];
+        yield 'nobody, written before acts named the kind of their author' => [null];
+    }
+
     #[Test]
     public function aReadAnAdministratorMadeOfThemselvesIsNotOnThePage(): void
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-alice', author: $alice->subject);
+        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-alice', author: new AnAdministrator($alice->subject));
         self::reload();
         $this->signIn($alice);
 
@@ -135,7 +196,7 @@ final class AccountActsTest extends BrowserTestCase
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, AuthenticationSessionEnded::NAME, author: $alice->subject);
+        self::record($alice, AuthenticationSessionEnded::NAME, author: new AnAdministrator($alice->subject));
         self::reload();
         $this->signIn($alice);
 
@@ -288,14 +349,19 @@ final class AccountActsTest extends BrowserTestCase
         static::assertSame(self::sorted(['', ...ActsPage::ACTS]), self::sorted($offered));
     }
 
+    /**
+     * @param list<string> $acts
+     */
     #[Test]
     #[DataProvider('provideAuthors')]
-    public function whetherAnAdministratorDidTheActIsReadApart(string $by, string $act): void
+    public function whetherAnAdministratorDidTheActIsReadApart(string $by, array $acts): void
     {
         // Given
         $alice = self::user('alice');
         self::record($alice, UserAuthenticated::NAME);
-        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-mallory', author: new Subject('mallory-subject'));
+        self::record($alice, CredentialRevoked::NAME, author: new ThePerson());
+        self::record($alice, PersonDisabled::NAME, author: new ADirectory('Entra ID'));
+        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-mallory', author: new AnAdministrator(new Subject('mallory-subject')));
         self::reload();
         $this->signIn($alice);
 
@@ -303,16 +369,16 @@ final class AccountActsTest extends BrowserTestCase
         $page = $this->actsPage(narrowed: [ActsPage::AUTHOR => $by]);
 
         // Then
-        static::assertSame([$act], $page->filter('tbody tr')->extract(['data-act']));
+        static::assertSame(self::sorted($acts), self::sorted($page->filter('tbody tr')->extract(['data-act'])));
     }
 
     /**
-     * @return iterable<string, array{string, string}>
+     * @return iterable<string, array{string, list<string>}>
      */
     public static function provideAuthors(): iterable
     {
-        yield 'what an administrator did' => [ActsPage::BY_AN_ADMINISTRATOR, PersonReadByAnAdministrator::NAME];
-        yield 'what a request in their name did' => [ActsPage::BY_A_REQUEST, UserAuthenticated::NAME];
+        yield 'what an administrator did' => [ActsPage::BY_AN_ADMINISTRATOR, [PersonReadByAnAdministrator::NAME]];
+        yield 'what anybody else did' => [ActsPage::BY_A_REQUEST, [UserAuthenticated::NAME, CredentialRevoked::NAME, PersonDisabled::NAME]];
     }
 
     #[Test]
@@ -439,8 +505,13 @@ final class AccountActsTest extends BrowserTestCase
         return $rows;
     }
 
-    private static function record(User $user, string $act, ?string $client = null, ?DateTimeImmutable $occurredAt = null, ?Subject $author = null): void
-    {
+    private static function record(
+        User $user,
+        string $act,
+        ?string $client = null,
+        ?DateTimeImmutable $occurredAt = null,
+        ?AuthorInterface $author = null,
+    ): void {
         self::service('test.beffroi.journal', JournalInterface::class)
             ->record(new JournalEntry(
                 Uuid::v7(),

@@ -7,6 +7,10 @@ namespace Beffroi\Core\Tests\Application\Archive\Chapter;
 use Beffroi\Core\Application\Archive\Chapter\ChangesChapter;
 use Beffroi\Core\Bridge\InMemory\InMemoryClaimHistory;
 use Beffroi\Core\Domain\Archive\ArchivedFacts;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
@@ -23,14 +27,14 @@ final class ChangesChapterTest extends TestCase
         // Given
         $user = Fixtures::user();
         $history = new InMemoryClaimHistory();
-        $history->record(self::change($user, null));
+        $history->record(self::change($user, new ThePerson()));
 
         // When
         $lines = new ChangesChapter($history)->of($user);
 
         // Then
         static::assertSame(
-            ['nickname', 'Ada', 'Augusta', Fixtures::now()->format('c'), ArchivedFacts::context(Fixtures::context()), null],
+            ['nickname', 'Ada', 'Augusta', Fixtures::now()->format('c'), ArchivedFacts::context(Fixtures::context()), ['kind' => 'person']],
             [$lines[0]['claim'], $lines[0]['was'], $lines[0]['became'], $lines[0]['changed_at'], $lines[0]['from'], $lines[0]['author']],
         );
     }
@@ -44,13 +48,34 @@ final class ChangesChapterTest extends TestCase
         // Given
         $user = Fixtures::user();
         $history = new InMemoryClaimHistory();
-        $history->record(self::change($user, new Subject('administrator-subject')));
+        $history->record(self::change($user, new AnAdministrator(new Subject('administrator-subject'))));
 
         // When
         $lines = new ChangesChapter($history)->of($user);
 
         // Then
-        static::assertSame([ArchivedFacts::AN_ADMINISTRATOR, null], [$lines[0]['author'], $lines[0]['from']]);
+        static::assertSame([['kind' => 'administrator'], null], [$lines[0]['author'], $lines[0]['from']]);
+    }
+
+    /**
+     * Decision 0066
+     */
+    #[Test]
+    public function aChangeADirectoryMadeNamesItAndWhereItCameFrom(): void
+    {
+        // Given
+        $user = Fixtures::user();
+        $history = new InMemoryClaimHistory();
+        $history->record(self::change($user, new ADirectory('Entra ID')));
+
+        // When
+        $lines = new ChangesChapter($history)->of($user);
+
+        // Then
+        static::assertSame(
+            [['kind' => 'directory', 'name' => 'Entra ID'], ArchivedFacts::context(Fixtures::context())],
+            [$lines[0]['author'], $lines[0]['from']],
+        );
     }
 
     #[Test]
@@ -61,7 +86,7 @@ final class ChangesChapterTest extends TestCase
         $history = new InMemoryClaimHistory();
         $howMany = ChangesChapter::READ_AT_ONCE + 3;
         for ($made = 0; $made < $howMany; ++$made) {
-            $history->record(self::change($user, null));
+            $history->record(self::change($user, new ThePerson()));
         }
 
         // When
@@ -71,7 +96,7 @@ final class ChangesChapterTest extends TestCase
         static::assertCount($howMany, $lines);
     }
 
-    private static function change(User $user, ?Subject $author): ClaimChange
+    private static function change(User $user, AuthorInterface $author): ClaimChange
     {
         return new ClaimChange(Uuid::v7(), $user, 'nickname', 'Ada', 'Augusta', Fixtures::now(), Fixtures::context(), $author);
     }

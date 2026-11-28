@@ -31,6 +31,7 @@ use function array_map;
 use function array_slice;
 use function array_values;
 use function implode;
+use function is_string;
 use function rawurlencode;
 use function sprintf;
 use Symfony\Component\Tui\Event\SubmitEvent;
@@ -1144,6 +1145,26 @@ final class UsersSection implements SectionInterface
         ];
     }
 
+    /**
+     * Who did the act, by their kind as the catalogue names it (`author.<kind>`) and what names them among their kind:
+     * the subject of an administrator, the identifier of a client, the name of a directory (decision 0066).
+     */
+    private static function author(?Document $author, SectionContext $context): string
+    {
+        if ($author === null) {
+            return '-';
+        }
+        $kind = $author->nullableString('kind');
+        $said = [$context->named('author', $kind) ?? TerminalText::line($kind ?? '-')->value];
+        foreach ($author->members as $member => $value) {
+            if ($member !== 'kind' && is_string($value)) {
+                $said[] = TerminalText::line($value)->value;
+            }
+        }
+
+        return implode(' ', $said);
+    }
+
     private static function count(?int $count): string
     {
         return $count === null ? '-' : (string) $count;
@@ -1161,7 +1182,7 @@ final class UsersSection implements SectionInterface
             ApiMoment::short($act->nullableString('occurred_at')),
             $name === null ? '-' : $context->act($name),
             TerminalText::line($act->nullableString('client') ?? '-')->value,
-            TerminalText::line($act->nullableString('author') ?? '-')->value,
+            self::author($act->nested('author'), $context),
             TerminalText::line($provenance?->nullableString('address') ?? '-')->value,
             TerminalText::line($provenance?->nullableString('place') ?? '-')->value,
         ];

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Security;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use function array_map;
 use DateTimeImmutable;
 use App\Doctrine\TenantProvider;
@@ -69,7 +70,7 @@ final readonly class LoginSuccessListener
             $this->sessions->save($session);
         } else {
             if ($session !== null) {
-                $this->terminator->end($session, SessionEnd::User, $context);
+                $this->terminator->end($session, SessionEnd::User, new ThePerson(), $context);
             }
             $session = $this->opener->open($tenant, $user->user(), $methods, $context, $provenAt, $notOnOrAfter);
         }

@@ -7,9 +7,15 @@ namespace App\Tests\Symfony\Functional\Doctrine;
 use App\Configuration\JournalSection;
 use App\Doctor\Finding;
 use App\Doctor\ChainHoldsTogether;
+use App\Doctrine\Chain\DoctrineChains;
 use App\Key\FileChainCheckpoints;
 use App\Message\ForgetTheActsPastTheirRetention;
 use App\Message\SignTheChains;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Application\Key\KeyTakeOver;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Identity\ClaimChange;
@@ -109,6 +115,56 @@ final class TheRecordsAreChainedTest extends DatabaseTestCase
             $finding->green,
             $finding->lines[0] ?? null,
         ]);
+    }
+
+    /**
+     * Decision 0066: the kind of an author is the bytes of its row, so a directory rewritten as an administrator breaks
+     * the chain.
+     */
+    #[Test]
+    public function anAuthorChangedInTheDatabaseIsNamedByItsPosition(): void
+    {
+        // Given
+        self::anAct();
+        $changed = self::anAct(author: new ADirectory('Entra ID'));
+        self::connection()
+            ->update(
+                'beffroi_journal',
+                ['author' => '{"kind":"administrator","subject":"mallory-subject"}'],
+                ['id' => $changed->id],
+                ['id' => UuidType::NAME],
+            );
+
+        // When
+        $finding = self::finding();
+
+        // Then
+        static::assertSame([false, 'The row at position 2 of the chain "journal" is not the one written there.'], [
+            $finding->green,
+            $finding->lines[0] ?? null,
+        ]);
+    }
+
+    /**
+     * Decision 0060: a row written before acts named the kind of their author keeps the bytes its link was computed
+     * from.
+     */
+    #[Test]
+    public function aJournalWrittenBeforeActsNamedTheKindOfTheirAuthorHoldsTogether(): void
+    {
+        // Given
+        self::anActWrittenBefore('mallory-subject');
+        self::anActWrittenBefore(null);
+        self::anAct(author: new AnAdministrator(new Subject('mallory-subject')));
+
+        // When
+        $finding = self::finding();
+
+        // Then
+        static::assertSame(
+            [true, 'The 3 row(s) the chain keeps, positions 1 to 3, follow one another; none is signed yet, which the next pass does.'],
+            [$finding->green, $finding->lines[0] ?? null],
+        );
     }
 
     /**
@@ -482,7 +538,16 @@ final class TheRecordsAreChainedTest extends DatabaseTestCase
     private static function aChangeOfAClaim(): ClaimChange
     {
         $user = self::service('test.beffroi.users', UserRepositoryInterface::class)->findByUsername(self::tenant(), 'alice') ?? self::user();
-        $change = new ClaimChange(Uuid::v7(), $user, 'nickname', 'Ada', 'Augusta', self::service('clock', ClockInterface::class)->now(), self::context());
+        $change = new ClaimChange(
+            Uuid::v7(),
+            $user,
+            'nickname',
+            'Ada',
+            'Augusta',
+            self::service('clock', ClockInterface::class)->now(),
+            self::context(),
+            new ThePerson(),
+        );
         self::service('test.beffroi.claim_history', ClaimHistoryInterface::class)->record($change);
         self::reload();
 
@@ -509,18 +574,38 @@ final class TheRecordsAreChainedTest extends DatabaseTestCase
         return $given;
     }
 
-    private static function anAct(?DateTimeImmutable $occurredAt = null): JournalEntry
+    private static function anAct(?DateTimeImmutable $occurredAt = null, ?AuthorInterface $author = null): JournalEntry
     {
-        $entry = self::entry($occurredAt ?? self::service('clock', ClockInterface::class)->now());
+        $entry = self::entry($occurredAt ?? self::service('clock', ClockInterface::class)->now(), $author);
         self::service('test.beffroi.journal', JournalInterface::class)->record($entry);
         self::reload();
 
         return $entry;
     }
 
-    private static function entry(DateTimeImmutable $occurredAt): JournalEntry
+    /**
+     * An act as the version before acts named the kind of their author wrote it, its administrator by a bare subject or
+     * nobody, and linked to the chain from those bytes.
+     */
+    private static function anActWrittenBefore(?string $author): void
     {
-        return new JournalEntry(Uuid::v7(), self::tenant(), UserAuthenticated::NAME, $occurredAt, self::context());
+        $entry = self::entry(self::service('clock', ClockInterface::class)->now(), new TheHost());
+        $manager = self::entityManager();
+        self::service('test.beffroi.chains', DoctrineChains::class)->written(self::tenant(), new JournalChain(), $entry->id, static function () use (
+            $manager,
+            $entry,
+            $author,
+        ): void {
+            $manager->persist($entry);
+            $manager->flush();
+            $manager->getConnection()->update('beffroi_journal', ['author' => $author], ['id' => $entry->id], ['id' => UuidType::NAME]);
+        });
+        self::reload();
+    }
+
+    private static function entry(DateTimeImmutable $occurredAt, ?AuthorInterface $author = null): JournalEntry
+    {
+        return new JournalEntry(Uuid::v7(), self::tenant(), UserAuthenticated::NAME, $occurredAt, self::context(), author: $author);
     }
 
     /**

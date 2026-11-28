@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Beffroi\Core\Application\Identity;
 
 use Beffroi\Core\Application\Authentication\OtherSessionsTermination;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\PersonDisabled;
-use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
+use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -29,24 +30,12 @@ final readonly class PersonDisabling
     }
 
     /**
-     * @return int|null the sessions it ended, null when the person was disabled already
-     */
-    public function disable(User $user, RequestContext $context): ?int
-    {
-        return $this->disableOnce($user, $context, null);
-    }
-
-    /**
-     * The act and the end of each session name the administrator (decision 0038).
+     * The act and the end of each session name the author (decision 0066). A disabling is an act of administration,
+     * whoever its author is, and each session it ends says so.
      *
      * @return int|null the sessions it ended, null when the person was disabled already
      */
-    public function disableByAnAdministrator(User $user, Subject $administrator, RequestContext $context): ?int
-    {
-        return $this->disableOnce($user, $context, $administrator);
-    }
-
-    private function disableOnce(User $user, RequestContext $context, ?Subject $administrator): ?int
+    public function disable(User $user, AuthorInterface $author, RequestContext $context): ?int
     {
         if (! $user->isEnabled()) {
             return null;
@@ -54,10 +43,8 @@ final readonly class PersonDisabling
         $now = $this->clock->now();
         $user->disable($now);
         $this->users->save($user);
-        $ended = $administrator === null
-            ? $this->sessions->endEvery($user, $context)
-            : $this->sessions->endEveryByAnAdministrator($user, $administrator, $context);
-        $this->events->dispatch(new PersonDisabled($user->tenant, $user->subject, $now, $context, $administrator));
+        $ended = $this->sessions->endEvery($user, SessionEnd::Administrator, $author, $context);
+        $this->events->dispatch(new PersonDisabled($user->tenant, $user->subject, $now, $context, $author));
 
         return $ended;
     }

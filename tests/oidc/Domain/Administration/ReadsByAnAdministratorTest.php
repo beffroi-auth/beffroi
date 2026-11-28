@@ -14,6 +14,7 @@ use Beffroi\Oidc\Domain\Administration\ReadsByAnAdministrator;
 use Beffroi\Oidc\Domain\Consent\ConsentActs;
 use Beffroi\Oidc\Domain\Event\LogoutTokenGivenUp;
 use Beffroi\Oidc\Domain\Event\LogoutTokenIssued;
+use Beffroi\Oidc\Domain\Event\TokenRevoked;
 use Beffroi\Oidc\Domain\Event\TokensIssued;
 use function class_exists;
 use function dirname;
@@ -28,12 +29,13 @@ use function sprintf;
 final class ReadsByAnAdministratorTest extends TestCase
 {
     /**
-     * The acts of a person that name an administrator and that the page of their acts does not list, each with the
-     * reason: their archive holds them, saying an administrator did it.
+     * The acts of a person that name their author and that the page of their acts does not list, each with the reason:
+     * their archive holds them, saying who did it.
      */
     private const array OFF_THE_PAGE = [
         LogoutTokenIssued::NAME => 'an application told of a session the administrator ended, which no page of the person lists whoever ended it',
         LogoutTokenGivenUp::NAME => 'the same telling given up',
+        TokenRevoked::NAME => 'a token an application took back of itself (RFC 7009), which no page of the person lists',
     ];
 
     /**

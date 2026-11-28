@@ -926,6 +926,26 @@ La réponse revient à {redirect_uri}.</target>
         <source>journal.author</source>
         <target>Fait par</target>
       </trans-unit>
+      <trans-unit id="ac3102c9c4" resname="author.person">
+        <source>author.person</source>
+        <target>la personne</target>
+      </trans-unit>
+      <trans-unit id="c20d376cc8" resname="author.administrator">
+        <source>author.administrator</source>
+        <target>administrateur</target>
+      </trans-unit>
+      <trans-unit id="350112ecd9" resname="author.client">
+        <source>author.client</source>
+        <target>application</target>
+      </trans-unit>
+      <trans-unit id="850d99c41d" resname="author.directory">
+        <source>author.directory</source>
+        <target>annuaire</target>
+      </trans-unit>
+      <trans-unit id="dca0d401b2" resname="author.host">
+        <source>author.host</source>
+        <target>l'hôte</target>
+      </trans-unit>
       <trans-unit id="263f097f48" resname="health.heading">
         <source>health.heading</source>
         <target>Santé</target>

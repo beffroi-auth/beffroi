@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -35,8 +37,8 @@ final readonly class MailSigningKeyRemoved implements NamesItsAuthorInterface
         return self::NAME;
     }
 
-    public function author(): Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return new AnAdministrator($this->administrator);
     }
 }

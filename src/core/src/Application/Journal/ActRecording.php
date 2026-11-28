@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Application\Journal;
 
 use Beffroi\Core\Application\Session\ProvenancePlace;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -28,7 +29,7 @@ final readonly class ActRecording
         RequestContext $context,
         ?Subject $subject = null,
         ?string $client = null,
-        ?Subject $author = null,
+        ?AuthorInterface $author = null,
         ?string $reason = null,
         ?string $method = null,
     ): void {

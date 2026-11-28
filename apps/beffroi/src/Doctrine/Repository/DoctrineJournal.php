@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Doctrine\Repository;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use App\Doctrine\Type\JournalAuthorType;
 use App\Doctrine\Chain\DoctrineChains;
 use App\Doctrine\SelectionWithinAPeriod;
 use App\Doctrine\EntityManagers;
@@ -111,14 +113,24 @@ final readonly class DoctrineJournal extends DoctrineRepository implements
         if ($question->client !== null) {
             $theirs->andWhere('a.client = :client')->setParameter('client', $question->client);
         }
+        // An act written before acts named the kind of their author names its administrator by a bare subject.
         if ($question->unlessTheirOwn !== []) {
-            $theirs->andWhere($theirs->expr()->orX('a.act NOT IN (:unlessTheirOwn)', 'a.author IS NULL', 'a.author <> :subject'))->setParameter(
-                'unlessTheirOwn',
-                $question->unlessTheirOwn,
-            );
+            $theirs
+                ->andWhere($theirs->expr()->orX('a.act NOT IN (:unlessTheirOwn)', 'a.author IS NULL', 'a.author NOT IN (:themselves)'))
+                ->setParameter('unlessTheirOwn', $question->unlessTheirOwn)
+                ->setParameter('themselves', [$user->subject->value, JournalAuthorType::written(new AnAdministrator($user->subject))]);
         }
-        if ($question->byAnAdministrator !== null) {
-            $theirs->andWhere($question->byAnAdministrator ? 'a.author IS NOT NULL' : 'a.author IS NULL');
+        if ($question->byAnAdministrator === true) {
+            $theirs
+                ->andWhere($theirs->expr()->orX('a.author LIKE :administrators', $theirs->expr()->andX('a.author IS NOT NULL', 'a.author NOT LIKE :documents')))
+                ->setParameter('administrators', JournalAuthorType::documentsOfKind(AnAdministrator::KIND))
+                ->setParameter('documents', JournalAuthorType::documents());
+        }
+        if ($question->byAnAdministrator === false) {
+            $theirs
+                ->andWhere($theirs->expr()->orX('a.author IS NULL', $theirs->expr()->andX('a.author LIKE :documents', 'a.author NOT LIKE :administrators')))
+                ->setParameter('administrators', JournalAuthorType::documentsOfKind(AnAdministrator::KIND))
+                ->setParameter('documents', JournalAuthorType::documents());
         }
 
         return $this->rows->of(

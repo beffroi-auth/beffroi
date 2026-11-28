@@ -10,6 +10,10 @@ use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Application\Identity\PersonDisabling;
 use Beffroi\Core\Bridge\InMemory\InMemoryAuthenticationSessionRepository;
 use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Event\PersonDisabled;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -19,13 +23,14 @@ use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Clock\MockClock;
 
 /**
- * Decision 0038
+ * Decisions 0038 and 0066
  */
 final class PersonDisablingTest extends TestCase
 {
@@ -49,7 +54,7 @@ final class PersonDisablingTest extends TestCase
     public function aDisabledPersonIsNoLongerEnabled(): void
     {
         // When
-        $this->disabling()->disable($this->alice, Fixtures::context());
+        $this->disabling()->disable($this->alice, new TheHost(), Fixtures::context());
 
         // Then
         static::assertSame([false, $this->clock->now()->getTimestamp()], [$this->alice->isEnabled(), $this->alice->disabledAt?->getTimestamp()]);
@@ -63,7 +68,7 @@ final class PersonDisablingTest extends TestCase
         $there = $this->signedIn();
 
         // When
-        $ended = $this->disabling()->disable($this->alice, Fixtures::context());
+        $ended = $this->disabling()->disable($this->alice, new TheHost(), Fixtures::context());
 
         // Then
         static::assertSame([2, true, true], [$ended, $here->hasEnded(), $there->hasEnded()]);
@@ -102,7 +107,7 @@ final class PersonDisablingTest extends TestCase
             new OtherSessionsTermination($this->sessions, new SessionTerminator($this->sessions, $this->clock, $events)),
             $events,
             $this->clock,
-        )->disable($alice, Fixtures::context());
+        )->disable($alice, new TheHost(), Fixtures::context());
 
         // Then
         static::assertSame([false], $events->seen);
@@ -118,37 +123,41 @@ final class PersonDisablingTest extends TestCase
         $users->expects(static::once())->method('save')->with($this->alice);
 
         // When
-        $this->disabling($users)->disable($this->alice, Fixtures::context());
+        $this->disabling($users)->disable($this->alice, new TheHost(), Fixtures::context());
     }
 
+    /**
+     * Decision 0066
+     */
     #[Test]
-    public function theDisablingByTheOperatorIsAnActThatNamesNobody(): void
-    {
-        // When
-        $this->disabling()->disable($this->alice, Fixtures::context());
-
-        // Then
-        $acts = $this->events->of(PersonDisabled::class);
-        static::assertSame(
-            [['alice-subject', null]],
-            array_map(static fn (PersonDisabled $act): array => [$act->subject()->value, $act->author()?->value], $acts),
-        );
-    }
-
-    #[Test]
-    public function anAdministratorWhoDisablesIsNamedByTheActAndByTheEndOfEachSession(): void
+    #[DataProvider('provideAuthors')]
+    public function theDisablingAndTheEndOfEachSessionNameItsAuthor(AuthorInterface $author): void
     {
         // Given
         $session = $this->signedIn();
 
         // When
-        $this->disabling()->disableByAnAdministrator($this->alice, new Subject('administrator-subject'), Fixtures::context());
+        $this->disabling()->disable($this->alice, $author, Fixtures::context());
 
         // Then
         static::assertSame(
-            ['administrator-subject', SessionEnd::Administrator],
-            [$this->events->of(PersonDisabled::class)[0]->author()?->value, $session->endedBy],
+            [[$author], [$author], SessionEnd::Administrator],
+            [
+                array_map(static fn (PersonDisabled $act): AuthorInterface => $act->author(), $this->events->of(PersonDisabled::class)),
+                array_map(static fn (AuthenticationSessionEnded $act): AuthorInterface => $act->author(), $this->events->of(AuthenticationSessionEnded::class)),
+                $session->endedBy,
+            ],
         );
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface}>
+     */
+    public static function provideAuthors(): iterable
+    {
+        yield 'the host' => [new TheHost()];
+        yield 'an administrator' => [new AnAdministrator(new Subject('administrator-subject'))];
+        yield 'a directory' => [new ADirectory('Entra ID')];
     }
 
     #[Test]
@@ -160,7 +169,7 @@ final class PersonDisablingTest extends TestCase
         $session = $this->signedIn();
 
         // When
-        $ended = $this->disabling()->disable($this->alice, Fixtures::context());
+        $ended = $this->disabling()->disable($this->alice, new TheHost(), Fixtures::context());
 
         // Then
         static::assertSame([null, $since, false, []], [$ended, $this->alice->disabledAt, $session->hasEnded(), $this->events->events]);

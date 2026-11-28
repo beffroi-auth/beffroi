@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Administration;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Identity\PersonCreation;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\EmailAddress;
@@ -34,10 +35,10 @@ final readonly class AdministeredPersonCreation
         ?EmailAddress $email = null,
         bool $emailVerified = false,
     ): User {
-        return $this->creation->createByAnAdministrator(
+        return $this->creation->create(
             $administrator->tenant,
             $username,
-            $administrator->user->subject,
+            new AnAdministrator($administrator->user->subject),
             $context,
             $email,
             $emailVerified,

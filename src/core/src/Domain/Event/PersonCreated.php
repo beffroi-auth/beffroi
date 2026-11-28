@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -16,15 +17,12 @@ final readonly class PersonCreated implements ConcernsAPersonInterface, NamesIts
 {
     public const string NAME = 'person.created';
 
-    /**
-     * @param Subject|null $administrator the administrator of the tenant who created them, by the subject of their account
-     */
     public function __construct(
         public Tenant $tenant,
         public Subject $person,
         public DateTimeImmutable $occurredAt,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
     }
 
@@ -38,8 +36,8 @@ final readonly class PersonCreated implements ConcernsAPersonInterface, NamesIts
         return $this->person;
     }
 
-    public function author(): ?Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return $this->author;
     }
 }

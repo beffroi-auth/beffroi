@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\EndSession;
 
 use App\Message\IssueLogoutToken;
-use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Oidc\Domain\Client\Client;
@@ -19,7 +19,7 @@ final readonly class QueuedLogoutTokenRetries implements LogoutTokenRetriesInter
     ) {
     }
 
-    public function issueLater(Client $client, AuthenticationSession $session, RequestContext $context, ?Subject $administrator = null): void
+    public function issueLater(Client $client, AuthenticationSession $session, RequestContext $context, AuthorInterface $author): void
     {
         $this->commandBus->dispatch(new IssueLogoutToken(
             $session->tenant,
@@ -27,7 +27,7 @@ final readonly class QueuedLogoutTokenRetries implements LogoutTokenRetriesInter
             $session->id,
             $session->user->subject,
             $context,
-            $administrator,
+            $author,
         ));
     }
 }

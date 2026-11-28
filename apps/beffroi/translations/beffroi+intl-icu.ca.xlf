@@ -1333,6 +1333,10 @@
         <source>acts.by_an_administrator</source>
         <target>Un administrador de la seva organització</target>
       </trans-unit>
+      <trans-unit id="acts.by_the_directory" resname="acts.by_the_directory">
+        <source>acts.by_the_directory</source>
+        <target>El directori {name}</target>
+      </trans-unit>
       <trans-unit id="acts.none" resname="acts.none">
         <source>acts.none</source>
         <target>Encara no s'ha registrat res.</target>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Message;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -21,7 +22,7 @@ final readonly class SendLogoutToken implements LogoutTokenNotification
         public Uuid $sessionId,
         public Subject $subject,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
     }
 }

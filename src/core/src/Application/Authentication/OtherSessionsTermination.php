@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Authentication;
 
-use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -26,27 +27,23 @@ final readonly class OtherSessionsTermination
     ) {
     }
 
+    /**
+     * The person ends them from the session they keep.
+     */
     public function endEveryOther(AuthenticationSession $kept, RequestContext $context): int
     {
         return $this->endEach($kept->user, $kept->id, function (AuthenticationSession $session) use ($context): void {
-            $this->terminator->end($session, SessionEnd::User, $context);
-        });
-    }
-
-    public function endEvery(User $user, RequestContext $context): int
-    {
-        return $this->endEach($user, null, function (AuthenticationSession $session) use ($context): void {
-            $this->terminator->end($session, SessionEnd::User, $context);
+            $this->terminator->end($session, SessionEnd::User, new ThePerson(), $context);
         });
     }
 
     /**
-     * Each session ends as an administrator ending it ends it: its act names them (decision 0038).
+     * The act of each end names its author (decision 0066).
      */
-    public function endEveryByAnAdministrator(User $user, Subject $administrator, RequestContext $context): int
+    public function endEvery(User $user, SessionEnd $by, AuthorInterface $author, RequestContext $context): int
     {
-        return $this->endEach($user, null, function (AuthenticationSession $session) use ($administrator, $context): void {
-            $this->terminator->endByAnAdministrator($session, $administrator, $context);
+        return $this->endEach($user, null, function (AuthenticationSession $session) use ($by, $author, $context): void {
+            $this->terminator->end($session, $by, $author, $context);
         });
     }
 

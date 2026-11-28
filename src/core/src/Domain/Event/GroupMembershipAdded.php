@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -14,8 +15,7 @@ final readonly class GroupMembershipAdded implements ConcernsAPersonInterface, N
     public const string NAME = 'group_membership.added';
 
     /**
-     * @param string       $group         the name of the group, which names an organisational unit and not a person
-     * @param Subject|null $administrator the administrator of the tenant who added them to the group, by the subject of their account; null when the operator of the instance did
+     * @param string $group the name of the group, which names an organisational unit and not a person
      */
     public function __construct(
         public Tenant $tenant,
@@ -23,7 +23,7 @@ final readonly class GroupMembershipAdded implements ConcernsAPersonInterface, N
         public string $group,
         public DateTimeImmutable $occurredAt,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
     }
 
@@ -37,8 +37,8 @@ final readonly class GroupMembershipAdded implements ConcernsAPersonInterface, N
         return $this->person;
     }
 
-    public function author(): ?Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return $this->author;
     }
 }

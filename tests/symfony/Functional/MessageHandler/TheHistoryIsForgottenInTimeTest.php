@@ -8,6 +8,7 @@ use App\Configuration\HistorySection;
 use App\Key\FileChainCheckpoints;
 use App\Message\ForgetTheChangesPastTheirRetention;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Application\Key\KeyTakeOver;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Port\ClaimHistoryInterface;
@@ -74,7 +75,7 @@ final class TheHistoryIsForgottenInTimeTest extends DatabaseTestCase
         $user = self::user();
         $at = self::service('clock', ClockInterface::class)->now()->modify($ago);
         self::service('test.beffroi.claim_history', ClaimHistoryInterface::class)
-            ->record(new ClaimChange(Uuid::v7(), $user, 'nickname', 'Ada', 'Augusta', $at, self::context()));
+            ->record(new ClaimChange(Uuid::v7(), $user, 'nickname', 'Ada', 'Augusta', $at, self::context(), new ThePerson()));
         self::reload();
     }
 }

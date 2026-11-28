@@ -9,6 +9,8 @@ use App\Message\IssueLogoutToken;
 use App\Message\SendLogoutToken;
 use App\Message\TellUserOfCredentialChange;
 use App\Messenger\GivenUpListener;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Event\CredentialChangeNotTold;
 use Beffroi\Core\Domain\Event\CredentialEnrolled;
@@ -68,6 +70,7 @@ final class GivenUpListenerTest extends TestCase
             Uuid::fromString(self::SESSION),
             Fixtures::user()->subject,
             Fixtures::context(),
+            new ThePerson(),
         ), willRetry: false));
 
         // Then
@@ -90,12 +93,12 @@ final class GivenUpListenerTest extends TestCase
             Uuid::fromString(self::SESSION),
             Fixtures::user()->subject,
             Fixtures::context(),
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         ), willRetry: false));
 
         // Then
         [$givenUp] = $this->events->of(LogoutTokenGivenUp::class);
-        static::assertSame('administrator-subject', $givenUp->author()?->value);
+        static::assertEquals(new AnAdministrator(new Subject('administrator-subject')), $givenUp->author());
     }
 
     /**
@@ -157,6 +160,7 @@ final class GivenUpListenerTest extends TestCase
             Uuid::fromString(self::SESSION),
             Fixtures::user()->subject,
             Fixtures::context(),
+            new ThePerson(),
         );
     }
 

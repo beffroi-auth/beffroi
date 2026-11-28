@@ -3,9 +3,10 @@
    name, with the moment on their own clock and what the request carried of where it came from. The
    refusals are there on purpose: a line a person does not recognise is what this page is for, and the
    place beside the address is what makes one recognisable (issue #473); it is absent where the enrichment
-   found nothing. An act an administrator of the tenant did says so in place of where it came from, and
-   nothing else of them: who they are, where they were and the client they acted through are theirs. An
-   act is named from the catalogue, so an act this provider comes to write down is named here by being
+   found nothing. Who did an act is said by a fragment of its kind (act_author/<kind>, decision 0066): an
+   administrator of the tenant by their role in place of where it came from, and nothing else of them, a
+   directory by its name, the others by where the act came from, as an act that names no author. An act
+   is named from the catalogue, so an act this provider comes to write down is named here by being
    translated and this page is not edited.
 
    The list is narrowed by what ActsPage reads ("question", a JournalQuestion): the days of the act, one
@@ -56,10 +57,10 @@
                         <td data-label="{{ 'acts.what'|trans }}">{{ ('act.' ~ act.act)|trans }}</td>
                         <td data-label="{{ 'acts.when'|trans }}"><time datetime="{{ act.occurredAt|date('c') }}">{{ act.occurredAt|beffroi_moment(user) }}</time></td>
                         <td data-label="{{ 'acts.from'|trans }}">
-                            {%- if act.author is not null -%}
-                                <span data-author>{{ 'acts.by_an_administrator'|trans }}</span>
-                            {%- else -%}
+                            {%- if act.author is null -%}
                                 {{ include('@Beffroi/account/provenance.html.twig', {provenance: act.context}) }}
+                            {%- else -%}
+                                {{ include('@Beffroi/account/act_author/' ~ act.author.kind ~ '.html.twig', {act: act}) }}
                             {%- endif -%}
                         </td>
                     </tr>

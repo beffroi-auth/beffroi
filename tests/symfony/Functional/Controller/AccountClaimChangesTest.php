@@ -6,6 +6,10 @@ namespace App\Tests\Symfony\Functional\Controller;
 
 use App\Http\AskedPage;
 use App\Http\ClaimChangesPage;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
@@ -41,32 +45,39 @@ final class AccountClaimChangesTest extends BrowserTestCase
     }
 
     /**
-     * @return iterable<string, array{string|null, string}>
+     * @return iterable<string, array{AuthorInterface, string, string}>
      */
     public static function authors(): iterable
     {
-        yield 'a change the person made' => [null, 'person'];
-        yield 'a change an administrator made' => ['administrator-subject', 'administrator'];
+        yield 'a change the person made' => [new ThePerson(), 'person', 'You'];
+        yield 'a change an administrator made' => [
+            new AnAdministrator(new Subject('administrator-subject')),
+            'administrator',
+            'An administrator of your organisation',
+        ];
+        yield 'a change a directory made, by its name' => [new ADirectory('Entra <ID>'), 'directory', 'The directory Entra <ID>'];
     }
 
     /**
-     * Decision 0038: the person reads that an administrator of their organisation made a change, never which one.
+     * Decisions 0038 and 0066: the person reads that an administrator of their organisation made a change, never which
+     * one, and the name of a directory that made one.
      */
     #[Test]
     #[DataProvider('authors')]
-    public function eachChangeSaysWhetherThePersonOrAnAdministratorMadeIt(?string $author, string $said): void
+    public function eachChangeSaysWhoMadeIt(AuthorInterface $author, string $kind, string $said): void
     {
         // Given
         $alice = self::user('alice');
         $this->signIn($alice);
-        self::aChange($alice, 'Ada', 'Augusta', author: $author === null ? null : new Subject($author));
+        self::aChange($alice, 'Ada', 'Augusta', author: $author);
         self::reload();
 
         // When
         $page = $this->changesPage();
 
         // Then
-        static::assertSame([$said], $page->filter('tbody tr[data-change] td[data-author]')->extract(['data-author']));
+        $cell = $page->filter('tbody tr[data-change] td[data-author]');
+        static::assertSame([[$kind], $said], [$cell->extract(['data-author']), $cell->text()]);
     }
 
     #[Test]
@@ -224,7 +235,7 @@ final class AccountClaimChangesTest extends BrowserTestCase
     }
 
     /**
-     * Decision 0038
+     * Decisions 0038 and 0066
      */
     #[Test]
     #[DataProvider('provideAuthors')]
@@ -234,7 +245,8 @@ final class AccountClaimChangesTest extends BrowserTestCase
         $alice = self::user('alice');
         $this->signIn($alice);
         self::aChange($alice, 'Ada', 'Augusta');
-        self::aChange($alice, 'Augusta', 'Ada', author: new Subject('mallory-subject'));
+        self::aChange($alice, 'Augusta', 'Ada', author: new AnAdministrator(new Subject('mallory-subject')));
+        self::aChange($alice, 'Ada', 'Augusta', author: new ADirectory('Entra ID'));
         self::reload();
 
         // When
@@ -280,7 +292,7 @@ final class AccountClaimChangesTest extends BrowserTestCase
         ?string $became,
         string $ago = 'now',
         string $claim = 'nickname',
-        ?Subject $author = null,
+        AuthorInterface $author = new ThePerson(),
     ): void {
         $at = self::currentSecond()->modify($ago);
         self::service('test.beffroi.claim_history', ClaimHistoryInterface::class)

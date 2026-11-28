@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Unit\Messenger;
 
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Tests\Domain\Event\EventsLeaveTheProcessTest;
 use function array_keys;
 use function array_map;
@@ -108,6 +110,7 @@ final class SealedBodySerializerTest extends TestCase
             Uuid::v7(),
             Fixtures::user()->subject,
             Fixtures::context(),
+            new ThePerson(),
         )];
         yield 'a logout token still to issue' => [new IssueLogoutToken(
             Fixtures::tenant(),
@@ -115,6 +118,7 @@ final class SealedBodySerializerTest extends TestCase
             Uuid::v7(),
             Fixtures::user()->subject,
             Fixtures::context(),
+            new ADirectory('Entra ID'),
         )];
         yield 'a change told to a person' => [new TellUserOfCredentialChange(
             new CredentialChange(Fixtures::user(), CredentialEnrolled::NAME, Fixtures::now(), 'passkey'),

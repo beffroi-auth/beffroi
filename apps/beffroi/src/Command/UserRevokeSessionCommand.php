@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use App\Http\RequestContextFactory;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Domain\Session\SessionEnd;
@@ -65,7 +66,7 @@ final readonly class UserRevokeSessionCommand
             return Command::SUCCESS;
         }
 
-        $this->terminator->end($session, SessionEnd::User, $this->contexts->fromConsole(self::NAME));
+        $this->terminator->end($session, SessionEnd::User, new TheHost(), $this->contexts->fromConsole(self::NAME));
         $io->success(sprintf('The session "%s" of "%s" is ended.', trim($id), PrintedText::inBlock($user->username)));
 
         return Command::SUCCESS;

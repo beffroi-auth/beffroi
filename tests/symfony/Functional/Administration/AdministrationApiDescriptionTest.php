@@ -6,6 +6,8 @@ namespace App\Tests\Symfony\Functional\Administration;
 
 use App\Administration\Controller\UserDescriptionController;
 use function array_map;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Event\PersonDescribed;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\User;
@@ -51,10 +53,10 @@ final class AdministrationApiDescriptionTest extends AdministrationTestCase
         $this->patch($bob, $token, '{"claims": {"nickname": "Bobby"}}');
 
         // Then
-        static::assertSame(
-            [['nickname', null, 'Bobby', 'alice-subject']],
+        static::assertEquals(
+            [['nickname', null, 'Bobby', new AnAdministrator(new Subject('alice-subject'))]],
             array_map(
-                static fn (ClaimChange $change): array => [$change->claim, $change->was, $change->became, $change->author?->value],
+                static fn (ClaimChange $change): array => [$change->claim, $change->was, $change->became, $change->author],
                 self::service('test.beffroi.changes', ChangesOfAPersonInterface::class)->lastOf(self::personAgain($bob), 10),
             ),
         );
