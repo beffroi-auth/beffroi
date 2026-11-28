@@ -12,6 +12,7 @@ use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -30,6 +31,7 @@ final readonly class PersonCreation
     /**
      * @throws UserAlreadyExistsException
      * @throws UsernameRefusedException
+     * @throws UsernameUniquenessPendingException
      * @throws InvalidArgumentException   when an absent address is said verified
      */
     public function create(
@@ -46,6 +48,7 @@ final readonly class PersonCreation
     /**
      * @throws UserAlreadyExistsException
      * @throws UsernameRefusedException
+     * @throws UsernameUniquenessPendingException
      * @throws InvalidArgumentException   when an absent address is said verified
      */
     public function createByAnAdministrator(
@@ -62,6 +65,7 @@ final readonly class PersonCreation
     /**
      * @throws UserAlreadyExistsException
      * @throws UsernameRefusedException
+     * @throws UsernameUniquenessPendingException
      * @throws InvalidArgumentException
      */
     private function createOnce(

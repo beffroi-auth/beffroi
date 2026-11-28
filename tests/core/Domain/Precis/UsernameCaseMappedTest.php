@@ -169,5 +169,77 @@ final class UsernameCaseMappedTest extends TestCase
         yield 'the Bidi Rule' => ['שלוםabc', 'A username written right to left follows the Bidi Rule (RFC 5893 §2).'];
         yield 'the length' => [str_repeat('a', 256), 'A username is 1 to 255 characters long.'];
         yield 'the encoding' => ["alice\xC3", 'A username is written in UTF-8.'];
+        yield 'a code point width mapped to one the class refuses, named as typed' => [
+            "alice\u{3000}bob",
+            'A username holds letters and digits of any script and printable ASCII, and U+3000 is none of them (RFC 8264 §4.2).',
+        ];
+    }
+
+    /**
+     * RFC 8265 §3.3.2: the IdentifierClass reads the string before its case is mapped and before it is normalized.
+     */
+    #[Test]
+    #[DataProvider('provideUsernamesRefusedBeforeTheirCaseIsMapped')]
+    public function aUsernameTheClassRefusesBeforeItsCaseIsMappedIsRefused(string $username): void
+    {
+        // Then
+        $this->expectException(UsernameRefusedException::class);
+
+        // When
+        UsernameCaseMapped::enforce($username);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideUsernamesRefusedBeforeTheirCaseIsMapped(): iterable
+    {
+        yield 'a middle dot after a capital L, Appendix A.3 of RFC 5892' => ["COL\u{00B7}LEGI"];
+        yield 'the Kelvin sign, whose NFKC is a K' => ["\u{212A}elvin"];
+        yield 'the Ohm sign, whose NFC is an omega' => ["\u{2126}"];
+        yield 'the Angstrom sign, whose NFC is an A with a ring' => ["\u{212B}"];
+        yield 'conjoining Hangul jamo, whose NFC is a syllable' => ["\u{1112}\u{1161}\u{11AB}"];
+        yield 'a titlecase alpha with prosgegrammeni, whose lowercase is valid' => ["\u{1FBC}"];
+    }
+
+    /**
+     * RFC 8265 §3.3.2
+     */
+    #[Test]
+    #[DataProvider('provideTheFormsOfUsernamesRefusedBeforeTheirCaseIsMapped')]
+    public function theFormAUsernameRefusedBeforeItsCaseIsMappedWouldTakeIsAdmitted(string $username): void
+    {
+        // When / Then
+        static::assertSame($username, UsernameCaseMapped::enforce($username));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideTheFormsOfUsernamesRefusedBeforeTheirCaseIsMapped(): iterable
+    {
+        yield 'a middle dot between two l' => ["col\u{00B7}legi"];
+        yield 'a k' => ['kelvin'];
+        yield 'an omega' => ["\u{03C9}"];
+        yield 'an a with a ring' => ["\u{00E5}"];
+        yield 'a precomposed Hangul syllable' => ["\u{D55C}"];
+        yield 'a small alpha with ypogegrammeni' => ["\u{1FB3}"];
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function aUsernameTheProfileAdmitsComparesByItsEnforcedForm(): void
+    {
+        // When / Then
+        static::assertSame('alice', UsernameCaseMapped::comparisonForm('Alice'));
+    }
+
+    #[Test]
+    public function aUsernameTheProfileRefusesComparesAsWritten(): void
+    {
+        // When / Then
+        static::assertSame('Jean Dupont', UsernameCaseMapped::comparisonForm('Jean Dupont'));
     }
 }

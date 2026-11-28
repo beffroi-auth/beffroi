@@ -547,6 +547,26 @@ final class ProvisioningTest extends ConsoleTestCase
         static::assertStringContainsString('U+1F642 is none of them', self::flattened($tester));
     }
 
+    /**
+     * RFC 8265 §3.3.4: a person of 0.1 named "Bob" is found under that name as written only until the reindex, which a
+     * second "bob" would collide with.
+     */
+    #[Test]
+    public function noPersonIsCreatedWhileTheUsernamesOfTheTenantAreNotAllComparedByTheirForm(): void
+    {
+        // Given
+        self::personOf01('Bob', 'bob');
+
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => 'bob',
+        ]);
+
+        // Then
+        static::assertSame(Command::FAILURE, $tester->getStatusCode());
+        static::assertStringContainsString('No person is created or renamed in the tenant', self::flattened($tester));
+    }
+
     #[Test]
     public function aSubjectIsNotTakenTwice(): void
     {
@@ -720,6 +740,24 @@ final class ProvisioningTest extends ConsoleTestCase
         static::assertSame('Alice Liddell', self::displayed($tester, 'Name'));
         static::assertSame('+44 1865 000000 (unverified)', self::displayed($tester, 'Phone number'));
         static::assertStringNotContainsString('is described', $tester->getDisplay(true));
+    }
+
+    /**
+     * RFC 8265 §3.3.4: a person no username finds, whom beffroi:user:reindex set aside, is named by their identifier.
+     */
+    #[Test]
+    public function aUserIsShownByTheirIdentifier(): void
+    {
+        // Given
+        $alice = self::user('alice', 'alice-subject');
+
+        // When
+        $tester = self::console('beffroi:user:show', [
+            'username' => $alice->id->toRfc4122(),
+        ]);
+
+        // Then
+        static::assertSame('alice-subject', self::displayed($tester, 'Subject'));
     }
 
     #[Test]

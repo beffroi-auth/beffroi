@@ -207,6 +207,11 @@ function provision(
 
     io()->section('Tenant');
     op_console(['beffroi:tenant:synchronize']);
+    // As the entrypoint of the image does: a database written before keeps its tags until then, and nobody is created.
+    $reindexed = op_console(['beffroi:user:reindex', '--when-due'], context()->withAllowFailure());
+    if (! in_array($reindexed->getExitCode(), [0, 3], true)) {
+        exit($reindexed->getExitCode() ?? 1);
+    }
 
     io()->section('Keys');
     // What the tenant holds is read before anything is drawn, and the key messages are sealed to is drawn first:

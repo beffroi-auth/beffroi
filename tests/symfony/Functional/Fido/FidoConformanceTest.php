@@ -189,6 +189,32 @@ final class FidoConformanceTest extends BrowserTestCase
         );
     }
 
+    /**
+     * RFC 8265 §3.3, RFC 8264 §4.2.3
+     */
+    #[Test]
+    public function attestationOptionsForAUsernameTheProfileRefusesAreRefused(): void
+    {
+        // When
+        $answer = $this->post(
+            '/fido/conformance/attestation/options',
+            [
+                'username' => 'john doe',
+                'displayName' => 'John Doe',
+            ],
+            Response::HTTP_BAD_REQUEST,
+        );
+
+        // Then
+        static::assertSame(
+            [
+                'status' => 'failed',
+                'errorMessage' => 'A username holds letters and digits of any script and printable ASCII, and U+0020 is none of them (RFC 8264 §4.2).',
+            ],
+            $answer,
+        );
+    }
+
     #[Test]
     public function anAttestationOverAChallengeThatWasNotDrawnIsRefused(): void
     {

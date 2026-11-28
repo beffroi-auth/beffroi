@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Doctor;
 
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use App\Command\DoctorCommand;
 use App\Doctrine\TenantProvider;
 use Beffroi\Core\Application\Key\KeyTakeOver;
@@ -135,6 +136,10 @@ final class DoctorTest extends KernelTestCase
         foreach (Algorithms::all()->all() as $algorithm) {
             $takeOver->rotate($tenant->provide(), $algorithm, new RequestContext(new DateTimeImmutable(), '203.0.113.7', 'beffroi:doctor'));
         }
+        // The database is the one the suite left, whose last test may have taken the derivation of the tenant away.
+        $derivations = self::getContainer()->get(BlindIndexDerivations::class);
+        static::assertInstanceOf(BlindIndexDerivations::class, $derivations);
+        $derivations->record($tenant->provide(), 0, 0);
     }
 
     private static function string(mixed $value): string

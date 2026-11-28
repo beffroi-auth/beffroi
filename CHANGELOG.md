@@ -16,13 +16,20 @@ All notable changes to this project are documented in this file, in reverse chro
   pass; a space, a symbol or a punctuation mark outside ASCII, an emoji, a code point with a compatibility equivalent
   and a username written right to left that breaks the Bidi Rule (RFC 5893 §2) are refused, by `UsernameRefusedException`,
   at the console, at the administration API (`400 invalid_request`) and at the first sign-in through an upstream
-  provider alike. The username is kept as it was written. The local part of an address is brought to Normalization
+  provider alike, a later sign-in under such an address keeping the username of the person. The username is kept as
+  it was written. The local part of an address is brought to Normalization
   Form C (RFC 6532 §3.1) before it is lowercased.
-- `beffroi/beffroi`: the blind index of a username is its enforced form. A deployment that upgrades runs
-  `bin/console beffroi:user:reindex` once, right after the upgrade: until then, a person whose username is not already
-  in lowercase NFC is not found at the login. The command names each person whose username the profile refuses, who
-  signs in under it as written meanwhile, and the persons whose usernames it compares as one, whose blind indexes it
-  leaves as they were; it exits with a failure until an administrator has renamed them and it has run again.
+- `beffroi/beffroi`: the blind index of a username is its enforced form, and a lookup tries the username as written
+  first, so that a person written by 0.1 is found under their username as written until the tags are derived again.
+  The image derives them at its first start, after the migrations (`beffroi:user:reindex --when-due`), and again
+  whenever what a tag derives changes, the version of Unicode of its intl included; a deployment that does not run the
+  entrypoint of the image runs `bin/console beffroi:user:reindex` once after the upgrade. Until then no person is
+  created or renamed: the console says why, the administration API answers `503 temporarily_unavailable`, and a first
+  sign-in through an upstream provider is refused. The command names each person whose username the profile refuses,
+  who signs in under it as written until an administrator renames them and at the latest until 1.0.0, and the persons
+  whose usernames it compares as one, whom no lookup finds until they are renamed; it then exits with the status 3.
+  `beffroi:user:rename` renames a person, and every console command that names a person takes their identifier as
+  well as their username. `beffroi:doctor` says what the last reindex left.
 - `beffroi/core`: a password is prepared and enforced by the OpaqueString profile of PRECIS (RFC 8265 §4.2), which RFC
   7644 §5 requires of a `password`, before it is hashed and before it is verified, at the console, on the page of the
   account, through a password ticket and at the sign-in: a no-break space or an ideographic space is a space, and a

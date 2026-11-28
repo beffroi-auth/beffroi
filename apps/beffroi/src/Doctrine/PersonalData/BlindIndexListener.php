@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Doctrine\PersonalData;
 
+use function array_keys;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Beffroi\Core\Exception\LogicException;
 use function get_debug_type;
+use function in_array;
 use function is_string;
 use ReflectionProperty;
 use function sprintf;
@@ -15,7 +17,8 @@ use Stringable;
 
 /**
  * The provider's own and not the BlindIndexed attribute of the bridge, which the entities of the core cannot carry.
- * A row written through DBAL or changed by a bulk UPDATE keeps the tag it had.
+ * A tag is derived when its row is inserted and when its value changes, so that an update leaves the tag of a person
+ * beffroi:user:reindex set aside as it is; a row written through DBAL or changed by a bulk UPDATE keeps the tag it had.
  */
 final class BlindIndexListener
 {
@@ -34,28 +37,32 @@ final class BlindIndexListener
         $manager = $event->getObjectManager();
         $unitOfWork = $manager->getUnitOfWork();
 
-        foreach ([$unitOfWork->getScheduledEntityInsertions(), $unitOfWork->getScheduledEntityUpdates()] as $entities) {
-            foreach ($entities as $entity) {
-                $metadata = $manager->getClassMetadata($entity::class);
-
-                if ($this->fill($entity, $metadata)) {
-                    $unitOfWork->recomputeSingleEntityChangeSet($metadata, $entity);
-                }
+        foreach ($unitOfWork->getScheduledEntityInsertions() as $entity) {
+            $metadata = $manager->getClassMetadata($entity::class);
+            if ($this->fill($entity, $metadata, null)) {
+                $unitOfWork->recomputeSingleEntityChangeSet($metadata, $entity);
+            }
+        }
+        foreach ($unitOfWork->getScheduledEntityUpdates() as $entity) {
+            $metadata = $manager->getClassMetadata($entity::class);
+            if ($this->fill($entity, $metadata, array_keys($unitOfWork->getEntityChangeSet($entity)))) {
+                $unitOfWork->recomputeSingleEntityChangeSet($metadata, $entity);
             }
         }
     }
 
     /**
      * @param ClassMetadata<object> $metadata
+     * @param list<string>|null $changed the properties an update changes, null for an insertion
      *
      * @return bool whether a tag was written
      */
-    private function fill(object $entity, ClassMetadata $metadata): bool
+    private function fill(object $entity, ClassMetadata $metadata, ?array $changed): bool
     {
         $written = false;
 
         foreach ($this->properties($metadata->getName()) as [$source, $target, $column]) {
-            if (! $source->isInitialized($entity)) {
+            if (! $source->isInitialized($entity) || $changed !== null && ! in_array($column->value, $changed, true)) {
                 continue;
             }
 

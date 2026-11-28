@@ -79,6 +79,14 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 				as_the_owner php bin/console beffroi:database:grant "$RUNTIME_ROLE" --no-interaction
 			fi
 			php bin/console beffroi:tenant:synchronize --no-interaction
+			# Once per change of what a blind index derives, before the server takes its first request: until then a
+			# person whose username is not in its enforced form is found under it as written only, and nobody is created
+			# or renamed. Status 3 says persons are named for an administrator to rename; the deployment goes on.
+			REINDEXED=0
+			php bin/console beffroi:user:reindex --when-due --no-interaction || REINDEXED=$?
+			if [ "$REINDEXED" -ne 0 ] && [ "$REINDEXED" -ne 3 ]; then
+				exit "$REINDEXED"
+			fi
 		fi
 	fi
 

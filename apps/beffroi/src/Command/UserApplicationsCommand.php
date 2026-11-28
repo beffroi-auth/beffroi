@@ -36,7 +36,7 @@ final readonly class UserApplicationsCommand
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'The username of the user.')]
+        #[Argument(description: 'The username of the user, or their identifier.')]
         string $username,
     ): int {
         $tenant = $this->tenant->orTold($io);

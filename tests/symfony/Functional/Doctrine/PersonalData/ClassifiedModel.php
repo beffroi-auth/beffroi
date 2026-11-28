@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Doctrine\PersonalData;
 
 use function array_key_exists;
 use function array_keys;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use App\Doctrine\PersonalData\DataKeyColumns;
 use App\Doctrine\PersonalData\TenantDataKeyStores;
 use Beffroi\Core\Domain\PersonalData\ClassifiedFieldsInterface;
@@ -68,6 +69,9 @@ final readonly class ClassifiedModel
         }
         foreach (DataKeyColumns::classifiedFields() as $column => $line) {
             $columns[TenantDataKeyStores::TABLE][$column] = $line;
+        }
+        foreach (BlindIndexDerivations::classifiedFields() as $column => $line) {
+            $columns[BlindIndexDerivations::TABLE][$column] = $line;
         }
 
         return new self($columns, $unclassified, $linesWithNoColumn);

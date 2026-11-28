@@ -167,6 +167,7 @@ final class LinkedIdentityColumnsTest extends DatabaseTestCase
         $ofAcme = self::identity();
         $other = new Tenant(Uuid::v7(), 'other', new Issuer('https://other.test'), 'Other', self::now());
         self::entityManager()->persist($other);
+        self::derivations()->record($other, 0, 0);
 
         // When
         $ofOther = self::identity('bob-subject', $other);

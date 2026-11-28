@@ -43,16 +43,31 @@ final readonly class UsernameCaseMapped
     }
 
     /**
+     * The enforced form, or the username as written when the profile refuses it. No person is created or renamed under
+     * a refused username; one written before the profile applied is compared as written, an exception that ends with
+     * 1.0.0.
+     */
+    public static function comparisonForm(string $username): string
+    {
+        try {
+            return self::enforce($username);
+        } catch (UsernameRefusedException) {
+            return $username;
+        }
+    }
+
+    /**
      * RFC 8265 §3.3.2, then §3.3.3.
      *
      * @throws UsernameRefusedException
      */
     private static function applied(string $username): string
     {
-        $prepared = self::widthMapped(CodePoints::of($username));
+        $typed = CodePoints::of($username);
+        [$prepared, $from] = self::widthMapped($typed);
         $refused = IdentifierClass::firstRefused($prepared);
         if ($refused !== null) {
-            throw self::refusal($prepared[$refused]);
+            throw self::refusal($prepared[$refused], $typed[$from[$refused]]);
         }
         $normalized = Normalizer::normalize(self::lowercased(CodePoints::text($prepared)), Normalizer::FORM_C);
         if (! is_string($normalized)) {
@@ -72,22 +87,24 @@ final readonly class UsernameCaseMapped
      *
      * @param list<int> $codePoints
      *
-     * @return list<int>
+     * @return array{list<int>, list<int>} the code points mapped, and the position of the one each was mapped from
      */
     private static function widthMapped(array $codePoints): array
     {
         $mapped = [];
-        foreach ($codePoints as $codePoint) {
+        $from = [];
+        foreach ($codePoints as $position => $codePoint) {
             $type = IntlChar::getIntPropertyValue($codePoint, IntlChar::PROPERTY_DECOMPOSITION_TYPE);
             $decomposition = in_array($type, [IntlChar::DT_WIDE, IntlChar::DT_NARROW], true)
                 ? Normalizer::getRawDecomposition(IntlChar::chr($codePoint) ?? '', Normalizer::FORM_KC)
                 : null;
             foreach (is_string($decomposition) ? CodePoints::of($decomposition) : [$codePoint] as $kept) {
                 $mapped[] = $kept;
+                $from[] = $position;
             }
         }
 
-        return $mapped;
+        return [$mapped, $from];
     }
 
     /**
@@ -120,16 +137,19 @@ final readonly class UsernameCaseMapped
         }
     }
 
-    private static function refusal(int $codePoint): UsernameRefusedException
+    /**
+     * Names the code point as it was typed, the one it was mapped to being what the class refused.
+     */
+    private static function refusal(int $mapped, int $typed): UsernameRefusedException
     {
-        return new UsernameRefusedException(match (DerivedProperty::of($codePoint)) {
+        return new UsernameRefusedException(match (DerivedProperty::of($mapped)) {
             DerivedPropertyValue::Contextj, DerivedPropertyValue::Contexto => sprintf(
                 'A username holds U+%04X only where its contextual rule allows it (RFC 5892 Appendix A).',
-                $codePoint,
+                $typed,
             ),
             default => sprintf(
                 'A username holds letters and digits of any script and printable ASCII, and U+%04X is none of them (RFC 8264 §4.2).',
-                $codePoint,
+                $typed,
             ),
         });
     }

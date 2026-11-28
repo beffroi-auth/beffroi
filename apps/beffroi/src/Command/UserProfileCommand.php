@@ -32,7 +32,7 @@ final readonly class UserProfileCommand
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'The username of the user.')]
+        #[Argument(description: 'The username of the user, or their identifier.')]
         string $username,
         #[Option(description: 'Full name ("name").')]
         ?string $name = null,

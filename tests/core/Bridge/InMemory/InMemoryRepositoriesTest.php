@@ -75,6 +75,30 @@ final class InMemoryRepositoriesTest extends TestCase
         static::assertNotSame($this->alice, $this->users->findByUsername($this->other, 'alice'));
     }
 
+    /**
+     * RFC 8265 §3.3.4: as the storage holds a username written before the profile applied.
+     */
+    #[Test]
+    public function aUsernameAsWrittenFindsThePersonWrittenSoBeforeOneComparingAsIt(): void
+    {
+        // Given
+        $written = Fixtures::user($this->tenant, 'Alice', 'other-alice-subject');
+        $this->users->save($written);
+
+        // When / Then
+        static::assertSame($written, $this->users->findByUsername($this->tenant, 'Alice'));
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function anotherSpellingOfAUsernameFindsThePersonWhoseUsernameComparesAsIt(): void
+    {
+        // When / Then
+        static::assertSame($this->alice, $this->users->findByUsername($this->tenant, 'ALICE'));
+    }
+
     #[Test]
     public function aUsernameOfAnotherTenantIsNotFound(): void
     {

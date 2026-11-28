@@ -15,6 +15,7 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Core\Port\AtomicWritesInterface;
 use Beffroi\Core\Port\ClaimHistoryInterface;
 use Beffroi\Core\Port\ClaimsInterface;
@@ -61,6 +62,8 @@ final readonly class PersonDescription
      * @throws InvalidArgumentException  when a member is not one an administrator says, a value is not one it holds, or it changes what the source of the person holds
      * @throws UserAlreadyExistsException when another person of the tenant has the username said
      * @throws UsernameRefusedException   when the username said is one RFC 8265 §3.3 refuses
+     * @throws UsernameUniquenessPendingException when a username is said before the usernames of the tenant are all
+     *                                             compared by their enforced form
      *
      * @return list<string> the names of what changed, none when every value was said as it is
      */

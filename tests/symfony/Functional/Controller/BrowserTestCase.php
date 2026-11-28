@@ -14,6 +14,10 @@ use DateTimeImmutable;
 use function explode;
 use function hash;
 use function hash_pbkdf2;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
+use App\Doctrine\PersonalData\BlindIndexedColumns;
+use App\Doctrine\PersonalData\EncryptedColumnTypes;
+use App\Doctrine\PersonalData\TenantBlindIndexes;
 use App\Http\BrowserSession;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
 use App\Tests\Symfony\Functional\MessageHandler\RecordingEventHandler;
@@ -57,6 +61,7 @@ use function sprintf;
 use function str_starts_with;
 use function strtolower;
 use function strtr;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\Clock\Clock;
@@ -131,6 +136,36 @@ abstract class BrowserTestCase extends DatabaseTestCase
     protected static function aSecondLater(): void
     {
         self::mockTime(Clock::get()->now()->modify('+1 second'));
+    }
+
+    /**
+     * A person of 0.1: their username as it was kept, the tag the Verbatim projection derived of it under the name of
+     * the column, and no derivation recorded for the tenant.
+     */
+    protected static function personOf01(string $username, string $name): User
+    {
+        self::derivations()->record(self::tenant(), 0, 0);
+        $user = self::user($name, $name . '-subject');
+        $asWritten = self::service(TenantBlindIndexes::class, TenantBlindIndexes::class)->of(BlindIndexedColumns::usernameAsWritten());
+        $connection = self::entityManager()->getConnection();
+        $connection->update(
+            'beffroi_user',
+            [
+                'username' => $username,
+                'username_index' => $asWritten->of($username),
+            ],
+            [
+                'id' => $user->id,
+            ],
+            [
+                'username' => EncryptedColumnTypes::name('user', 'string'),
+                'id' => UuidType::NAME,
+            ],
+        );
+        $connection->executeStatement('DELETE FROM ' . BlindIndexDerivations::TABLE);
+        self::reload();
+
+        return $user;
     }
 
     protected static function userWithPassword(string $username, string $password, PasswordAlgorithmInterface $algorithm = new Argon2id()): User
