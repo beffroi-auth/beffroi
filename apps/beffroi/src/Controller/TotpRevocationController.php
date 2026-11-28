@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use App\Http\Account\AsksForARecentProofInterface;
 use App\Http\AccountAccess;
 use App\Http\InteractionPages;
@@ -45,7 +46,7 @@ final readonly class TotpRevocationController implements AsksForARecentProofInte
             return $session;
         }
         $totp = $this->activeTotp->of($session->user) ?? throw new NotFoundHttpException('No authenticator app is set up.');
-        $this->revocation->revoke($totp, $this->contexts->fromRequest($request));
+        $this->revocation->revoke($totp, new ThePerson(), $this->contexts->fromRequest($request));
 
         return $this->pages->afterTheForm(AccountTwoFactorController::ROUTE);
     }

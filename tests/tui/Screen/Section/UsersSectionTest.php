@@ -165,6 +165,38 @@ final class UsersSectionTest extends TestCase
     }
 
     /**
+     * Decision 0066
+     */
+    #[Test]
+    public function theJournalSaysWhoDidAnActByTheirKindAndWhatNamesThem(): void
+    {
+        // Given
+        $this->screen = new SignedInScreen([
+            '/users?username=alice' => self::alice(),
+            '/users/0193-alice/journal' => [
+                'acts' => [[
+                    'id' => 'act-1',
+                    'act' => 'person.disabled',
+                    'occurred_at' => '2026-11-04T09:00:00Z',
+                    'client' => null,
+                    'author' => ['kind' => 'directory', 'name' => 'Entra'],
+                    'provenance' => ['address' => '203.0.113.4', 'user_agent' => 'Firefox', 'place' => null],
+                ]],
+            ],
+        ]);
+        $this->screen->open('section.users');
+        $this->screen->press("\t");
+        $this->screen->type('alice');
+        $this->screen->press("\r");
+
+        // When
+        $this->screen->press('j');
+
+        // Then
+        static::assertStringContainsString('directory Entra', $this->screen->screen());
+    }
+
+    /**
      * The key that changes a row is on the last line of the screen while its table has the focus.
      */
     #[Test]

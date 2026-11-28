@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use App\Http\Account\AsksForARecentProofInterface;
 use App\Http\AccountAccess;
 use App\Http\InteractionPages;
@@ -57,7 +58,7 @@ final readonly class PasskeyRevocationController implements AsksForARecentProofI
         if (! $passkey instanceof PasskeyCredential || ! $passkey->user->id->equals($session->user->id)) {
             throw new NotFoundHttpException('No such passkey.');
         }
-        $this->revocation->revoke($passkey, $this->contexts->fromRequest($request));
+        $this->revocation->revoke($passkey, new ThePerson(), $this->contexts->fromRequest($request));
 
         return $this->pages->afterTheForm(AccountPasskeysController::ROUTE);
     }

@@ -68,7 +68,7 @@ final class ChannelChoiceTest extends TestCase
         $this->choose(new ChosenChannels(['web_push'], ['pending_approval' => ['sms']]));
 
         // Then
-        static::assertSame([['notification_channels', 'mail web_push', 'web_push', null]], $this->rows());
+        static::assertSame([['notification_channels', 'mail web_push', 'web_push', 'person']], $this->rows());
     }
 
     #[Test]
@@ -83,8 +83,8 @@ final class ChannelChoiceTest extends TestCase
         // Then
         static::assertSame(
             [
-                ['notification_channels',                  null,  'mail', null],
-                ['notification_channels.pending_approval', 'sms', null,   null],
+                ['notification_channels',                  null,  'mail', 'person'],
+                ['notification_channels.pending_approval', 'sms', null,   'person'],
             ],
             $this->rows(),
         );
@@ -140,12 +140,12 @@ final class ChannelChoiceTest extends TestCase
     }
 
     /**
-     * @return list<array{string, string|null, string|null, string|null}> each row of the history of the person, by the name of what changed
+     * @return list<array{string, string|null, string|null, string}> each row of the history of the person, by the name of what changed and the kind of its author
      */
     private function rows(): array
     {
         $rows = array_map(
-            static fn (ClaimChange $change): array => [$change->claim, $change->was, $change->became, $change->author?->value],
+            static fn (ClaimChange $change): array => [$change->claim, $change->was, $change->became, $change->author->kind()],
             $this->history->lastOf($this->alice, 50),
         );
         sort($rows);

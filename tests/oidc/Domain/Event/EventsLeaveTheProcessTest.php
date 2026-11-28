@@ -11,6 +11,11 @@ use function basename;
 use function class_exists;
 use function dirname;
 use function glob;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
@@ -153,6 +158,7 @@ final class EventsLeaveTheProcessTest extends TestCase
             RevokedTokenHashes::of([$previous, $next]),
             RevokedTokenHashes::of([$accessToken]),
             $context,
+            new ThePerson(),
         )];
         yield 'an introspection answered' => [new IntrospectionAnswered($now, $client->tenant, $clientId, $subject, $context)];
         yield 'a userinfo answered' => [new UserInfoAnswered($now, $client->tenant, $clientId, $subject, $context)];
@@ -203,23 +209,24 @@ final class EventsLeaveTheProcessTest extends TestCase
             $subject,
             $context,
         )];
-        yield 'a registered client deleted' => [new RegisteredClientDeleted($now, $client->tenant, $clientId, $context)];
+        yield 'a registered client that deleted itself' => [new RegisteredClientDeleted($now, $client->tenant, $clientId, $context, new AClient($clientId))];
+        yield 'a registered client the host deleted' => [new RegisteredClientDeleted($now, $client->tenant, $clientId, $context, new TheHost())];
         yield 'a registered client deleted by an administrator' => [new RegisteredClientDeleted(
             $now,
             $client->tenant,
             $clientId,
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'an initial access token issued' => [new InitialAccessTokenIssued($now, $client->tenant, Uuid::v7(), $context)];
+        yield 'an initial access token the host issued' => [new InitialAccessTokenIssued($now, $client->tenant, Uuid::v7(), $context, new TheHost())];
         yield 'an initial access token issued by an administrator' => [new InitialAccessTokenIssued(
             $now,
             $client->tenant,
             Uuid::v7(),
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'an initial access token revoked' => [new InitialAccessTokenRevoked($now, $client->tenant, Uuid::v7(), $context)];
+        yield 'an initial access token the host revoked' => [new InitialAccessTokenRevoked($now, $client->tenant, Uuid::v7(), $context, new TheHost())];
         yield 'a logout token given up on' => [new LogoutTokenGivenUp(
             $now,
             $session->tenant,
@@ -228,6 +235,7 @@ final class EventsLeaveTheProcessTest extends TestCase
             $subject,
             $session->id,
             'the client answered 410',
+            new ThePerson(),
         )];
         yield 'a logout token issued' => [new LogoutTokenIssued(
             $now,
@@ -238,6 +246,18 @@ final class EventsLeaveTheProcessTest extends TestCase
             $session->id,
             'eyJ.the.token',
             $context,
+            new ThePerson(),
+        )];
+        yield 'a logout token of a session a directory ended' => [new LogoutTokenIssued(
+            $now,
+            $client->tenant,
+            $clientId,
+            $subject,
+            new ClientUri('https://key.example/backchannel-logout'),
+            $session->id,
+            'eyJ.the.token',
+            $context,
+            new ADirectory('Entra ID'),
         )];
         yield 'a pushed request refused' => [new PushedRequestRefused(
             $now,

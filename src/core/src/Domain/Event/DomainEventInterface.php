@@ -9,9 +9,10 @@ use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 
 /**
- * Written to a broker: an event holds a domain object only when it serializes whole, and identifiers otherwise.
+ * Written to a broker: an event holds a domain object only when it serializes whole, and identifiers otherwise. Every
+ * event is an act of the journal, and names its author.
  */
-interface DomainEventInterface
+interface DomainEventInterface extends NamesItsAuthorInterface
 {
     /**
      * The label the journal writes down, stable whatever the class is called.

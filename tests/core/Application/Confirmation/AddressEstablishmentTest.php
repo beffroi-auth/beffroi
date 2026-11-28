@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Confirmation;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Application\Authentication\DecoyHash;
 use Beffroi\Core\Application\Confirmation\AddressConfirmationIssuing;
 use Beffroi\Core\Application\Confirmation\AddressConfirmationRedeeming;
@@ -393,7 +394,12 @@ final class AddressEstablishmentTest extends TestCase
         // Then
         $changes = $this->history->lastOf($this->alice, 2);
         static::assertCount(1, $changes);
-        static::assertSame(['phone_number_verified', 'false', 'true', null], [$changes[0]->claim, $changes[0]->was, $changes[0]->became, $changes[0]->author]);
+        static::assertEquals(['phone_number_verified', 'false', 'true', new ThePerson()], [
+            $changes[0]->claim,
+            $changes[0]->was,
+            $changes[0]->became,
+            $changes[0]->author,
+        ]);
     }
 
     #[Test]

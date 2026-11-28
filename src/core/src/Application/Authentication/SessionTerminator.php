@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Authentication;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
@@ -22,9 +24,12 @@ final readonly class SessionTerminator
     ) {
     }
 
-    public function end(AuthenticationSession $session, SessionEnd $by, RequestContext $context): void
+    /**
+     * The act of the end names its author (decision 0066).
+     */
+    public function end(AuthenticationSession $session, SessionEnd $by, AuthorInterface $author, RequestContext $context): void
     {
-        $this->endOnce($session, $by, $context, null);
+        $this->endOnce($session, $by, $context, $author);
     }
 
     /**
@@ -32,10 +37,10 @@ final readonly class SessionTerminator
      */
     public function endByAnAdministrator(AuthenticationSession $session, Subject $administrator, RequestContext $context): void
     {
-        $this->endOnce($session, SessionEnd::Administrator, $context, $administrator);
+        $this->endOnce($session, SessionEnd::Administrator, $context, new AnAdministrator($administrator));
     }
 
-    private function endOnce(AuthenticationSession $session, SessionEnd $by, RequestContext $context, ?Subject $administrator): void
+    private function endOnce(AuthenticationSession $session, SessionEnd $by, RequestContext $context, AuthorInterface $author): void
     {
         if ($session->hasEnded()) {
             return;
@@ -43,6 +48,6 @@ final readonly class SessionTerminator
         $now = $this->clock->now();
         $session->end($by, $now);
         $this->sessions->save($session);
-        $this->events->dispatch(new AuthenticationSessionEnded($session, $now, $context, $administrator));
+        $this->events->dispatch(new AuthenticationSessionEnded($session, $now, $context, $author));
     }
 }

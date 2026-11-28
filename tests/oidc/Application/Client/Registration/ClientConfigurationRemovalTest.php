@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Tests\Application\Client\Registration;
 
+use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
@@ -73,6 +74,19 @@ final class ClientConfigurationRemovalTest extends TestCase
         $events = $this->events->of(RegisteredClientDeleted::class);
         static::assertCount(1, $events);
         static::assertSame(self::CLIENT_ID, $events[0]->clientId);
+    }
+
+    /**
+     * RFC 7592 §2.3, decision 0066
+     */
+    #[Test]
+    public function theDeletionNamesTheClientItselfAsItsAuthor(): void
+    {
+        // When
+        $this->remove('Bearer ' . self::TOKEN);
+
+        // Then
+        static::assertEquals(new AClient(self::CLIENT_ID), $this->events->of(RegisteredClientDeleted::class)[0]->author());
     }
 
     #[Test]

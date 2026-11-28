@@ -6,6 +6,7 @@ namespace Beffroi\Core\Application\Totp;
 
 use Beffroi\Core\Application\Credential\CredentialRevocation;
 use Beffroi\Core\Application\Credential\EnrolmentRefusal;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Credential\TotpCredential;
 use Beffroi\Core\Domain\Credential\TotpProvisioning;
@@ -125,7 +126,7 @@ final readonly class TotpEnrolment
             throw new CredentialEnrolmentFailedException($exception->getMessage(), previous: $exception);
         }
         if ($held !== null) {
-            $this->revocation->revoke($held, $context);
+            $this->revocation->revoke($held, new ThePerson(), $context);
         }
         $this->credentials->save($credential);
         $this->events->dispatch(new CredentialEnrolled($credential, $now, $context));

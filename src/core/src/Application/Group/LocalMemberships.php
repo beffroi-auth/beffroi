@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Group;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use function array_find;
 use Beffroi\Core\Domain\Event\GroupMembershipAdded;
 use Beffroi\Core\Domain\Event\GroupMembershipRemoved;
@@ -45,7 +48,7 @@ final readonly class LocalMemberships
      */
     public function add(Group $group, User $user, RequestContext $context): GroupMembership
     {
-        return $this->addOnce($group, $user, $context, null);
+        return $this->addOnce($group, $user, $context, new TheHost());
     }
 
     /**
@@ -56,7 +59,7 @@ final readonly class LocalMemberships
      */
     public function addByAnAdministrator(Group $group, User $user, Subject $administrator, RequestContext $context): GroupMembership
     {
-        return $this->addOnce($group, $user, $context, $administrator);
+        return $this->addOnce($group, $user, $context, new AnAdministrator($administrator));
     }
 
     /**
@@ -64,7 +67,7 @@ final readonly class LocalMemberships
      */
     public function remove(Group $group, User $user, RequestContext $context): void
     {
-        $this->removeOnce($group, $user, $context, null);
+        $this->removeOnce($group, $user, $context, new TheHost());
     }
 
     /**
@@ -74,14 +77,14 @@ final readonly class LocalMemberships
      */
     public function removeByAnAdministrator(Group $group, User $user, Subject $administrator, RequestContext $context): void
     {
-        $this->removeOnce($group, $user, $context, $administrator);
+        $this->removeOnce($group, $user, $context, new AnAdministrator($administrator));
     }
 
     /**
      * @throws GroupMembershipException
      * @throws InvalidArgumentException
      */
-    private function addOnce(Group $group, User $user, RequestContext $context, ?Subject $administrator): GroupMembership
+    private function addOnce(Group $group, User $user, RequestContext $context, AuthorInterface $author): GroupMembership
     {
         if ($group->source->isManaged()) {
             throw GroupMembershipException::filledByADirectory($group->name);
@@ -92,7 +95,7 @@ final readonly class LocalMemberships
         $now = $this->clock->now();
         $membership = new GroupMembership($this->uuids->timeOrdered(), $group, $user, GroupSource::Local, $now);
         $this->memberships->save($membership);
-        $this->events->dispatch(new GroupMembershipAdded($group->tenant, $user->subject, $group->name, $now, $context, $administrator));
+        $this->events->dispatch(new GroupMembershipAdded($group->tenant, $user->subject, $group->name, $now, $context, $author));
 
         return $membership;
     }
@@ -100,7 +103,7 @@ final readonly class LocalMemberships
     /**
      * @throws GroupMembershipException
      */
-    private function removeOnce(Group $group, User $user, RequestContext $context, ?Subject $administrator): void
+    private function removeOnce(Group $group, User $user, RequestContext $context, AuthorInterface $author): void
     {
         $membership = $this->membershipOf($group, $user) ?? throw GroupMembershipException::notAMember($group->name);
         if ($membership->source->isManaged()) {
@@ -110,7 +113,7 @@ final readonly class LocalMemberships
         if (! $this->memberships->remove($membership)) {
             throw GroupMembershipException::notAMember($group->name);
         }
-        $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->name, $this->clock->now(), $context, $administrator));
+        $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->name, $this->clock->now(), $context, $author));
     }
 
     private function membershipOf(Group $group, User $user): ?GroupMembership

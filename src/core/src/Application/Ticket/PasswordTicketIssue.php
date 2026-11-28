@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Ticket;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Credential\PasswordHash;
 use Beffroi\Core\Domain\Event\PasswordTicketIssued;
@@ -39,7 +42,7 @@ final readonly class PasswordTicketIssue
      */
     public function issue(User $user, RequestContext $context): IssuedTicket
     {
-        return $this->issueOnce($user, $context, null);
+        return $this->issueOnce($user, $context, new TheHost());
     }
 
     /**
@@ -49,7 +52,7 @@ final readonly class PasswordTicketIssue
      */
     public function issueByAnAdministrator(User $user, Subject $administrator, RequestContext $context): IssuedTicket
     {
-        return $this->issueOnce($user, $context, $administrator);
+        return $this->issueOnce($user, $context, new AnAdministrator($administrator));
     }
 
     /**
@@ -57,7 +60,7 @@ final readonly class PasswordTicketIssue
      *
      * @throws TicketRefusedException
      */
-    private function issueOnce(User $user, RequestContext $context, ?Subject $administrator): IssuedTicket
+    private function issueOnce(User $user, RequestContext $context, AuthorInterface $author): IssuedTicket
     {
         $this->refusal->assertItWouldOpen($user, 'password', [PasswordCredential::method()]);
         $issued = $this->issuing->issue(
@@ -77,7 +80,7 @@ final readonly class PasswordTicketIssue
                 $expiresAt,
             ),
         );
-        $this->events->dispatch(new PasswordTicketIssued($issued->ticket, $issued->ticket->createdAt, $context, $administrator));
+        $this->events->dispatch(new PasswordTicketIssued($issued->ticket, $issued->ticket->createdAt, $context, $author));
 
         return $issued;
     }

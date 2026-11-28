@@ -3,13 +3,14 @@
    name, with the moment on their own clock and what the request carried of where it came from. The
    refusals are there on purpose: a line a person does not recognise is what this page is for, and the
    place beside the address is what makes one recognisable (issue #473); it is absent where the enrichment
-   found nothing. An act an administrator of the tenant did says so in place of where it came from, and
-   nothing else of them: who they are, where they were and the client they acted through are theirs. An
-   act is named from the catalogue, so an act this provider comes to write down is named here by being
-   translated and this page is not edited.
+   found nothing. Who did an act is said in place of where it came from when its kind tells it by its role
+   or by its name (beffroi_author, decision 0066): an administrator of the tenant or the host by their role
+   and nothing else of them, a directory or an upstream provider by its name; the others, and an act that
+   names no author, by where it came from. An act is named from the catalogue, so an act this provider
+   comes to write down is named here by being translated and this page is not edited.
 
    The list is narrowed by what ActsPage reads ("question", a JournalQuestion): the days of the act, one
-   act of those "offered" ("act", the one read), and whether an administrator did it. #}
+   act of those "offered" ("act", the one read), and the kind of its author among the wired "kinds". #}
 {% extends '@Beffroi/layout.html.twig' %}
 {% trans_default_domain 'beffroi' %}
 
@@ -32,11 +33,8 @@
                 name: 'by',
                 label: 'acts.from',
                 any: 'acts.filter.from_anywhere',
-                options: [
-                    {value: 'request', label: 'acts.filter.from_a_request'|trans},
-                    {value: 'administrator', label: 'acts.by_an_administrator'|trans},
-                ],
-                chosen: question.byAnAdministrator is null ? null : (question.byAnAdministrator ? 'administrator' : 'request'),
+                options: kinds|map(kind => {value: kind, label: ('author.' ~ kind)|trans}),
+                chosen: question.by,
             }) }}
             {{ include('@Beffroi/account/filter_period.html.twig', {legend: 'acts.when', from: 'from', to: 'to', period: question.period}) }}
         {% endblock %}
@@ -56,10 +54,11 @@
                         <td data-label="{{ 'acts.what'|trans }}">{{ ('act.' ~ act.act)|trans }}</td>
                         <td data-label="{{ 'acts.when'|trans }}"><time datetime="{{ act.occurredAt|date('c') }}">{{ act.occurredAt|beffroi_moment(user) }}</time></td>
                         <td data-label="{{ 'acts.from'|trans }}">
-                            {%- if act.author is not null -%}
-                                <span data-author>{{ 'acts.by_an_administrator'|trans }}</span>
-                            {%- else -%}
+                            {%- set told = act.author|beffroi_author -%}
+                            {%- if told is null -%}
                                 {{ include('@Beffroi/account/provenance.html.twig', {provenance: act.context}) }}
+                            {%- else -%}
+                                <span data-author="{{ act.author.kind }}">{{ told }}</span>
                             {%- endif -%}
                         </td>
                     </tr>

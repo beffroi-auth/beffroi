@@ -54,7 +54,7 @@ final class SessionsTest extends ConsoleTestCase
         // Then
         static::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
         static::assertTrue(self::sessionAgain($session)->hasEnded());
-        static::assertSame(SessionEnd::User, self::sessionAgain($session)->endedBy);
+        static::assertSame(SessionEnd::Administrator, self::sessionAgain($session)->endedBy);
     }
 
     #[Test]

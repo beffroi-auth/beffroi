@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Oidc\Tests\Application\Client\Registration;
 
 use DateTimeImmutable;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
@@ -111,6 +112,22 @@ final class UnusedClientRemovalTest extends TestCase
         $events = $this->events->of(RegisteredClientDeleted::class);
         static::assertCount(1, $events);
         static::assertSame('never-used', $events[0]->clientId);
+    }
+
+    /**
+     * Decision 0066
+     */
+    #[Test]
+    public function aClientRemovedForGoingUnusedNamesTheHostAsTheAuthorOfItsRemoval(): void
+    {
+        // Given
+        $this->register('never-used');
+
+        // When
+        $this->removeUnusedAt(Fixtures::now()->modify(self::NEVER_USED_FOR)->modify('+1 second'));
+
+        // Then
+        static::assertEquals(new TheHost(), $this->events->of(RegisteredClientDeleted::class)[0]->author());
     }
 
     #[Test]

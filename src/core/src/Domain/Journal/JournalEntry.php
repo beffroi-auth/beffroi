@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Journal;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\PersonalData\ClassifiedFieldsInterface;
 use Beffroi\Core\Domain\PersonalData\FieldClassificationInterface;
 use Beffroi\Core\Domain\PersonalData\NoPersonalDatum;
@@ -31,6 +32,9 @@ final class JournalEntry implements ClassifiedFieldsInterface
      */
     public const int WORD_LENGTH = 64;
 
+    /**
+     * @param AuthorInterface|null $author null only for an act written before acts named their author, the person's or the host's
+     */
     public function __construct(
         public private(set) Uuid $id,
         public readonly Tenant $tenant,
@@ -39,7 +43,7 @@ final class JournalEntry implements ClassifiedFieldsInterface
         public readonly RequestContext $context,
         public readonly ?Subject $subject = null,
         public readonly ?string $client = null,
-        public readonly ?Subject $author = null,
+        public readonly ?AuthorInterface $author = null,
         public readonly ?string $reason = null,
         public readonly ?string $method = null,
     ) {
@@ -70,7 +74,7 @@ final class JournalEntry implements ClassifiedFieldsInterface
             'context' => new Sealed('journal'),
             'subject' => new NoPersonalDatum(Reason::THE_SUBJECT),
             'client' => new NoPersonalDatum('the client the act concerned, by the identifier it was registered under'),
-            'author' => new NoPersonalDatum(Reason::THE_SUBJECT),
+            'author' => new NoPersonalDatum(Reason::THE_AUTHOR),
             'reason' => new NoPersonalDatum('the reason of a refusal, a word of the vocabulary of this provider'),
             'method' => new NoPersonalDatum('the method a refusal refused, by the name this provider gives it'),
             'id' => new NoPersonalDatum(Reason::DRAWN_AT_RANDOM),

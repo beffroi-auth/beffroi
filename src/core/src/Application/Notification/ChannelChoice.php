@@ -6,6 +6,7 @@ namespace Beffroi\Core\Application\Notification;
 
 use function array_keys;
 use function array_unique;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\NotificationChannelsChosen;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\User;
@@ -54,7 +55,9 @@ final readonly class ChannelChoice
             $user->chooseChannels($chosen, $now);
             $this->users->save($user);
             foreach ($changed as $name) {
-                $this->history->record(new ClaimChange(Uuid::v7(), $user, $name, $before[$name] ?? null, $after[$name] ?? null, $now, $context));
+                $this->history->record(
+                    new ClaimChange(Uuid::v7(), $user, $name, $before[$name] ?? null, $after[$name] ?? null, $now, $context, new ThePerson()),
+                );
             }
         });
         $this->events->dispatch(new NotificationChannelsChosen($user->tenant, $user->subject, $changed, $now, $context));

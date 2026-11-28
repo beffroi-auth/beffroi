@@ -19,8 +19,9 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * The last acts of a person of the tenant, the most recent first, with the application each one was done on behalf of
- * and where it came from: what `beffroi:user:journal` prints (decision 0038). An act somebody else did to the person
- * names its author. Reading them is an act of the person that names the administrator (`AdministeredJournal`).
+ * and where it came from: what `beffroi:user:journal` prints (decision 0038). An act names its author by their kind and
+ * what names them among their kind (decision 0066). Reading them is an act of the person that names the administrator
+ * (`AdministeredJournal`).
  */
 #[AsController]
 final readonly class UserJournalController
@@ -47,7 +48,7 @@ final readonly class UserJournalController
                 'act' => $entry->act,
                 'occurred_at' => AdministrationAnswer::moment($entry->occurredAt),
                 'client' => $entry->client,
-                'author' => $entry->author?->value,
+                'author' => $entry->author?->toDocument(),
                 'provenance' => ProvenanceDocument::of($entry->context),
             ], $acts),
         ]);
