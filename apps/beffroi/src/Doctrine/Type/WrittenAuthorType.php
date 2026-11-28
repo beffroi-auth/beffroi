@@ -22,7 +22,9 @@ use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 use JsonException;
 use LogicException;
+use function preg_match;
 use function rtrim;
+use function sprintf;
 use function str_starts_with;
 
 /**
@@ -52,24 +54,23 @@ abstract class WrittenAuthorType extends Type implements NeedsAuthorReaderInterf
     }
 
     /**
-     * A pattern of LIKE that every document of an author of the kind matches and no other: the kind is the first member
-     * of the document, and the names of the kinds are lowercase letters, which a pattern reads as themselves.
+     * The rows whose author is of the kind: those holding a document of that kind, whose first member the kind is, and,
+     * written before authors had kinds, the bare subjects of administrators and the NULL this type reads as one of them.
      *
-     * @param non-empty-string $kind
-     *
+     * @throws InvalidArgumentException when the kind does not name itself in lowercase letters, which a pattern of LIKE reads as themselves
      * @throws JsonException
      */
-    public static function documentsOfKind(string $kind): string
+    public function rowsOfKind(string $kind): RowsOfAKind
     {
-        return rtrim(self::encoded([AuthorInterface::MEMBER => $kind]), '}') . '%';
-    }
+        if (preg_match('/^[a-z]+$/D', $kind) !== 1) {
+            throw new InvalidArgumentException(sprintf('A kind of author names itself in lowercase letters, not "%s".', $kind));
+        }
 
-    /**
-     * A pattern of LIKE that every document of an author matches, and no bare subject a row written before them holds.
-     */
-    public static function documents(): string
-    {
-        return self::DOCUMENT . '%';
+        return new RowsOfAKind(
+            rtrim(self::encoded([AuthorInterface::MEMBER => $kind]), '}') . '%',
+            $kind === AnAdministrator::KIND ? self::DOCUMENT . '%' : null,
+            $this->unwritten()?->kind() === $kind,
+        );
     }
 
     /**

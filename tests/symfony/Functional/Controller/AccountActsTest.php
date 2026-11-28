@@ -10,6 +10,8 @@ use function array_values;
 use App\Http\ActsPage;
 use App\Http\AskedPage;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
+use Beffroi\Core\Domain\Event\CredentialForgotten;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
 use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\AuthorInterface;
@@ -144,12 +146,37 @@ final class AccountActsTest extends BrowserTestCase
     }
 
     /**
-     * Decision 0066: an act the person or the host did says where it came from, as it did before acts named their
-     * author.
+     * Decision 0066: the person reads that the host did an act, and neither the user of its shell nor its name, which
+     * the provenance of a command names.
+     */
+    #[Test]
+    public function anActOfTheHostIsOnThePageByItsRoleAlone(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, CredentialForgotten::NAME, author: new TheHost());
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame(['This service', 'host', false], [
+            $row->filter('[data-author]')->text(),
+            $row->filter('[data-author]')->attr('data-author'),
+            str_contains($row->html(), SealedRows::IP_ADDRESS),
+        ]);
+    }
+
+    /**
+     * Decision 0066: an act the person did, a refused attempt and an act written before acts named their author say
+     * where they came from.
      */
     #[Test]
     #[DataProvider('provideAuthorsSaidByWhereTheyActedFrom')]
-    public function anActOfTheirOwnOrOfTheHostSaysWhereItCameFrom(?AuthorInterface $author): void
+    public function anActToldByWhereItCameFromSaysIt(?AuthorInterface $author): void
     {
         // Given
         $alice = self::user('alice');
@@ -171,8 +198,8 @@ final class AccountActsTest extends BrowserTestCase
     public static function provideAuthorsSaidByWhereTheyActedFrom(): iterable
     {
         yield 'the person' => [new ThePerson()];
-        yield 'the host' => [new TheHost()];
-        yield 'nobody, written before acts named the kind of their author' => [null];
+        yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller()];
+        yield 'nobody, written before acts named their author' => [null];
     }
 
     #[Test]
@@ -350,11 +377,14 @@ final class AccountActsTest extends BrowserTestCase
     }
 
     /**
+     * Decision 0066: an act written before acts named their author is an administrator's when it names a bare subject,
+     * and of no kind the page can ask for when it names nobody.
+     *
      * @param list<string> $acts
      */
     #[Test]
     #[DataProvider('provideAuthors')]
-    public function whetherAnAdministratorDidTheActIsReadApart(string $by, array $acts): void
+    public function theActsOfAKindOfAuthorAreReadApart(string $by, array $acts): void
     {
         // Given
         $alice = self::user('alice');
@@ -362,6 +392,12 @@ final class AccountActsTest extends BrowserTestCase
         self::record($alice, CredentialRevoked::NAME, author: new ThePerson());
         self::record($alice, PersonDisabled::NAME, author: new ADirectory('Entra ID'));
         self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-mallory', author: new AnAdministrator(new Subject('mallory-subject')));
+        self::record($alice, JournalReadByAnAdministrator::NAME, 'tui-of-mallory', author: new AnAdministrator(new Subject('mallory-subject')));
+        self::record($alice, CredentialForgotten::NAME, author: new TheHost());
+        self::record($alice, AuthenticationFailed::NAME, author: new AnUnauthenticatedCaller());
+        self::entityManager()
+            ->getConnection()
+            ->executeStatement('UPDATE beffroi_journal SET author = ? WHERE act = ?', ['mallory-subject', JournalReadByAnAdministrator::NAME]);
         self::reload();
         $this->signIn($alice);
 
@@ -377,8 +413,11 @@ final class AccountActsTest extends BrowserTestCase
      */
     public static function provideAuthors(): iterable
     {
-        yield 'what an administrator did' => [ActsPage::BY_AN_ADMINISTRATOR, [PersonReadByAnAdministrator::NAME]];
-        yield 'what anybody else did' => [ActsPage::BY_A_REQUEST, [UserAuthenticated::NAME, CredentialRevoked::NAME, PersonDisabled::NAME]];
+        yield 'what an administrator did' => ['administrator', [PersonReadByAnAdministrator::NAME, JournalReadByAnAdministrator::NAME]];
+        yield 'what the person did' => ['person', [CredentialRevoked::NAME]];
+        yield 'what a directory did' => ['directory', [PersonDisabled::NAME]];
+        yield 'what the host did' => ['host', [CredentialForgotten::NAME]];
+        yield 'what an unauthenticated caller tried' => ['unauthenticated', [AuthenticationFailed::NAME]];
     }
 
     #[Test]

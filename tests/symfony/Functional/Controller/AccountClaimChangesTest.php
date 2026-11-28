@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Controller;
 
 use App\Http\AskedPage;
 use App\Http\ClaimChangesPage;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Author\AnAdministrator;
@@ -235,11 +236,14 @@ final class AccountClaimChangesTest extends BrowserTestCase
     }
 
     /**
-     * Decisions 0038 and 0066
+     * Decision 0066: a change written before changes named the kind of their author is the person's when it names
+     * nobody, and an administrator's when it names a bare subject.
+     *
+     * @param list<string> $kinds
      */
     #[Test]
     #[DataProvider('provideAuthors')]
-    public function whoMadeTheChangeIsReadApart(string $by, string $author): void
+    public function theChangesOfAKindOfAuthorAreReadApart(string $by, array $kinds): void
     {
         // Given
         $alice = self::user('alice');
@@ -247,22 +251,45 @@ final class AccountClaimChangesTest extends BrowserTestCase
         self::aChange($alice, 'Ada', 'Augusta');
         self::aChange($alice, 'Augusta', 'Ada', author: new AnAdministrator(new Subject('mallory-subject')));
         self::aChange($alice, 'Ada', 'Augusta', author: new ADirectory('Entra ID'));
+        self::aChange($alice, 'Augusta', 'Ada', author: new TheHost());
+        self::aChange($alice, 'Ada', 'Augusta', claim: 'family_name');
+        self::aChange($alice, 'Augusta', 'Ada', claim: 'given_name');
+        self::entityManager()->getConnection()->executeStatement("UPDATE beffroi_claim_change SET author = NULL WHERE claim = 'family_name'");
+        self::entityManager()->getConnection()->executeStatement("UPDATE beffroi_claim_change SET author = 'mallory-subject' WHERE claim = 'given_name'");
         self::reload();
 
         // When
         $page = $this->changesPage([ClaimChangesPage::AUTHOR => $by]);
 
         // Then
-        static::assertSame([$author], $page->filter('tbody tr[data-change] td[data-author]')->extract(['data-author']));
+        static::assertSame($kinds, $page->filter('tbody tr[data-change] td[data-author]')->extract(['data-author']));
     }
 
     /**
-     * @return iterable<string, array{string, string}>
+     * @return iterable<string, array{string, list<string>}>
      */
     public static function provideAuthors(): iterable
     {
-        yield 'what an administrator made' => [ClaimChangesPage::BY_AN_ADMINISTRATOR, 'administrator'];
-        yield 'what the person made' => [ClaimChangesPage::BY_THE_PERSON, 'person'];
+        yield 'what an administrator made' => ['administrator', ['administrator', 'administrator']];
+        yield 'what the person made' => ['person', ['person', 'person']];
+        yield 'what a directory made' => ['directory', ['directory']];
+        yield 'what the host made' => ['host', ['host']];
+    }
+
+    #[Test]
+    public function theKindsOfAuthorAreOffered(): void
+    {
+        // Given
+        $this->signIn(self::user('alice'));
+
+        // When
+        $page = $this->changesPage();
+
+        // Then
+        static::assertSame(
+            ['', 'person', 'administrator', 'client', 'directory', 'upstream', 'unauthenticated', 'host'],
+            $page->filter('select[name="by"] option')->extract(['value']),
+        );
     }
 
     #[Test]

@@ -6,20 +6,26 @@ namespace App\Tests\Symfony\Unit\Doctrine\Type;
 
 use App\Doctrine\Type\ClaimChangeAuthorType;
 use App\Doctrine\Type\JournalAuthorType;
+use App\Doctrine\Type\RowsOfAKind;
 use App\Doctrine\Type\WrittenAuthorType;
 use Beffroi\Core\Application\Author\Authors;
 use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Author\AdministratorKind;
 use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
 use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Author\ClientKind;
 use Beffroi\Core\Domain\Author\DirectoryKind;
 use Beffroi\Core\Domain\Author\HostKind;
 use Beffroi\Core\Domain\Author\PersonKind;
 use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\UnauthenticatedKind;
+use Beffroi\Core\Domain\Author\UpstreamKind;
 use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Exception\InvalidArgumentException;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Doctrine\DBAL\Types\Exception\ValueNotConvertible;
@@ -34,7 +40,15 @@ final class AuthorTypesTest extends TestCase
 {
     public static function setUpBeforeClass(): void
     {
-        WrittenAuthorType::resolveWith(new Authors([new PersonKind(), new AdministratorKind(), new ClientKind(), new DirectoryKind(), new HostKind()]));
+        WrittenAuthorType::resolveWith(new Authors([
+            new PersonKind(),
+            new AdministratorKind(),
+            new ClientKind(),
+            new DirectoryKind(),
+            new UpstreamKind(),
+            new UnauthenticatedKind(),
+            new HostKind(),
+        ]));
     }
 
     /**
@@ -73,6 +87,8 @@ final class AuthorTypesTest extends TestCase
             ];
             yield 'a client ' . $of => [$type, new AClient('oidc-demo'), '{"kind":"client","client_id":"oidc-demo"}'];
             yield 'a directory ' . $of => [$type, new ADirectory('Entra ID'), '{"kind":"directory","name":"Entra ID"}'];
+            yield 'an upstream provider ' . $of => [$type, new AnUpstreamProvider('Acme SSO'), '{"kind":"upstream","name":"Acme SSO"}'];
+            yield 'an unauthenticated caller ' . $of => [$type, new AnUnauthenticatedCaller(), '{"kind":"unauthenticated"}'];
             yield 'the host ' . $of => [$type, new TheHost(), '{"kind":"host"}'];
         }
     }
@@ -132,13 +148,40 @@ final class AuthorTypesTest extends TestCase
     }
 
     /**
-     * Every document begins with its kind, which the pattern of a kind stops right after.
+     * Every document begins with its kind, which the pattern of a kind stops right after; a row written before acts
+     * named the kind of their author holds an administrator by a bare subject, and the person of a change by NULL.
+     *
+     * @param class-string<WrittenAuthorType> $type
      */
     #[Test]
-    public function theDocumentsOfAKindAreThoseThatBeginWithIt(): void
+    #[DataProvider('provideRowsOfAKind')]
+    public function theRowsOfAKindAreItsDocumentsAndWhatARowWrittenBeforeHeldOfIt(string $type, string $kind, RowsOfAKind $rows): void
     {
         // When / Then
-        static::assertSame(['{"kind":"administrator"%', '{%'], [WrittenAuthorType::documentsOfKind(AnAdministrator::KIND), WrittenAuthorType::documents()]);
+        static::assertEquals($rows, new $type()->rowsOfKind($kind));
+    }
+
+    /**
+     * @return iterable<string, array{class-string<WrittenAuthorType>, string, RowsOfAKind}>
+     */
+    public static function provideRowsOfAKind(): iterable
+    {
+        yield 'the administrators of the journal' => [JournalAuthorType::class, 'administrator', new RowsOfAKind('{"kind":"administrator"%', '{%', false)];
+        yield 'the person of the journal' => [JournalAuthorType::class, 'person', new RowsOfAKind('{"kind":"person"%', null, false)];
+        yield 'the host of the journal' => [JournalAuthorType::class, 'host', new RowsOfAKind('{"kind":"host"%', null, false)];
+        yield 'the administrators of the history' => [ClaimChangeAuthorType::class, 'administrator', new RowsOfAKind('{"kind":"administrator"%', '{%', false)];
+        yield 'the person of the history' => [ClaimChangeAuthorType::class, 'person', new RowsOfAKind('{"kind":"person"%', null, true)];
+    }
+
+    #[Test]
+    public function aKindThatIsNotLowercaseLettersIsRefused(): void
+    {
+        // Then
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('A kind of author names itself in lowercase letters, not "admin%".');
+
+        // When
+        new JournalAuthorType()->rowsOfKind('admin%');
     }
 
     #[Test]

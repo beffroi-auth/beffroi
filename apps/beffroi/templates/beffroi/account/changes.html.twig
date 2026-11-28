@@ -1,8 +1,7 @@
 {# What changed of the record of the signed-in user (architecture §5.2, issue #482), in the language of
    the browser: one line per change, the claim it is about, what it said before, what it says now, when
-   it was made and who made it, as a fragment of their kind says it (change_author/<kind>, decision
-   0066): they, an administrator of their organisation, who is never named (decision 0038), or a
-   directory, by its name. A page of its own, under the page of the information, because it is the one
+   it was made and who made it (decision 0066): they, an administrator of their organisation or the host,
+   by their role and never by who they are (decision 0038), or a directory, by its name. A page of its own, under the page of the information, because it is the one
    thing of that record that grows without end: it is read in pages, narrowed by what ClaimChangesPage
    reads ("question", a ClaimChangeQuestion): the days of the change, one claim of those the changes of the
    person are about ("claims"), and who made it. #}
@@ -27,11 +26,8 @@
                 name: 'by',
                 label: 'profile.changed_by',
                 any: 'changes.filter.by_anyone',
-                options: [
-                    {value: 'you', label: 'changes.by_you'|trans},
-                    {value: 'administrator', label: 'acts.by_an_administrator'|trans},
-                ],
-                chosen: question.byAnAdministrator is null ? null : (question.byAnAdministrator ? 'administrator' : 'you'),
+                options: kinds|map(kind => {value: kind, label: ('author.' ~ kind)|trans}),
+                chosen: question.by,
             }) }}
             {{ include('@Beffroi/account/filter_period.html.twig', {legend: 'profile.changed_when', from: 'from', to: 'to', period: question.period}) }}
         {% endblock %}
@@ -54,7 +50,8 @@
                         <td data-label="{{ 'profile.changed_from'|trans }}">{{ include('@Beffroi/account/claim_value.html.twig', {claim: change.claim, value: change.was}) }}</td>
                         <td data-label="{{ 'profile.changed_to'|trans }}">{{ include('@Beffroi/account/claim_value.html.twig', {claim: change.claim, value: change.became}) }}</td>
                         <td data-label="{{ 'profile.changed_when'|trans }}"><time datetime="{{ change.changedAt|date('c') }}">{{ change.changedAt|beffroi_moment(user) }}</time></td>
-                        <td data-label="{{ 'profile.changed_by'|trans }}" data-author="{{ change.author.kind }}">{{ include('@Beffroi/account/change_author/' ~ change.author.kind ~ '.html.twig', {change: change}) }}</td>
+                        {% set told = change.author|beffroi_author %}
+                        <td data-label="{{ 'profile.changed_by'|trans }}" data-author="{{ change.author.kind }}">{{ told is null ? ('author.' ~ change.author.kind)|trans : told }}</td>
                     </tr>
                 {% else %}
                     {# A table that holds nothing keeps its head and says so in one row of its own, which is

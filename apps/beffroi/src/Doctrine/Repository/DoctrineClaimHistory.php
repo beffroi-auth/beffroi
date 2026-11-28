@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Doctrine\Repository;
 
-use Beffroi\Core\Domain\Author\ThePerson;
-use Beffroi\Core\Domain\Author\AnAdministrator;
 use App\Doctrine\Type\ClaimChangeAuthorType;
 use App\Doctrine\Chain\DoctrineChains;
 use App\Doctrine\EntityManagers;
@@ -54,21 +52,10 @@ final readonly class DoctrineClaimHistory extends DoctrineRepository implements
         if ($question->claim !== null) {
             $changes->andWhere('c.claim = :claim')->setParameter('claim', $question->claim);
         }
-        // A change written before changes named the kind of their author names an administrator by a bare subject, and the person by NULL.
-        if ($question->byAnAdministrator === true) {
-            $changes
-                ->andWhere($changes->expr()->orX('c.author LIKE :administrators', $changes->expr()->andX(
-                    'c.author IS NOT NULL',
-                    'c.author NOT LIKE :documents',
-                )))
-                ->setParameter('administrators', ClaimChangeAuthorType::documentsOfKind(AnAdministrator::KIND))
-                ->setParameter('documents', ClaimChangeAuthorType::documents());
-        }
-        if ($question->byAnAdministrator === false) {
-            $changes->andWhere($changes->expr()->orX('c.author IS NULL', 'c.author LIKE :persons'))->setParameter(
-                'persons',
-                ClaimChangeAuthorType::documentsOfKind(ThePerson::KIND),
-            );
+        if ($question->by !== null) {
+            new ClaimChangeAuthorType()
+                ->rowsOfKind($question->by)
+                ->narrow($changes, 'c.author');
         }
 
         return $this->rows->of(ClaimChange::class, SelectionWithinAPeriod::narrow($changes, 'c.changedAt', $question->period), 'c.id', $pagination);

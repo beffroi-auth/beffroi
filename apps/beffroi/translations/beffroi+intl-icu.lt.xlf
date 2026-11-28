@@ -1329,13 +1329,41 @@
         <source>acts.from</source>
         <target>Šaltinis</target>
       </trans-unit>
-      <trans-unit id="acts.by_an_administrator" resname="acts.by_an_administrator">
-        <source>acts.by_an_administrator</source>
+      <trans-unit id="author.person" resname="author.person">
+        <source>author.person</source>
+        <target>Jūs</target>
+      </trans-unit>
+      <trans-unit id="author.administrator" resname="author.administrator">
+        <source>author.administrator</source>
         <target>Jūsų organizacijos administratorius</target>
       </trans-unit>
-      <trans-unit id="acts.by_the_directory" resname="acts.by_the_directory">
-        <source>acts.by_the_directory</source>
+      <trans-unit id="author.directory.named" resname="author.directory.named">
+        <source>author.directory.named</source>
         <target>Katalogas {name}</target>
+      </trans-unit>
+      <trans-unit id="author.client" resname="author.client">
+        <source>author.client</source>
+        <target>Programa</target>
+      </trans-unit>
+      <trans-unit id="author.directory" resname="author.directory">
+        <source>author.directory</source>
+        <target>Katalogas</target>
+      </trans-unit>
+      <trans-unit id="author.upstream" resname="author.upstream">
+        <source>author.upstream</source>
+        <target>Tapatybės teikėjas</target>
+      </trans-unit>
+      <trans-unit id="author.upstream.named" resname="author.upstream.named">
+        <source>author.upstream.named</source>
+        <target>Tapatybės teikėjas {name}</target>
+      </trans-unit>
+      <trans-unit id="author.unauthenticated" resname="author.unauthenticated">
+        <source>author.unauthenticated</source>
+        <target>Kažkas, kas nebuvo prisijungęs</target>
+      </trans-unit>
+      <trans-unit id="author.host" resname="author.host">
+        <source>author.host</source>
+        <target>Ši paslauga</target>
       </trans-unit>
       <trans-unit id="acts.none" resname="acts.none">
         <source>acts.none</source>
@@ -1352,10 +1380,6 @@
       <trans-unit id="acts.filter.from_anywhere" resname="acts.filter.from_anywhere">
         <source>acts.filter.from_anywhere</source>
         <target>Visi</target>
-      </trans-unit>
-      <trans-unit id="acts.filter.from_a_request" resname="acts.filter.from_a_request">
-        <source>acts.filter.from_a_request</source>
-        <target>Naršyklė arba programa</target>
       </trans-unit>
       <trans-unit id="account.acts.state" resname="account.acts.state">
         <source>account.acts.state</source>
@@ -1716,10 +1740,6 @@
       <trans-unit id="changes.title" resname="changes.title">
         <source>changes.title</source>
         <target>Pakeitimų istorija</target>
-      </trans-unit>
-      <trans-unit id="changes.by_you" resname="changes.by_you">
-        <source>changes.by_you</source>
-        <target>Jūs</target>
       </trans-unit>
       <trans-unit id="changes.none_matching" resname="changes.none_matching">
         <source>changes.none_matching</source>

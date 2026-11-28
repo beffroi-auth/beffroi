@@ -1329,13 +1329,41 @@
         <source>acts.from</source>
         <target>Origine</target>
       </trans-unit>
-      <trans-unit id="acts.by_an_administrator" resname="acts.by_an_administrator">
-        <source>acts.by_an_administrator</source>
+      <trans-unit id="author.person" resname="author.person">
+        <source>author.person</source>
+        <target>Vous</target>
+      </trans-unit>
+      <trans-unit id="author.administrator" resname="author.administrator">
+        <source>author.administrator</source>
         <target>Un administrateur de votre organisation</target>
       </trans-unit>
-      <trans-unit id="acts.by_the_directory" resname="acts.by_the_directory">
-        <source>acts.by_the_directory</source>
+      <trans-unit id="author.directory.named" resname="author.directory.named">
+        <source>author.directory.named</source>
         <target>L'annuaire {name}</target>
+      </trans-unit>
+      <trans-unit id="author.client" resname="author.client">
+        <source>author.client</source>
+        <target>Une application</target>
+      </trans-unit>
+      <trans-unit id="author.directory" resname="author.directory">
+        <source>author.directory</source>
+        <target>Un annuaire</target>
+      </trans-unit>
+      <trans-unit id="author.upstream" resname="author.upstream">
+        <source>author.upstream</source>
+        <target>Un fournisseur d'identité</target>
+      </trans-unit>
+      <trans-unit id="author.upstream.named" resname="author.upstream.named">
+        <source>author.upstream.named</source>
+        <target>Le fournisseur d'identité {name}</target>
+      </trans-unit>
+      <trans-unit id="author.unauthenticated" resname="author.unauthenticated">
+        <source>author.unauthenticated</source>
+        <target>Quelqu'un qui n'était pas connecté</target>
+      </trans-unit>
+      <trans-unit id="author.host" resname="author.host">
+        <source>author.host</source>
+        <target>Ce service</target>
       </trans-unit>
       <trans-unit id="acts.none" resname="acts.none">
         <source>acts.none</source>
@@ -1352,10 +1380,6 @@
       <trans-unit id="acts.filter.from_anywhere" resname="acts.filter.from_anywhere">
         <source>acts.filter.from_anywhere</source>
         <target>Toutes</target>
-      </trans-unit>
-      <trans-unit id="acts.filter.from_a_request" resname="acts.filter.from_a_request">
-        <source>acts.filter.from_a_request</source>
-        <target>Un navigateur ou une application</target>
       </trans-unit>
       <trans-unit id="account.acts.state" resname="account.acts.state">
         <source>account.acts.state</source>
@@ -1716,10 +1740,6 @@
       <trans-unit id="changes.title" resname="changes.title">
         <source>changes.title</source>
         <target>Historique des modifications</target>
-      </trans-unit>
-      <trans-unit id="changes.by_you" resname="changes.by_you">
-        <source>changes.by_you</source>
-        <target>Vous</target>
       </trans-unit>
       <trans-unit id="changes.none_matching" resname="changes.none_matching">
         <source>changes.none_matching</source>

@@ -120,17 +120,10 @@ final readonly class DoctrineJournal extends DoctrineRepository implements
                 ->setParameter('unlessTheirOwn', $question->unlessTheirOwn)
                 ->setParameter('themselves', [$user->subject->value, JournalAuthorType::written(new AnAdministrator($user->subject))]);
         }
-        if ($question->byAnAdministrator === true) {
-            $theirs
-                ->andWhere($theirs->expr()->orX('a.author LIKE :administrators', $theirs->expr()->andX('a.author IS NOT NULL', 'a.author NOT LIKE :documents')))
-                ->setParameter('administrators', JournalAuthorType::documentsOfKind(AnAdministrator::KIND))
-                ->setParameter('documents', JournalAuthorType::documents());
-        }
-        if ($question->byAnAdministrator === false) {
-            $theirs
-                ->andWhere($theirs->expr()->orX('a.author IS NULL', $theirs->expr()->andX('a.author LIKE :documents', 'a.author NOT LIKE :administrators')))
-                ->setParameter('administrators', JournalAuthorType::documentsOfKind(AnAdministrator::KIND))
-                ->setParameter('documents', JournalAuthorType::documents());
+        if ($question->by !== null) {
+            new JournalAuthorType()
+                ->rowsOfKind($question->by)
+                ->narrow($theirs, 'a.author');
         }
 
         return $this->rows->of(

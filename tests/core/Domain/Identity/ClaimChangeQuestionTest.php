@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Domain\Identity;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Author\AuthorInterface;
@@ -68,25 +69,29 @@ final class ClaimChangeQuestionTest extends TestCase
         yield 'another claim' => ['family_name', false];
     }
 
+    /**
+     * Decision 0066
+     */
     #[Test]
     #[DataProvider('provideAuthors')]
-    public function theAuthorAskedForAdmitsTheChangesTheyMade(bool $byAnAdministrator, AuthorInterface $author, bool $admitted): void
+    public function theKindOfAuthorAskedForAdmitsTheChangesItsAuthorsMade(string $by, AuthorInterface $author, bool $admitted): void
     {
         // When / Then
-        static::assertSame($admitted, new ClaimChangeQuestion(byAnAdministrator: $byAnAdministrator)->admits(self::change(author: $author)));
+        static::assertSame($admitted, new ClaimChangeQuestion(by: $by)->admits(self::change(author: $author)));
     }
 
     /**
-     * @return iterable<string, array{bool, AuthorInterface, bool}>
+     * @return iterable<string, array{string, AuthorInterface, bool}>
      */
     public static function provideAuthors(): iterable
     {
-        yield 'an administrator asked, one made it' => [true, new AnAdministrator(new Subject('admin-subject')), true];
-        yield 'an administrator asked, the person made it' => [true, new ThePerson(), false];
-        yield 'an administrator asked, a directory made it' => [true, new ADirectory('Entra ID'), false];
-        yield 'the person asked, they made it' => [false, new ThePerson(), true];
-        yield 'the person asked, an administrator made it' => [false, new AnAdministrator(new Subject('admin-subject')), false];
-        yield 'the person asked, a directory made it' => [false, new ADirectory('Entra ID'), false];
+        yield 'an administrator asked, one made it' => ['administrator', new AnAdministrator(new Subject('admin-subject')), true];
+        yield 'an administrator asked, the person made it' => ['administrator', new ThePerson(), false];
+        yield 'the person asked, they made it' => ['person', new ThePerson(), true];
+        yield 'the person asked, an administrator made it' => ['person', new AnAdministrator(new Subject('admin-subject')), false];
+        yield 'a directory asked, one made it' => ['directory', new ADirectory('Entra ID'), true];
+        yield 'the host asked, it made it' => ['host', new TheHost(), true];
+        yield 'the host asked, a directory made it' => ['host', new ADirectory('Entra ID'), false];
     }
 
     private static function change(?DateTimeImmutable $changedAt = null, AuthorInterface $author = new ThePerson()): ClaimChange
