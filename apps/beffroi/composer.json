@@ -13,6 +13,7 @@
         "beffroi/core": "@dev",
         "beffroi/oidc": "@dev",
         "beffroi/saml": "@dev",
+        "beffroi/scim": "@dev",
         "doctrine/dbal": "^4.6",
         "doctrine/doctrine-bundle": "^3.4",
         "doctrine/doctrine-migrations-bundle": "^4.0.1",
@@ -145,6 +146,10 @@
         "name": "beffroi-saml",
         "type": "path",
         "url": "../../src/saml"
+    },{
+        "name": "beffroi-scim",
+        "type": "path",
+        "url": "../../src/scim"
     },{
         "name": "beffroi-saml2-bindings",
         "type": "path",

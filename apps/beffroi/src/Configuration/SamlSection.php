@@ -30,12 +30,10 @@ use function array_keys;
 use function is_array;
 use function is_int;
 use function is_string;
-use Symfony\Component\Config\Definition\Builder\BooleanNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\NodeBuilder;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
-use function Symfony\Component\DependencyInjection\Loader\Configurator\service_closure;
 
 final readonly class SamlSection extends ConfigurationSection
 {
@@ -155,20 +153,6 @@ final readonly class SamlSection extends ConfigurationSection
         }
 
         return $saml;
-    }
-
-    /**
-     * Stands for canBeEnabled(), whose placeholder symfony/config 8.2 resolves when the container is compiled: an image
-     * would keep the role the environment of its build named.
-     *
-     * @return BooleanNodeDefinition<null>
-     */
-    private static function enabled(): BooleanNodeDefinition
-    {
-        $enabled = new BooleanNodeDefinition('enabled');
-        $enabled->defaultFalse();
-
-        return $enabled;
     }
 
     /**
@@ -442,17 +426,6 @@ final readonly class SamlSection extends ConfigurationSection
             'beffroi.saml.service_provider.assertion_consumer_service',
             self::SERVICE_PROVIDER_ROLE,
         );
-    }
-
-    /**
-     * @param class-string $class
-     */
-    private static function servedBy(ServicesConfigurator $services, string $class, string $service, string $role): void
-    {
-        $services
-            ->set($class)
-            ->factory([service($role), 'served'])
-            ->args([service_closure($service)]);
     }
 
     /**

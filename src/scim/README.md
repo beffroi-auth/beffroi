@@ -17,7 +17,8 @@ RFC 7644 is served within bounds, equalities through an index; the pagination is
 most; every resource carries a weak `ETag` that `If-Match` is compared to. A boolean is a JSON literal, `op` one of
 the three values of RFC 7644, `password` hashed and never returned nor filtered on. `Bulk`, sorting, the search by
 `POST`, nested groups and custom schemas are not served. The package is being built by spike 10
-([beffroi-auth/beffroi#84](https://github.com/beffroi-auth/beffroi/issues/84)): it holds its specification so far.
+([beffroi-auth/beffroi#84](https://github.com/beffroi-auth/beffroi/issues/84)): it holds its specification, and the
+reading of the body of a request and of its names, so far.
 
 The package requires PHP 8.4 or later, the `intl` and `mbstring` extensions and `beffroi/core`.
 
@@ -28,6 +29,7 @@ From the root of the monorepo, which holds the toolchain of every package:
 ```bash
 composer install
 castor prepare-pr                                # Mago lint and format, Rector, PHPStan, Deptrac
+castor phpunit --testsuite scim                  # the suite of this package, tests/scim
 castor deptrac                                   # the layers of section 2 and the graph of the packages
 ```
 

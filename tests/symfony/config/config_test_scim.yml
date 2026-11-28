@@ -1,0 +1,23 @@
+# A deployment that switches SCIM by its environment (beffroi/scim, spec/scim.md section 5.1): off unless a test names
+# "BEFFROI_TEST_SCIM" before it boots this kernel, read when the container builds what the module changes. Its routes
+# are the provider's, and one more under the base path of the module, whose controller fails as no rule of the module
+# names (P-19).
+framework:
+    router:
+        resource: '%kernel.project_dir%/config/routing_scim.yml'
+
+parameters:
+    env(BEFFROI_TEST_SCIM): 'false'
+
+beffroi:
+    scim:
+        enabled: '%env(bool:BEFFROI_TEST_SCIM)%'
+
+services:
+    # Reachable from the tests: the module as the controllers and the listener of the errors see it, null while off.
+    test.beffroi.scim.endpoints:
+        alias: App\Scim\ScimEndpoints
+        public: true
+    test.beffroi.scim.answers:
+        alias: App\Scim\ScimAnswers
+        public: true

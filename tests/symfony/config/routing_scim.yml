@@ -1,0 +1,8 @@
+# The routes of the provider, and a route under the base path of SCIM whose controller fails as no rule of the module
+# names (spec/scim.md P-19).
+beffroi_test:
+    resource: routing.yml
+
+beffroi_protocol_scim_failing:
+    path: /scim/v2/Failing
+    controller: App\Tests\Symfony\Functional\Scim\FailingController

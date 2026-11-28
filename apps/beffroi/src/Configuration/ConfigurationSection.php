@@ -14,8 +14,12 @@ use function is_float;
 use function is_int;
 use function is_string;
 use function sprintf;
+use Symfony\Component\Config\Definition\Builder\BooleanNodeDefinition;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\inline_service;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service_closure;
 
 /**
  * A value may still be an environment placeholder, resolved only at runtime: a section never casts it.
@@ -137,5 +141,32 @@ abstract readonly class ConfigurationSection implements ConfigurationSectionInte
         }
 
         return inline_service(RetentionWindow::class)->args([$value]);
+    }
+
+    /**
+     * Stands for canBeEnabled(), whose placeholder symfony/config 8.2 resolves when the container is compiled: an image
+     * would keep the role the environment of its build named.
+     *
+     * @return BooleanNodeDefinition<null>
+     */
+    protected static function enabled(): BooleanNodeDefinition
+    {
+        $enabled = new BooleanNodeDefinition('enabled');
+        $enabled->defaultFalse();
+
+        return $enabled;
+    }
+
+    /**
+     * The service of a role, built only while the role is on, and null while it is off.
+     *
+     * @param class-string $class
+     */
+    protected static function servedBy(ServicesConfigurator $services, string $class, string $service, string $role): void
+    {
+        $services
+            ->set($class)
+            ->factory([service($role), 'served'])
+            ->args([service_closure($service)]);
     }
 }

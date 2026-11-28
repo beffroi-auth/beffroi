@@ -122,6 +122,10 @@ beffroi:
         # tenant whose service provider is on.
         service_providers: '%env(json:BEFFROI_SAML_SERVICE_PROVIDERS)%'
         identity_providers: '%env(json:BEFFROI_SAML_IDENTITY_PROVIDERS)%'
+    # SCIM 2.0 (beffroi/scim, spec/scim.md), off until the deployment turns it on: the directories of the tenant push its
+    # persons and groups to /scim/v2, on the protocol plane, and every route of the module answers 404 while it is off.
+    scim:
+        enabled: '%env(bool:BEFFROI_SCIM)%'
     webauthn:
         # The FIDO metadata the passkey ceremonies check an attestation against, next to the keys: filled by hand
         # with "beffroi:webauthn:mds-refresh" (the blob of the FIDO Alliance, verified under its root) and

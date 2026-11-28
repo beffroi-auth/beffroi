@@ -402,6 +402,11 @@ deptrac:
       - 'SamlPort'
       - 'SamlApplication'
       - 'SamlBridge'
+      # beffroi/scim, whose routes the provider serves and whose module it wires (spec/scim.md section 2)
+      - 'ScimDomain'
+      - 'ScimPort'
+      - 'ScimApplication'
+      - 'ScimBridge'
       - 'Psr'
       - 'PsrClock'
       - 'Symfony'

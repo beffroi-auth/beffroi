@@ -42,6 +42,9 @@
         <testsuite name="saml">
             <directory>../tests/saml/Unit</directory>
         </testsuite>
+        <testsuite name="scim">
+            <directory>../tests/scim</directory>
+        </testsuite>
         <testsuite name="tui">
             <directory>../tests/tui</directory>
         </testsuite>

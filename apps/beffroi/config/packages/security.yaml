@@ -22,7 +22,7 @@ security:
             request_matcher: App\Administration\AdministrationRequestMatcher
             security: false
         beffroi_protocol:
-            pattern: ^/(\.well-known/(openid-configuration|oauth-authorization-server)|jwks|token|userinfo|introspect|revoke|par|device_authorization|backchannel_authentication|register(/.+)?)$
+            pattern: ^/(\.well-known/(openid-configuration|oauth-authorization-server)|jwks|token|userinfo|introspect|revoke|par|device_authorization|backchannel_authentication|register(/.+)?|scim/v2/.+)$
             security: false
         beffroi_interaction:
             lazy: true

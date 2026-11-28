@@ -237,6 +237,10 @@ use App\Key\KeysOpenedAtStart;
 use App\Key\KmsUnavailableListener;
 use App\Load\LoadBudget;
 use App\Load\LoadRefusal;
+use App\Configuration\ScimSection;
+use App\Scim\ScimAnswers;
+use App\Scim\ScimErrorListener;
+use App\Scim\TrailingSlashListener;
 use App\Load\LoadRefusalListener;
 use App\Load\OriginLoadListener;
 use App\Load\RateLimitedClientLoad;
@@ -1426,7 +1430,14 @@ return static function (ContainerConfigurator $container): void {
     $services->set(OriginLoadListener::class)->args([service('beffroi.load.' . LoadBudget::ORIGIN)]);
     $services->set(RateLimitedClientLoad::class)->args([service('beffroi.load.' . LoadBudget::CLIENT)]);
     $services->alias(ClientLoadBudgetInterface::class, RateLimitedClientLoad::class);
-    $services->set(LoadRefusal::class);
+    // The protocols whose errors are a document of their own, each while its role is on.
+    $services->set(LoadRefusal::class)->arg('$protocols', inline_service(SwitchedServices::class)->args([
+        [],
+        service(ScimSection::ROLE),
+        iterator([service(ScimSection::ANSWERS)]),
+    ]));
+    $services->set(ScimErrorListener::class)->args([service(ScimAnswers::class)]);
+    $services->set(TrailingSlashListener::class)->args([service(ScimAnswers::class)]);
     $services->set(LoadRefusalListener::class);
 
     $services->set(EntityManagers::class);
