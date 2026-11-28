@@ -26,10 +26,11 @@ final class QueueTheRevocationOfTheSessionTokensHandlerTest extends TestCase
     {
         // Given
         $bus = self::bus();
+        $handler = new QueueTheRevocationOfTheSessionTokensHandler($bus);
         $event = self::endedByAnAdministrator();
 
         // When
-        (new QueueTheRevocationOfTheSessionTokensHandler($bus))($event);
+        $handler($event);
 
         // Then
         $command = $bus->envelopes[0]->getMessage();
@@ -45,9 +46,10 @@ final class QueueTheRevocationOfTheSessionTokensHandlerTest extends TestCase
     {
         // Given
         $bus = self::bus();
+        $handler = new QueueTheRevocationOfTheSessionTokensHandler($bus);
 
         // When
-        (new QueueTheRevocationOfTheSessionTokensHandler($bus))(self::endedByAnAdministrator());
+        $handler(self::endedByAnAdministrator());
 
         // Then
         static::assertNotNull($bus->envelopes[0]->last(DispatchAfterCurrentBusStamp::class));
