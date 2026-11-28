@@ -239,6 +239,40 @@ final class MessageBodySealingTest extends TestCase
         static::assertNull(SealedMessageBody::keyOf($this->tenant, 'not a JWE'));
     }
 
+    /**
+     * RFC 7516 §4.3
+     */
+    #[Test]
+    public function aSealedBodyNamesTheTenantItIsSealedForWithoutBeingOpened(): void
+    {
+        // Given
+        $sealed = $this->sealer->seal($this->tenant, self::BODY);
+
+        // When / Then
+        static::assertSame($this->tenant->slug, SealedMessageBody::tenantOf($sealed));
+    }
+
+    #[Test]
+    public function aBodyWhoseProtectedHeaderNamesNoTenantIsSealedForNone(): void
+    {
+        // Given
+        $sealed = $this->sealedWith([
+            'alg' => 'ECDH-ES+A256KW',
+            'enc' => 'A256GCM',
+            'kid' => Keys::messagePair()->kid,
+        ]);
+
+        // When / Then
+        static::assertNull(SealedMessageBody::tenantOf($sealed));
+    }
+
+    #[Test]
+    public function whatIsNoCompactJweIsSealedForNoTenant(): void
+    {
+        // When / Then
+        static::assertNull(SealedMessageBody::tenantOf('not a JWE'));
+    }
+
     #[Test]
     public function aBodySealedUnderAnotherAlgorithmThanTheKeyIsHeldForIsNotOpened(): void
     {
