@@ -16,13 +16,10 @@
         <field name="source" type="string" column="source" length="32" enum-type="Beffroi\Core\Domain\Group\GroupSource"/>
         <field name="createdAt" type="datetime_immutable" column="created_at"/>
         <!-- Neither is in an UPDATE Doctrine writes: VersionRaisedInTheRow raises the version and moves the last
-             change from what the row holds. The defaults serve a process that writes a group without them, as one
-             started before the column came does. -->
-        <field name="updatedAt" type="datetime_immutable" column="updated_at" updatable="false">
-            <options>
-                <option name="default">CURRENT_TIMESTAMP</option>
-            </options>
-        </field>
+             change from what the row holds. A process that writes a group without them, as one started before the
+             columns came does, has the first version, and a trigger of Version20261128140000 gives the last change
+             the creation. -->
+        <field name="updatedAt" type="datetime_immutable" column="updated_at" updatable="false"/>
         <field name="version" type="integer" column="version" updatable="false">
             <options>
                 <option name="default">1</option>

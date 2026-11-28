@@ -98,7 +98,7 @@ final class RowsBeforeTheVersionTest extends KernelTestCase
      * back.
      */
     #[Test]
-    public function aGroupAProcessThatKnowsNoVersionWritesTakesTheFirstVersionAndALastChange(): void
+    public function aGroupAProcessThatKnowsNoVersionWritesIsAtTheFirstVersionLastChangedWhenCreated(): void
     {
         // Given
         $id = Uuid::v7()->toRfc4122();
@@ -114,11 +114,8 @@ final class RowsBeforeTheVersionTest extends KernelTestCase
 
         // Then
         static::assertSame(
-            [1, true],
-            [
-                self::database()->fetchOne('SELECT version FROM beffroi_group WHERE id = ?', [$id]),
-                self::database()->fetchOne('SELECT updated_at IS NOT NULL FROM beffroi_group WHERE id = ?', [$id]),
-            ],
+            ['version' => 1, 'updated_at' => self::CREATED_AT],
+            self::database()->fetchAssociative('SELECT version, updated_at FROM beffroi_group WHERE id = ?', [$id]),
         );
     }
 
