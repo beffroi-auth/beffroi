@@ -78,7 +78,7 @@ final class AuthorTest extends TestCase
     {
         // Then
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('A directory is named by the name the deployment declares it under, plain text and never blank.');
+        $this->expectExceptionMessageIs('A directory is named by the name the deployment declares it under, plain text, never blank and at most 255 characters.');
 
         // When
         new ADirectory($name);
@@ -101,14 +101,41 @@ final class AuthorTest extends TestCase
      * Decision 0066
      */
     #[Test]
-    public function anUpstreamProviderIsNamedByPlainTextThatIsNeverBlank(): void
+    #[DataProvider('provideNamesOfNoUpstreamProvider')]
+    public function anUpstreamProviderIsNamedByPlainTextThatIsNeverBlank(string $name): void
     {
         // Then
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('An upstream provider is named by the name the deployment declares it under, plain text and never blank.');
+        $this->expectExceptionMessageIs('An upstream provider is named by the name the deployment declares it under, plain text, never blank and at most 1024 characters.');
 
         // When
-        new AnUpstreamProvider("\u{2003}");
+        new AnUpstreamProvider($name);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideNamesOfNoUpstreamProvider(): iterable
+    {
+        yield 'blank in another script' => ["\u{2003}"];
+        yield 'longer than the longest entity ID' => ['https://idp.acme.example/' . str_repeat('e', 1000)];
+    }
+
+    /**
+     * SAML Metadata §2.2.1, decision 0066: an entity ID is at most 1024 characters, and the provider it names is the
+     * author of what a sign-in through it writes.
+     */
+    #[Test]
+    public function anUpstreamProviderIsNamedByTheLongestEntityId(): void
+    {
+        // Given
+        $entityId = 'https://idp.acme.example/' . str_repeat('e', 999);
+
+        // When
+        $author = new AnUpstreamProvider($entityId);
+
+        // Then
+        static::assertSame($entityId, $author->name());
     }
 
     /**
@@ -120,7 +147,7 @@ final class AuthorTest extends TestCase
     {
         // Then
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('A client that acts is named by the identifier it was registered under.');
+        $this->expectExceptionMessageIs('A client that acts is named by the identifier it was registered under, plain text of at most 255 characters.');
 
         // When
         new AClient($clientId);
@@ -133,5 +160,6 @@ final class AuthorTest extends TestCase
     {
         yield 'empty' => [''];
         yield 'a control character' => ["oidc\x00demo"];
+        yield 'longer than plain text holds' => [str_repeat('c', 256)];
     }
 }

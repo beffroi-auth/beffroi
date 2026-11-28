@@ -7,6 +7,7 @@ namespace Beffroi\Core\Domain\Identity;
 use function array_any;
 use function array_key_exists;
 use function array_values;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use function in_array;
 use function sprintf;
@@ -34,15 +35,16 @@ final readonly class UpstreamProvider
      * @param list<EmailDomain> $domains
      * @param list<string> $claims OIDC Core §5.1 names
      *
-     * @throws InvalidArgumentException when it is unnamed, or a claim is none of the profile
+     * @throws InvalidArgumentException when its name is none an author holds (decision 0066), or a claim is none of the
+     *                                   profile
      */
     public function __construct(
         public string $name,
         array $domains,
         array $claims = [],
     ) {
-        if ($name === '') {
-            throw new InvalidArgumentException('An upstream provider is named.');
+        if (! AnUpstreamProvider::holds($name)) {
+            throw new InvalidArgumentException('An upstream provider is named by plain text an author holds, never blank and at most 1024 characters (decision 0066).');
         }
         $folded = [];
         foreach ($domains as $domain) {

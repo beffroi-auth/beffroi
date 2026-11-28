@@ -22,9 +22,17 @@ final readonly class ADirectory implements ToldByItsNameInterface
     public function __construct(
         public string $name,
     ) {
-        if (PlainText::isBlank($name) || ! PlainText::holds($name, PlainText::MAX_LENGTH)) {
-            throw new InvalidArgumentException('A directory is named by the name the deployment declares it under, plain text and never blank.');
+        if (! self::holds($name)) {
+            throw new InvalidArgumentException('A directory is named by the name the deployment declares it under, plain text, never blank and at most 255 characters.');
         }
+    }
+
+    /**
+     * The rule a declaration holds the name of a directory to, so that what it writes names it.
+     */
+    public static function holds(string $name): bool
+    {
+        return ! PlainText::isBlank($name) && PlainText::holds($name, PlainText::MAX_LENGTH);
     }
 
     public function kind(): string

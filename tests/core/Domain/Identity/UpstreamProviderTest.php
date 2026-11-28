@@ -14,6 +14,7 @@ use Beffroi\Core\Tests\Fixture\Fixtures;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use function str_repeat;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -21,6 +22,8 @@ use Symfony\Component\Uid\Uuid;
  */
 final class UpstreamProviderTest extends TestCase
 {
+    private const string NO_AUTHOR = 'An upstream provider is named by plain text an author holds, never blank and at most 1024 characters (decision 0066).';
+
     private const string PROVIDER = 'https://idp.acme.example/saml';
 
     #[Test]
@@ -63,7 +66,9 @@ final class UpstreamProviderTest extends TestCase
      */
     public static function provideWhatIsNotAProvider(): iterable
     {
-        yield 'unnamed' => ['', [], 'An upstream provider is named.'];
+        yield 'unnamed' => ['', [], self::NO_AUTHOR];
+        yield 'named by a control character' => ["https://idp.acme.example/\x07", [], self::NO_AUTHOR];
+        yield 'named longer than an author holds' => ['https://idp.acme.example/' . str_repeat('a', 1000), [], self::NO_AUTHOR];
         yield 'the address among the claims of the profile' => [
             self::PROVIDER,
             ['email'],
