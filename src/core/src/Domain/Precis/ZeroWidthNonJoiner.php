@@ -6,18 +6,19 @@ namespace Beffroi\Core\Domain\Precis;
 
 use function in_array;
 use IntlChar;
+use SensitiveParameter;
 
 /**
  * RFC 5892 Appendix A.1, the regular expression anchored on the occurrence evaluated (erratum 3312).
  */
 final readonly class ZeroWidthNonJoiner implements ContextualRuleInterface
 {
-    public function appliesTo(int $codePoint): bool
+    public function appliesTo(#[SensitiveParameter] int $codePoint): bool
     {
         return $codePoint === 0x200C;
     }
 
-    public function allows(array $codePoints, int $position): bool
+    public function allows(#[SensitiveParameter] array $codePoints, int $position): bool
     {
         return (
             Virama::precedes($codePoints, $position)
@@ -32,7 +33,7 @@ final readonly class ZeroWidthNonJoiner implements ContextualRuleInterface
      * @param list<int> $codePoints
      * @param list<int> $types
      */
-    private static function nearestJoining(array $codePoints, int $position, int $direction, array $types): bool
+    private static function nearestJoining(#[SensitiveParameter] array $codePoints, int $position, int $direction, array $types): bool
     {
         for ($at = $position + $direction; isset($codePoints[$at]); $at += $direction) {
             $type = IntlChar::getIntPropertyValue($codePoints[$at], IntlChar::PROPERTY_JOINING_TYPE);

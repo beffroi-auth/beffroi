@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Precis;
 
 use IntlChar;
+use SensitiveParameter;
 
 /**
  * RFC 5892 Appendix A: Script(cp), the Script property of Scripts.txt, not its extensions.
  */
 final readonly class Script
 {
-    public static function of(int $codePoint): int
+    public static function of(#[SensitiveParameter] int $codePoint): int
     {
         return IntlChar::getIntPropertyValue($codePoint, IntlChar::PROPERTY_SCRIPT);
     }

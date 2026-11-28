@@ -7,6 +7,7 @@ namespace Beffroi\Core\Tests\Domain\Credential;
 use Beffroi\Core\Domain\Credential\PasswordLength;
 use Beffroi\Core\Domain\Credential\PasswordRefusal;
 use Beffroi\Core\Domain\Credential\PlainPassword;
+use Beffroi\Core\Domain\Precis\OpaqueString;
 use Beffroi\Core\Domain\Session\SingleFactor;
 use Beffroi\Core\Domain\Session\TwoFactors;
 use Beffroi\Core\Exception\PasswordRefusedException;
@@ -81,10 +82,10 @@ final class PlainPasswordTest extends TestCase
     public function fourThousandAndNinetySixBytesAreAccepted(): void
     {
         // Given
-        $password = self::bytes(PlainPassword::MAXIMUM_BYTES);
+        $password = self::bytes(OpaqueString::MAXIMUM_BYTES);
 
         // When / Then
-        static::assertSame(PlainPassword::MAXIMUM_BYTES, strlen(new PlainPassword($password, self::alone())->value));
+        static::assertSame(OpaqueString::MAXIMUM_BYTES, strlen(new PlainPassword($password, self::alone())->value));
     }
 
     #[Test]
@@ -95,7 +96,7 @@ final class PlainPasswordTest extends TestCase
         $this->expectExceptionMessageIs('A password is at most 4096 bytes long.');
 
         // When
-        new PlainPassword(self::bytes(PlainPassword::MAXIMUM_BYTES + 1), self::alone());
+        new PlainPassword(self::bytes(OpaqueString::MAXIMUM_BYTES + 1), self::alone());
     }
 
     /**

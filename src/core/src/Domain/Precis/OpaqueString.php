@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Precis;
 
 use Beffroi\Core\Domain\Credential\PasswordRefusal;
-use Beffroi\Core\Domain\Credential\PlainPassword;
 use Beffroi\Core\Exception\LogicException;
 use Beffroi\Core\Exception\PasswordRefusedException;
 use IntlChar;
@@ -22,6 +21,11 @@ use function strlen;
  */
 final readonly class OpaqueString
 {
+    /**
+     * Where Symfony's password hashers stop (CVE-2013-1443): what was typed and what it becomes are bounded by it.
+     */
+    public const int MAXIMUM_BYTES = 4096;
+
     private const int SPACE = 0x20;
 
     /**
@@ -96,8 +100,8 @@ final readonly class OpaqueString
         if ($password === '') {
             throw new PasswordRefusedException(PasswordRefusal::TooShort, 'A password is never empty (RFC 8265 §4.1).');
         }
-        if (strlen($password) > PlainPassword::MAXIMUM_BYTES) {
-            throw new PasswordRefusedException(PasswordRefusal::TooLong, sprintf('A password is at most %d bytes long.', PlainPassword::MAXIMUM_BYTES));
+        if (strlen($password) > self::MAXIMUM_BYTES) {
+            throw new PasswordRefusedException(PasswordRefusal::TooLong, sprintf('A password is at most %d bytes long.', self::MAXIMUM_BYTES));
         }
     }
 }

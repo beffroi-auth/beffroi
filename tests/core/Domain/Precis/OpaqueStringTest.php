@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Beffroi\Core\Tests\Domain\Precis;
 
 use Beffroi\Core\Domain\Credential\PasswordRefusal;
-use Beffroi\Core\Domain\Credential\PlainPassword;
 use Beffroi\Core\Domain\Precis\OpaqueString;
 use Beffroi\Core\Exception\PasswordRefusedException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -47,7 +46,7 @@ final class OpaqueStringTest extends TestCase
         yield 'a ligature, kept by Normalization Form C' => ["\u{FB01}", "\u{FB01}"];
         yield 'Hebrew followed by Latin letters, which no directionality rule refuses, rule 5' => ['שלוםabc', 'שלוםabc'];
         yield 'an emoji' => ["\u{1F600}", "\u{1F600}"];
-        yield 'as many bytes as a hasher takes' => [str_repeat('a', PlainPassword::MAXIMUM_BYTES), str_repeat('a', PlainPassword::MAXIMUM_BYTES)];
+        yield 'as many bytes as a hasher takes' => [str_repeat('a', OpaqueString::MAXIMUM_BYTES), str_repeat('a', OpaqueString::MAXIMUM_BYTES)];
     }
 
     /**
@@ -100,6 +99,49 @@ final class OpaqueStringTest extends TestCase
     }
 
     /**
+     * RFC 8265 §4.2.1, §4.2.2, RFC 8264 §4.3.2, §4.3.3, RFC 5892 §2.9, Appendix A.2
+     */
+    #[Test]
+    #[DataProvider('provideStringsTheClassRefusesBeforeNormalizationFormC')]
+    public function theClassIsHeldToWhatWasTypedBeforeNormalizationFormC(string $typed): void
+    {
+        // Then
+        $this->expectException(PasswordRefusedException::class);
+
+        // When
+        OpaqueString::enforce($typed);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideStringsTheClassRefusesBeforeNormalizationFormC(): iterable
+    {
+        yield 'Korean in Normalization Form D, whose conjoining jamo are old Hangul jamo' => ["\u{1112}\u{1161}\u{11AB}\u{1100}\u{1173}\u{11AF}"];
+        yield 'a zero width joiner after a nukta, which Normalization Form C moves after the virama' => ["\u{0915}\u{094D}\u{093C}\u{200D}\u{0937}"];
+    }
+
+    /**
+     * RFC 8264 §7, §4.3.1, RFC 5892 Appendix A.2
+     */
+    #[Test]
+    #[DataProvider('provideTheirNormalizationFormC')]
+    public function theirNormalizationFormCIsAdmitted(string $composed): void
+    {
+        // When / Then
+        static::assertSame($composed, OpaqueString::enforce($composed));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideTheirNormalizationFormC(): iterable
+    {
+        yield 'Korean in Normalization Form C' => ["\u{D55C}\u{AE00}"];
+        yield 'a zero width joiner after the virama, the nukta before it' => ["\u{0915}\u{093C}\u{094D}\u{200D}\u{0937}"];
+    }
+
+    /**
      * RFC 8265 §4.1, §4.2.1, §4.3, RFC 8264 §4.3.3, §4.3.4
      */
     #[Test]
@@ -130,7 +172,7 @@ final class OpaqueStringTest extends TestCase
         yield 'a code point of private use' => ["correct\u{E000}", PasswordRefusal::DisallowedCharacter];
         yield 'a code point no version of Unicode assigns yet' => ["correct\u{40000}", PasswordRefusal::DisallowedCharacter];
         yield 'bytes that are no UTF-8' => ["correct\xC3", PasswordRefusal::DisallowedCharacter];
-        yield 'one byte more than a hasher takes' => [str_repeat('a', PlainPassword::MAXIMUM_BYTES + 1), PasswordRefusal::TooLong];
+        yield 'one byte more than a hasher takes' => [str_repeat('a', OpaqueString::MAXIMUM_BYTES + 1), PasswordRefusal::TooLong];
         yield 'bytes Normalization Form C makes more than a hasher takes' => [str_repeat("\u{0958}", 1365), PasswordRefusal::TooLong];
     }
 
@@ -159,7 +201,7 @@ final class OpaqueStringTest extends TestCase
             'A password holds no control character, and no code point that Unicode leaves unassigned, ignorable or to private use (RFC 8264 §4.3).',
         ];
         yield 'nothing' => ['', 'A password is never empty (RFC 8265 §4.1).'];
-        yield 'the length' => [str_repeat('a', PlainPassword::MAXIMUM_BYTES + 1), 'A password is at most 4096 bytes long.'];
+        yield 'the length' => [str_repeat('a', OpaqueString::MAXIMUM_BYTES + 1), 'A password is at most 4096 bytes long.'];
         yield 'the encoding' => ["secret\xC3", 'A password is written in UTF-8.'];
     }
 }

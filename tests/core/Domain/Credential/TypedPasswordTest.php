@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Domain\Credential;
 
-use Beffroi\Core\Domain\Credential\PlainPassword;
+use Beffroi\Core\Domain\Precis\OpaqueString;
 use Beffroi\Core\Domain\Credential\TypedPassword;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -51,7 +51,7 @@ final class TypedPasswordTest extends TestCase
     {
         yield 'nothing, example 17 of RFC 8265 §4.3' => [''];
         yield 'a tabulation, example 18' => ["my cat is a \u{0009}by"];
-        yield 'more bytes than a hasher takes' => [str_repeat('a', PlainPassword::MAXIMUM_BYTES + 1)];
+        yield 'more bytes than a hasher takes' => [str_repeat('a', OpaqueString::MAXIMUM_BYTES + 1)];
     }
 
     /**

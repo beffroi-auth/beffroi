@@ -12,14 +12,11 @@ use function sprintf;
 /**
  * NIST SP 800-63B §3.1.1.2, RFC 8265 §4.2
  *
- * The value is the form OpaqueString enforces, which the rules below measure and which is hashed. The upper bound, in
- * bytes, is where Symfony's password hashers stop (CVE-2013-1443). The breach lookup is BreachedPasswordRefusal's, run
- * by every use case that writes a password.
+ * The value is the form OpaqueString enforces, within its bound in bytes, which the rules below measure and which is
+ * hashed. The breach lookup is BreachedPasswordRefusal's, run by every use case that writes a password.
  */
 final readonly class PlainPassword
 {
-    public const int MAXIMUM_BYTES = 4096;
-
     /**
      * The lowest rung: a higher one would be a length rule in disguise, which NIST SP 800-63B §3.1.1.2
      * asks verifiers not to impose.

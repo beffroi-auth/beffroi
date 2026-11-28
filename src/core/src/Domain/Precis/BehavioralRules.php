@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Precis;
 
 use function in_array;
+use SensitiveParameter;
 
 /**
  * RFC 8264 §7 step 6: whether each code point is valid, allowed under a contextual rule, disallowed or unassigned, a
@@ -18,7 +19,7 @@ final readonly class BehavioralRules
      *
      * @return int|null the position of the first code point the class refuses
      */
-    public static function firstRefused(array $codePoints, array $valid): ?int
+    public static function firstRefused(#[SensitiveParameter] array $codePoints, array $valid): ?int
     {
         $rules = self::contextualRules();
         $verdicts = [];
@@ -44,7 +45,7 @@ final readonly class BehavioralRules
      * @param list<int> $codePoints
      * @param array<int, bool> $verdicts of the rules that read the whole string, by their place in the list
      */
-    private static function allowedWhereItStands(array $rules, array $codePoints, int $position, array &$verdicts): bool
+    private static function allowedWhereItStands(array $rules, #[SensitiveParameter] array $codePoints, int $position, array &$verdicts): bool
     {
         foreach ($rules as $place => $rule) {
             if ($rule->appliesTo($codePoints[$position])) {

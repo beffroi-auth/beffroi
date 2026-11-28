@@ -7,6 +7,7 @@ namespace Beffroi\Core\Domain\Precis;
 use function in_array;
 use IntlChar;
 use Normalizer;
+use SensitiveParameter;
 
 /**
  * RFC 8264 §8, from the categories of §9 as the intl of the running PHP reads the Unicode properties.
@@ -99,7 +100,7 @@ final readonly class DerivedProperty
      * The order of §8 is the specification's, and an implementation must not change it. BackwardCompatible (G) is
      * the empty set (RFC 5892 §2.7).
      */
-    public static function of(int $codePoint): DerivedPropertyValue
+    public static function of(#[SensitiveParameter] int $codePoint): DerivedPropertyValue
     {
         $category = IntlChar::charType($codePoint);
         if (isset(self::EXCEPTIONS[$codePoint])) {
@@ -133,7 +134,7 @@ final readonly class DerivedProperty
     /**
      * RFC 5892 §2.10
      */
-    private static function isUnassigned(int $codePoint, ?int $category): bool
+    private static function isUnassigned(#[SensitiveParameter] int $codePoint, ?int $category): bool
     {
         return $category === IntlChar::CHAR_CATEGORY_UNASSIGNED && ! IntlChar::hasBinaryProperty($codePoint, IntlChar::PROPERTY_NONCHARACTER_CODE_POINT);
     }
@@ -149,7 +150,7 @@ final readonly class DerivedProperty
     /**
      * RFC 5892 §2.9
      */
-    private static function isOldHangulJamo(int $codePoint): bool
+    private static function isOldHangulJamo(#[SensitiveParameter] int $codePoint): bool
     {
         return in_array(
             IntlChar::getIntPropertyValue($codePoint, IntlChar::PROPERTY_HANGUL_SYLLABLE_TYPE),
@@ -161,7 +162,7 @@ final readonly class DerivedProperty
     /**
      * RFC 8264 §9.13
      */
-    private static function isPrecisIgnorable(int $codePoint): bool
+    private static function isPrecisIgnorable(#[SensitiveParameter] int $codePoint): bool
     {
         return (
             IntlChar::hasBinaryProperty($codePoint, IntlChar::PROPERTY_DEFAULT_IGNORABLE_CODE_POINT)
@@ -172,7 +173,7 @@ final readonly class DerivedProperty
     /**
      * RFC 8264 §9.17
      */
-    private static function hasCompat(int $codePoint): bool
+    private static function hasCompat(#[SensitiveParameter] int $codePoint): bool
     {
         $character = IntlChar::chr($codePoint) ?? '';
         $normalized = Normalizer::normalize($character, Normalizer::FORM_KC);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Precis;
 
+use SensitiveParameter;
+
 /**
  * RFC 8264 §4.3
  */
@@ -14,7 +16,7 @@ final readonly class FreeformClass
      *
      * @return int|null the position of the first code point the class refuses
      */
-    public static function firstRefused(array $codePoints): ?int
+    public static function firstRefused(#[SensitiveParameter] array $codePoints): ?int
     {
         return BehavioralRules::firstRefused($codePoints, [DerivedPropertyValue::Pvalid, DerivedPropertyValue::FreePval]);
     }
