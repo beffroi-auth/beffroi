@@ -210,6 +210,17 @@ final class DoctrineRefreshTokenRepositoryTest extends DatabaseTestCase
     }
 
     #[Test]
+    public function aTokenTheSweepTookInBetweenIsNotRevoked(): void
+    {
+        // Given
+        $token = self::stored();
+        self::entityManager()->getConnection()->executeStatement('DELETE FROM beffroi_refresh_token WHERE token_hash = ?', [$token->tokenHash]);
+
+        // When / Then
+        static::assertFalse(self::revocation()->revokeOnce($token, self::now()->modify('+1 hour')));
+    }
+
+    #[Test]
     public function aRevocationIsWrittenOnSave(): void
     {
         // Given

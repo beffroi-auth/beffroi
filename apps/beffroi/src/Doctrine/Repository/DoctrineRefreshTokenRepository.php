@@ -221,12 +221,11 @@ final readonly class DoctrineRefreshTokenRepository extends DoctrineRepository i
 
             return true;
         }
-        $first = $connection->convertToPHPValue(
-            $connection->fetchOne(sprintf('SELECT %s FROM %s WHERE %s = :tokenHash', $revokedAt, $metadata->getTableName(), $tokenHash), [
-                'tokenHash' => $token->tokenHash,
-            ]),
-            Types::DATETIME_IMMUTABLE,
-        );
+        $stored = $connection->fetchOne(sprintf('SELECT %s FROM %s WHERE %s = :tokenHash', $revokedAt, $metadata->getTableName(), $tokenHash), [
+            'tokenHash' => $token->tokenHash,
+        ]);
+        // A row the sweep of the dead records took in between reads false, which no type converts.
+        $first = $stored === false ? null : $connection->convertToPHPValue($stored, Types::DATETIME_IMMUTABLE);
         if ($first instanceof DateTimeImmutable) {
             $token->revoke($first);
         }
