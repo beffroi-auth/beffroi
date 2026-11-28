@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Http\RequestContextFactory;
 use Beffroi\Core\Application\Identity\Member\UsernameMember;
+use Beffroi\Core\Application\Identity\PersonDescription;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Exception\UsernameRefusedException;
 use Beffroi\Core\Exception\UsernameUniquenessPendingException;
-use Beffroi\Core\Port\UserRepositoryInterface;
-use Psr\Clock\ClockInterface;
 use function sprintf;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -18,7 +19,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Writes no line of history and no act, as beffroi:user:profile writes none.
+ * The rename of the administration API, by `PersonDescription`, its line of history and its act naming the host.
  */
 #[AsCommand(
     name: self::NAME,
@@ -31,9 +32,8 @@ final readonly class UserRenameCommand
     public function __construct(
         private ConfiguredTenant $tenant,
         private NamedUser $namedUsers,
-        private UsernameMember $usernames,
-        private UserRepositoryInterface $users,
-        private ClockInterface $clock,
+        private PersonDescription $descriptions,
+        private RequestContextFactory $contexts,
     ) {
     }
 
@@ -53,8 +53,7 @@ final readonly class UserRenameCommand
             return Command::FAILURE;
         }
         try {
-            $this->usernames->say($person, $username, $this->clock->now());
-            $this->users->save($person);
+            $this->descriptions->describe($person, [UsernameMember::NAME => $username], new TheHost(), $this->contexts->fromConsole(self::NAME));
         } catch (InvalidArgumentException|UsernameRefusedException $exception) {
             $io->error(PrintedText::inBlock($exception->getMessage()));
 
