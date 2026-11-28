@@ -152,6 +152,32 @@ final class UserProvisionerTest extends TestCase
         $this->provisioner->create($this->tenant, 'alice ');
     }
 
+    /**
+     * RFC 8265 §3.3.4, RFC 7643 §4.1.1
+     */
+    #[Test]
+    #[DataProvider('provideSpellingsOfAlice')]
+    public function aSecondPersonWhoseUsernameComparesEqualToTheFirstIsRefused(string $spelling): void
+    {
+        // Given
+        $this->provisioner->create($this->tenant, 'alice');
+
+        // Then
+        $this->expectException(UserAlreadyExistsException::class);
+
+        // When
+        $this->provisioner->create($this->tenant, $spelling);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideSpellingsOfAlice(): iterable
+    {
+        yield 'in capitals' => ['ALICE'];
+        yield 'in fullwidth letters' => ["\u{FF41}\u{FF4C}\u{FF49}\u{FF43}\u{FF45}"];
+    }
+
     #[Test]
     public function twoUsersOfATenantCannotShareASubject(): void
     {

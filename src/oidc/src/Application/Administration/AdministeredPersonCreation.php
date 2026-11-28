@@ -10,6 +10,7 @@ use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
 use Beffroi\Oidc\Domain\Administration\ActingAdministrator;
 
 /**
@@ -25,7 +26,8 @@ final readonly class AdministeredPersonCreation
 
     /**
      * @throws UserAlreadyExistsException
-     * @throws InvalidArgumentException   when the username is empty or longer than 255 characters
+     * @throws UsernameRefusedException
+     * @throws InvalidArgumentException   when an absent address is said verified
      */
     public function create(
         ActingAdministrator $administrator,

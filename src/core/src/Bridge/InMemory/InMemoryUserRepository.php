@@ -7,7 +7,9 @@ namespace Beffroi\Core\Bridge\InMemory;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Precis\UsernameCaseMapped;
 use Beffroi\Core\Domain\Tenant\Tenant;
+use Beffroi\Core\Exception\UsernameRefusedException;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Symfony\Component\Uid\Uuid;
 
@@ -36,8 +38,13 @@ final class InMemoryUserRepository implements UserRepositoryInterface
 
     public function findByUsername(Tenant $tenant, string $username): ?User
     {
+        try {
+            $enforced = UsernameCaseMapped::enforce($username);
+        } catch (UsernameRefusedException) {
+            return null;
+        }
         foreach ($this->users as $user) {
-            if ($user->belongsTo($tenant) && $user->username === $username) {
+            if ($user->belongsTo($tenant) && UsernameCaseMapped::enforce($user->username) === $enforced) {
                 return $user;
             }
         }

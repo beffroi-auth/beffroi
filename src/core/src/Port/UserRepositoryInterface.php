@@ -16,6 +16,10 @@ interface UserRepositoryInterface
 
     public function findBySubject(Tenant $tenant, Subject $subject): ?User;
 
+    /**
+     * RFC 8265 §3.3.4: the person whose username has the same enforced form. A username written before the profile
+     * applied, which it refuses, is found as written.
+     */
     public function findByUsername(Tenant $tenant, string $username): ?User;
 
     /**

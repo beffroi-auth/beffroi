@@ -15,6 +15,7 @@ use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Notification\ChosenChannels;
 use Beffroi\Core\Domain\Tenant\SelfServedClaims;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -73,6 +74,19 @@ final class UserTest extends TestCase
         static::assertSame([$chosen, $later], [$user->notificationChannels, $user->updatedAt]);
     }
 
+    /**
+     * RFC 8265 §3.2: the case of a username is mapped where it is compared, never where it is kept.
+     */
+    #[Test]
+    public function theUsernameIsKeptAsWritten(): void
+    {
+        // When
+        $user = Fixtures::user(username: "\u{FF21}lice");
+
+        // Then
+        static::assertSame("\u{FF21}lice", $user->username);
+    }
+
     #[Test]
     public function theUsernameIsTrimmed(): void
     {
@@ -101,14 +115,17 @@ final class UserTest extends TestCase
     {
         yield 'one byte each' => ['a'];
         yield 'two bytes each' => ['é'];
-        yield 'four bytes each' => ['𝒶'];
+        yield 'four bytes each' => ["\u{20000}"];
     }
 
+    /**
+     * RFC 8265 §3.1
+     */
     #[Test]
     public function theUsernameIsNeverEmpty(): void
     {
         // Then
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(UsernameRefusedException::class);
 
         // When
         User::create(Uuid::v7(), Fixtures::tenant(), new Subject('s'), '   ', Fixtures::now());
@@ -119,7 +136,7 @@ final class UserTest extends TestCase
     public function theUsernameIsAtMost255Characters(string $character): void
     {
         // Then
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(UsernameRefusedException::class);
         $this->expectExceptionMessageIs('A username is 1 to 255 characters long.');
 
         // When
@@ -562,13 +579,16 @@ final class UserTest extends TestCase
         yield 'a person of a provider made local' => [UserSource::upstream('workforce', ['email']), UserSource::local()];
     }
 
+    /**
+     * RFC 8264 §4.2.3
+     */
     #[Test]
     #[DataProvider('provideUsernamesThatAreNotPlainText')]
     public function aUsernameThatIsNotPlainTextIsRefused(string $username): void
     {
         // Then
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('A username is plain text, with no control, format or line separator character.');
+        $this->expectException(UsernameRefusedException::class);
+        $this->expectExceptionMessageIsOrContains('A username holds letters and digits of any script and printable ASCII');
 
         // When
         Fixtures::user(username: $username);
@@ -582,6 +602,9 @@ final class UserTest extends TestCase
         yield from TextsThatAreNotPlain::around('mallory');
     }
 
+    /**
+     * RFC 8264 §4.2.3
+     */
     #[Test]
     public function aUsernameThatIsNotPlainTextIsRefusedOnARename(): void
     {
@@ -589,8 +612,8 @@ final class UserTest extends TestCase
         $user = Fixtures::user();
 
         // Then
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('A username is plain text, with no control, format or line separator character.');
+        $this->expectException(UsernameRefusedException::class);
+        $this->expectExceptionMessageIsOrContains('A username holds letters and digits of any script and printable ASCII');
 
         // When
         $user->rename("alice\e[2K\e[1Aadmin", Fixtures::now());

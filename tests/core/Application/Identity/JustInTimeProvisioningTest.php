@@ -69,6 +69,11 @@ final class JustInTimeProvisioningTest extends TestCase
 
     private const string ADDRESS = 'alice@acme.example';
 
+    /**
+     * An address, and no username: a Roman numeral has a compatibility equivalent (RFC 8265 §3.6, example 10).
+     */
+    private const string NO_USERNAME = "henry\u{2163}@acme.example";
+
     private Tenant $tenant;
 
     private UpstreamProvider $provider;
@@ -328,6 +333,19 @@ final class JustInTimeProvisioningTest extends TestCase
         static::assertSame(UpstreamProvisioningRefusalReason::OutsideItsDomains, $refusal->reason);
     }
 
+    /**
+     * RFC 8265 §3.3, §3.6
+     */
+    #[Test]
+    public function aFirstSignInWhoseAddressIsNoUsernameIsRefused(): void
+    {
+        // When
+        $refusal = $this->failToSignIn(self::NO_USERNAME);
+
+        // Then
+        static::assertSame(UpstreamProvisioningRefusalReason::UsernameRefused, $refusal->reason);
+    }
+
     #[Test]
     #[DataProvider('provideAddressesBobHolds')]
     public function anAddressAnotherPersonHoldsIsRefused(string $address): void
@@ -436,6 +454,7 @@ final class JustInTimeProvisioningTest extends TestCase
         yield 'outside the domains of the provider' => ['alice@initech.example', []];
         yield 'held by another person' => ['bob@acme.example', []];
         yield 'the username of another person' => ['carol@acme.example', []];
+        yield 'no username' => [self::NO_USERNAME, []];
         yield 'a claim the profile refuses' => [
             self::ADDRESS,
             [
@@ -485,6 +504,7 @@ final class JustInTimeProvisioningTest extends TestCase
         yield 'held by another person' => ['bob@acme.example', UpstreamProvisioningRefusalReason::AddressHeld];
         yield 'held by another person under another spelling' => ['Bob@acme.example', UpstreamProvisioningRefusalReason::AddressHeld];
         yield 'the username of another person' => ['carol@acme.example', UpstreamProvisioningRefusalReason::AddressHeld];
+        yield 'no username' => [self::NO_USERNAME, UpstreamProvisioningRefusalReason::UsernameRefused];
     }
 
     #[Test]
@@ -521,6 +541,7 @@ final class JustInTimeProvisioningTest extends TestCase
         yield 'outside the domains of the provider' => ['alice@initech.example'];
         yield 'held by another person' => ['bob@acme.example'];
         yield 'the username of another person' => ['carol@acme.example'];
+        yield 'no username' => [self::NO_USERNAME];
     }
 
     /**

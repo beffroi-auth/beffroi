@@ -13,6 +13,11 @@ enum UpstreamProvisioningRefusalReason: string
 
     case AddressHeld = 'address_held';
 
+    /**
+     * RFC 8265 §3.3: the address names the person, and the profile of a username refuses it.
+     */
+    case UsernameRefused = 'username_refused';
+
     case DrawnSubjectTaken = 'drawn_subject_taken';
 
     case IdentityLinkedMeanwhile = 'identity_linked_meanwhile';

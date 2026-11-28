@@ -15,9 +15,11 @@ use Beffroi\Core\Domain\Identity\Profile;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\UpstreamProvider;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Precis\UsernameCaseMapped;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
 use Beffroi\Core\Port\AtomicWritesInterface;
 use Beffroi\Core\Port\LinkedIdentityRepositoryInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
@@ -95,6 +97,7 @@ final readonly class JustInTimeProvisioning
         }
         $renamed = $user->username !== $email->value;
         if ($renamed) {
+            self::assertNamesAPerson($email);
             $this->assertNobodyIsNamed($tenant, $email, $user);
         }
         $now = $this->clock->now();
@@ -157,6 +160,7 @@ final readonly class JustInTimeProvisioning
         $profile = $source->rewrite(Profile::empty(), $claims);
         $this->assertAnswersFor($provider, $email);
         $this->assertNobodyHolds($tenant, $email);
+        self::assertNamesAPerson($email);
         $this->assertNobodyIsNamed($tenant, $email);
         $person = new Subject($this->uuids->opaque()->toRfc4122());
         if ($this->users->findBySubject($tenant, $person) !== null) {
@@ -238,6 +242,20 @@ final readonly class JustInTimeProvisioning
             if ($except === null || ! $holder->id->equals($except->id)) {
                 throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::AddressHeld);
             }
+        }
+    }
+
+    /**
+     * Before any write: the address is the username of the person.
+     *
+     * @throws UpstreamProvisioningRefusedException
+     */
+    private static function assertNamesAPerson(EmailAddress $email): void
+    {
+        try {
+            UsernameCaseMapped::enforce($email->value);
+        } catch (UsernameRefusedException) {
+            throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::UsernameRefused);
         }
     }
 

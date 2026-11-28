@@ -60,6 +60,42 @@ final class UsernameMemberTest extends TestCase
     }
 
     /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function aUsernameComparingEqualToThatOfAnotherPersonIsRefused(): void
+    {
+        // Given
+        $alice = Fixtures::user();
+        $users = new InMemoryUserRepository();
+        $users->save(Fixtures::user($alice->tenant, 'bob', 'bob-subject'));
+
+        // Then
+        $this->expectException(UserAlreadyExistsException::class);
+
+        // When
+        new UsernameMember($users)->say($alice, 'BOB', Fixtures::now());
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function aPersonIsRenamedUnderAnotherCaseOfTheirOwnUsername(): void
+    {
+        // Given
+        $alice = Fixtures::user();
+        $users = new InMemoryUserRepository();
+        $users->save($alice);
+
+        // When
+        new UsernameMember($users)->say($alice, 'Alice', Fixtures::now());
+
+        // Then
+        static::assertSame('Alice', $alice->username);
+    }
+
+    /**
      * @return iterable<string, array{mixed}>
      */
     public static function noUsername(): iterable
