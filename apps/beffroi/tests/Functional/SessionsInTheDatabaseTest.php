@@ -55,6 +55,21 @@ final class SessionsInTheDatabaseTest extends KernelTestCase
     }
 
     #[Test]
+    public function eachNewSessionIsGivenAnIdentifierOfItsOwn(): void
+    {
+        // Given
+        $sessions = self::sessions();
+
+        // When
+        $first = $sessions->create_sid();
+        $second = $sessions->create_sid();
+
+        // Then
+        static::assertMatchesRegularExpression('/^[0-9a-zA-Z,-]{22,256}$/', $first);
+        static::assertNotSame($first, $second);
+    }
+
+    #[Test]
     public function theTableHoldsNeitherTheIdentifierOfTheCookieNorTheData(): void
     {
         // Given

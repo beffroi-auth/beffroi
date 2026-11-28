@@ -17,10 +17,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
-# Quality and tests run on the latest PHP only for now (the "env" context is not available in
-# "container.image", hence the literal version in every job). The test matrix stays in place so
-# that older versions can be re-added by listing them (see the "tests" job). The SAML packages are
-# the exception: their suites run on PHP 8.4 too, in a job of their own ("saml_php84").
+# The tests run on every version of PHP that .github/php-versions.sh lists, which the pre-checks hand
+# to the matrix of the "tests" job: the floor every composer.json announces, the PHP of the image, the
+# latest release, and the next one, allowed to fail, once there is a phpqa image of it. Coverage is
+# measured on the PHP of the image alone, where the mutation job reads it. Every other job runs on that
+# PHP only (the "env" context is not available in "container.image", hence the literal version in
+# every job): PHPStan, Rector and Mago read the code without running it, and aim at the floor.
 #
 # Every job runs on a runner GitHub hosts, a machine of its own that starts empty. Every job with
 # "container:" therefore pulls the phpqa image (735 MB compressed, 3.3 GB extracted) before its first
@@ -28,10 +30,10 @@ concurrency:
 # install instead of one of each per tool. The steps run to the end whatever the outcome of the
 # previous ones, so that every tool reports its verdict.
 #
-# Nothing waits on a job it reads nothing from: the quality checks, the tests, the key custody, the
-# SAML packages on PHP 8.4 and the oracles all start as soon as the pre-checks pass, and only
-# the mutations wait, for the coverage the tests upload. The time of a pull request is the longest of
-# them, not their sum.
+# Nothing waits on a job it reads nothing from: the quality checks, the tests, the key custody and the
+# oracles all start as soon as the pre-checks pass, and only the mutations wait, for the coverage the
+# tests upload; a job waiting on the whole of a matrix, they wait for the tests on the other versions
+# of PHP as well. The time of a pull request is the longest of them, not their sum.
 #
 # The week is a run of its own: nothing of this workflow fires unless somebody pushes, and the quality
 # and test jobs install "dependency-versions: highest" on a rolling image tag, the application following
@@ -47,8 +49,13 @@ jobs:
   pre_checks:
     name: "0️⃣ Pre-checks"
     runs-on: ubuntu-24.04
+    outputs:
+      php: ${{ steps.php.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
+      - name: "The versions of PHP of the tests"
+        id: php
+        run: .github/php-versions.sh >> "$GITHUB_OUTPUT"
       - name: "Check file permissions"
         run: |
           NON_EXECUTABLE=$(find . -type f -not -path './.git/*' -not -name '*.sh' -not -path './apps/*/bin/*' -executable)
@@ -153,11 +160,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # - php-version: '8.4'
-          #   experimental: false
-          - php-version: '8.5'
-            experimental: false
+        include: ${{ fromJSON(needs.pre_checks.outputs.php) }}
     steps:
       - uses: actions/checkout@v7
       - uses: ramsey/composer-install@v4
@@ -170,39 +173,21 @@ jobs:
         run: castor libxml
       # In parallel processes, one per core the runner gives: paratest merges the coverage of its workers
       # itself, and each of them gets a compiled container, a database and a key storage of its own from the
-      # TEST_TOKEN the kernel reads (issue #529). Measured on sixteen cores, 47 s against 239 s.
-      - run: castor phpunit --processes=auto
+      # TEST_TOKEN the kernel reads (issue #529). Measured on sixteen cores, 47 s against 239 s. Without
+      # coverage on the versions nothing reads it of, some of whose images carry no pcov.
+      - run: castor phpunit --processes=auto ${{ !matrix.coverage && '--no-coverage' || '' }}
       # The XML coverage and the JUnit report feed the mutation testing job, which does not run the tests again.
       # They go through the cache of Actions, keyed by the run, and not as an artifact: artifacts count against
       # the storage of the account (500 MB on the Free plan, about 65 MB per run), the cache is an allowance of
       # its own (10 GB per repository).
-      - uses: actions/cache/save@v6
+      - if: matrix.coverage
+        uses: actions/cache/save@v6
         with:
           path: .ci-tools/coverage
           key: coverage-php${{ matrix.php-version }}-${{ github.run_id }}
 
-  saml_php84:
-    name: "5️⃣ SAML packages (PHP 8.4)"
-    needs: [pre_checks]
-    # The SAML packages are judged on the PHP 8.4 their composer.json still accepts, which the whole matrix above
-    # does not run: their specifications ask for a green corpus on 8.4 and on 8.5, and what differs between the two
-    # is theirs (the PSS schemes PHP 8.5 gives openssl_sign() and openssl_verify(), spec/dsig.md section 13). Their
-    # suites only, without coverage: nothing reads it.
-    runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/spomky-labs/phpqa:8.4
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ramsey/composer-install@v4
-        with:
-          dependency-versions: highest
-          composer-options: --optimize-autoloader
-      - name: "libxml and OpenSSL of this build"
-        run: castor libxml
-      - run: castor phpunit -- --no-coverage --testsuite xml-security,saml2-model,saml2-bindings,saml
-
   oracle:
-    name: "6️⃣ Oracles (xmlsec1, OpenSSL)"
+    name: "5️⃣ Oracles (xmlsec1, OpenSSL)"
     needs: [pre_checks]
     # The signers, the encryptor and the writers of the SAML packages against the implementation that is not this
     # one (spec/dsig.md and spec/enc.md section 9.3 row 10, spec/model.md section 9.1): every scheme of PHP 8.5 signed

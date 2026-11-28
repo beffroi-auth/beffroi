@@ -121,7 +121,7 @@ What says where a provenance came from (`../docs/11-architecture/coeur.md` §3.5
 **Quality.**
 
 ```bash
-castor phpunit            # tests with coverage, which pcov produces (.ci-tools/php/coverage/pcov.ini, read only by this task)
+castor phpunit [--no-coverage]  # tests with coverage, which pcov produces (.ci-tools/php/coverage/pcov.ini, read only by this task); --no-coverage measures nothing, as the CI does on every version of PHP but the one the mutation job reads
 castor app-phpunit        # the suite of the application, which the three suites of the task above do not cover: the kernel of apps/beffroi, on the PostgreSQL the stack publishes on the loopback address and the KMS of apps/beffroi/.env.test, the migrations played before the first test and the rows emptied before each one; the Application workflow runs the same task with a database service beside it
 castor phpstan            # level max: the identity provider's packages under the baseline, then each SAML package under its own configuration, no baseline and the bans of its section 8, then castor phpstan-saml-rules
 castor phpstan-saml-rules # the proof of those bans: PHPStan with the rules of beffroi/saml (.ci-tools/phpstan-saml-rules.neon) on tests/saml/PhpStan/Fixture, one line per banned form carrying its "// error: <message>" and the lines that must pass, the report compared to the markers; red on a refusal missing and on one nobody expected, so a new form of a ban is a new line there
@@ -142,7 +142,7 @@ Without a TTY (CI, agents), pass `</dev/null` or the Docker flag falls back to `
 
 ## Conventions
 
-- PHP 8.4 is the floor in `composer.json`; 8.5 is what actually runs, on the machine as in CI, where the 8.4 job is commented out. Symfony 8.2 (dev branches until release). `declare(strict_types=1)`, `final` by default, public readonly properties on value objects, no getters/setters on entities.
+- PHP 8.4 is the floor in `composer.json`; 8.5 is what runs on the machine and in CI, where the tests and the suite of the application run on 8.4 and 8.6 as well, and on the next version, allowed to fail, once there is a phpqa image of it (`.github/php-versions.sh`). Symfony 8.2 (dev branches until release). `declare(strict_types=1)`, `final` by default, public readonly properties on value objects, no getters/setters on entities.
 - No variadic parameter (`Type ...$values`): a function that takes several values takes a typed list (`@param list<Type> $values`). Spreading a list into a call (`...$arguments`) is not concerned.
 - Test names cite the specification section they verify: `#[Test] public function itRejectsPlainPkceMethod(): void` with `RFC 7636 §4.3` in the docblock. The form of a test is fixed, see "Tests" below.
 - Every secret string comes from `random_bytes()`, every secret comparison goes through `hash_equals()`, no boolean coming from a third party is ever cast.

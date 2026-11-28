@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/application.yml'
+      - '.github/php-versions.sh'
       - '.castor/stack/qa.php'
       - 'src/**'
       - 'apps/beffroi/**'
@@ -59,14 +60,32 @@ concurrency:
 #
 # It runs in the phpqa image, as every job of ci.yml does and as every task of .castor/stack/qa.php does on
 # a desk: the PHP that boots the application is the one of that image, and the runner of the suite is the
-# PHPUnit it carries, this application declaring none of its own.
+# PHPUnit it carries, this application declaring none of its own. It runs on every version of PHP the
+# tests of ci.yml run on (.github/php-versions.sh): a deployment that installs the application on its own
+# PHP boots it on any version its composer.json accepts, and its lock pins none (no "config.platform").
 
 jobs:
+  php:
+    name: "The versions of PHP"
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.php.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: php
+        run: .github/php-versions.sh >> "$GITHUB_OUTPUT"
+
   application:
-    name: "The application boots, what its kernel writes is what is committed, and its suite is green"
+    name: "The application boots, what its kernel writes is what is committed, and its suite is green (PHP ${{ matrix.php-version }})"
+    needs: [php]
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/spomky-labs/phpqa:8.5
+      image: ghcr.io/spomky-labs/phpqa:${{ matrix.php-version }}
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.php.outputs.matrix) }}
     env:
       # A job that runs in a container is on the network of the services beside it, where this one answers
       # at its own name and not at the loopback address apps/beffroi/.env names for a desk. A real environment
