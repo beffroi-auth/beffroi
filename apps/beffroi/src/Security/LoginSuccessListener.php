@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Security;
 
-use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\TheHost;
 use function array_map;
 use DateTimeImmutable;
 use App\Doctrine\TenantProvider;
@@ -69,8 +69,9 @@ final readonly class LoginSuccessListener
             }
             $this->sessions->save($session);
         } else {
+            // The person who signed in did not end the session of another: one browser holds one session, by the host's rule.
             if ($session !== null) {
-                $this->terminator->end($session, SessionEnd::User, new ThePerson(), $context);
+                $this->terminator->end($session, SessionEnd::Security, new TheHost(), $context);
             }
             $session = $this->opener->open($tenant, $user->user(), $methods, $context, $provenAt, $notOnOrAfter);
         }

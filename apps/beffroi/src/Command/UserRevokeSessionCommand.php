@@ -66,7 +66,7 @@ final readonly class UserRevokeSessionCommand
             return Command::SUCCESS;
         }
 
-        $this->terminator->end($session, SessionEnd::User, new TheHost(), $this->contexts->fromConsole(self::NAME));
+        $this->terminator->end($session, SessionEnd::Administrator, new TheHost(), $this->contexts->fromConsole(self::NAME));
         $io->success(sprintf('The session "%s" of "%s" is ended.', trim($id), PrintedText::inBlock($user->username)));
 
         return Command::SUCCESS;
