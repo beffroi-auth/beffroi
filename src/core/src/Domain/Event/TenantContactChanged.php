@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -12,7 +14,7 @@ use DateTimeImmutable;
 /**
  * An act of the tenant and of no person.
  */
-final readonly class TenantContactChanged implements NamesItsAuthorInterface
+final readonly class TenantContactChanged implements DomainEventInterface
 {
     public const string NAME = 'tenant.contact_changed';
 
@@ -32,8 +34,8 @@ final readonly class TenantContactChanged implements NamesItsAuthorInterface
         return self::NAME;
     }
 
-    public function author(): Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return new AnAdministrator($this->administrator);
     }
 }

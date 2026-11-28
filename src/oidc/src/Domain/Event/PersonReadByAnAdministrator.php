@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Beffroi\Oidc\Domain\Event;
 
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
-use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
 
 /**
  * An administrator read a person through the administration API of their tenant: who they are, the claims their
@@ -15,7 +14,7 @@ use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
  * administration API names the administrator beside them (decision 0038). The answer is written before the act is:
  * what the journal says is what was served, and a request the API refused writes nothing.
  */
-final readonly class PersonReadByAnAdministrator implements ConcernsAClientInterface, ConcernsAPersonInterface, NamesItsAuthorInterface
+final readonly class PersonReadByAnAdministrator implements ConcernsAClientInterface, ConcernsAPersonInterface
 {
     use ReadByAnAdministratorTrait;
 

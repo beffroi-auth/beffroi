@@ -19,6 +19,7 @@ use App\Messenger\NotificationRetryPolicy;
 use App\Tests\Symfony\Functional\Command\ConsoleTestCase;
 use App\Tests\Symfony\Functional\MessageHandler\RecordingEventHandler;
 use App\Tests\Symfony\Functional\Messenger\LogoutEndpoints;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Oidc\Domain\Event\LogoutTokenGivenUp;
@@ -399,6 +400,7 @@ final class LogoutTokenDeliveryTest extends ConsoleTestCase
             Uuid::fromString(self::SESSION),
             new Subject('alice-subject'),
             self::context(),
+            new ThePerson(),
         );
     }
 
@@ -414,7 +416,7 @@ final class LogoutTokenDeliveryTest extends ConsoleTestCase
 
     private static function issue(string $clientId, Uuid $session): IssueLogoutToken
     {
-        return new IssueLogoutToken(self::tenant(), $clientId, $session, new Subject('alice-subject'), self::context());
+        return new IssueLogoutToken(self::tenant(), $clientId, $session, new Subject('alice-subject'), self::context(), new ThePerson());
     }
 
     /**

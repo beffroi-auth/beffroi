@@ -1,9 +1,9 @@
 # Split configuration for jderusse/gitsplit. Each directory below is mirrored, read only, into
-# its own repository: the packages of the identity provider, its SAML module among them, the
-# SAML packages, the standalone application, which is deployed from a build of apps/beffroi and
-# never installed as a dependency, and the terminal client of its administration. A mirror
-# carries the maintained branches and the release tags listed under origins, and nothing else;
-# the monorepo is where the work happens.
+# its own repository: the packages of the identity provider, its SAML and SCIM modules among
+# them, the SAML packages, the standalone application, which is deployed from a build of
+# apps/beffroi and never installed as a dependency, and the terminal client of its
+# administration. A mirror carries the maintained branches and the release tags listed under
+# origins, and nothing else; the monorepo is where the work happens.
 #
 # The tag pattern is the one laminas/automatic-releases writes when a version milestone is
 # closed: the milestone title itself, without a "v".
@@ -27,6 +27,8 @@ splits:
     target: "https://x-access-token:${GH_TOKEN}@github.com/beffroi-auth/saml2-bindings.git"
   - prefix: "src/saml"
     target: "https://x-access-token:${GH_TOKEN}@github.com/beffroi-auth/saml.git"
+  - prefix: "src/scim"
+    target: "https://x-access-token:${GH_TOKEN}@github.com/beffroi-auth/scim.git"
   - prefix: "apps/beffroi"
     target: "https://x-access-token:${GH_TOKEN}@github.com/beffroi-auth/application.git"
   - prefix: "apps/tui"

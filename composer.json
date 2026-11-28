@@ -102,6 +102,7 @@
         "beffroi/saml": "self.version",
         "beffroi/saml2-bindings": "self.version",
         "beffroi/saml2-model": "self.version",
+        "beffroi/scim": "self.version",
         "beffroi/xml-security": "self.version"
     },
     "minimum-stability": "dev",
@@ -111,6 +112,7 @@
             "Beffroi\\Core\\": "src/core/src/",
             "Beffroi\\Oidc\\": "src/oidc/src/",
             "Beffroi\\Saml\\": "src/saml/src/",
+            "Beffroi\\Scim\\": "src/scim/src/",
             "App\\": "apps/beffroi/src/",
             "Beffroi\\Xml\\": "src/xml-security/src/",
             "Beffroi\\Saml2\\Model\\": "src/saml2-model/src/",
@@ -123,6 +125,7 @@
             "Beffroi\\Core\\Tests\\": "tests/core/",
             "Beffroi\\Oidc\\Tests\\": "tests/oidc/",
             "Beffroi\\Saml\\Tests\\": "tests/saml/",
+            "Beffroi\\Scim\\Tests\\": "tests/scim/",
             "App\\Tests\\Symfony\\": "tests/symfony/",
             "DoctrineMigrations\\": "apps/beffroi/migrations/",
             "Beffroi\\Xml\\Tests\\": "tests/xml-security/",

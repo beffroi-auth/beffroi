@@ -13,12 +13,12 @@ final readonly class ClaimChangeQuestion
 {
     /**
      * @param string|null $claim the name ClaimChange::$claim holds
-     * @param bool|null $byAnAdministrator the changes an administrator of the tenant made when true, those the person made when false
+     * @param string|null $by the kind of the author of the changes asked, by the name the kind gives itself
      */
     public function __construct(
         public ?Period $period = null,
         public ?string $claim = null,
-        public ?bool $byAnAdministrator = null,
+        public ?string $by = null,
     ) {
     }
 
@@ -27,7 +27,7 @@ final readonly class ClaimChangeQuestion
         return (
             $this->period?->holds($change->changedAt) !== false
             && ($this->claim === null || $change->claim === $this->claim)
-            && ($this->byAnAdministrator === null || ($change->author !== null) === $this->byAnAdministrator)
+            && ($this->by === null || $change->author->kind() === $this->by)
         );
     }
 }

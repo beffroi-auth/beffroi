@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Key;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Key\MailSigningKeyAdoption;
 use Beffroi\Core\Bridge\InMemory\InMemoryMailSigningKeyRepository;
 use Beffroi\Core\Domain\Event\MailSigningKeyRemoved;
@@ -103,7 +104,7 @@ final class MailSigningKeyAdoptionTest extends TestCase
         // Then
         $acts = $this->events->of(MailSigningKeySet::class);
         static::assertCount(1, $acts);
-        static::assertSame([str_repeat('A', 64), 'smime', 'administrator-subject'], [$acts[0]->fingerprint, $acts[0]->kind, $acts[0]->author()->value]);
+        static::assertSame([str_repeat('A', 64), 'smime', 'administrator-subject'], [$acts[0]->fingerprint, $acts[0]->kind, $acts[0]->administrator->value]);
     }
 
     #[Test]
@@ -133,7 +134,7 @@ final class MailSigningKeyAdoptionTest extends TestCase
         // Then
         $acts = $this->events->of(MailSigningKeyRemoved::class);
         static::assertCount(1, $acts);
-        static::assertSame('administrator-subject', $acts[0]->author()->value);
+        static::assertEquals(new AnAdministrator(new Subject('administrator-subject')), $acts[0]->author());
     }
 
     private function adoption(): MailSigningKeyAdoption

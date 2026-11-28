@@ -6,6 +6,8 @@ namespace App\Tests\Symfony\Functional\Command;
 
 use App\Command\UserDisableCommand;
 use function array_map;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\PersonDisabled;
 use PHPUnit\Framework\Attributes\Test;
 use function count;
@@ -19,7 +21,7 @@ use Symfony\Component\Console\Command\Command;
 final class DisableTest extends ConsoleTestCase
 {
     #[Test]
-    public function thePersonIsDisabledAndTheActNamesNobody(): void
+    public function thePersonIsDisabledAndTheActNamesTheHost(): void
     {
         // Given
         $alice = self::user('alice');
@@ -29,11 +31,11 @@ final class DisableTest extends ConsoleTestCase
 
         // Then
         static::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
-        static::assertSame(
-            [false, [null]],
+        static::assertEquals(
+            [false, [new TheHost()]],
             [
                 self::personAgain($alice)->isEnabled(),
-                array_map(static fn (PersonDisabled $act): ?string => $act->author()?->value, self::events(PersonDisabled::class)),
+                array_map(static fn (PersonDisabled $act): AuthorInterface => $act->author(), self::events(PersonDisabled::class)),
             ],
         );
     }

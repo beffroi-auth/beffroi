@@ -23,6 +23,8 @@ final readonly class Reason
 
     public const string A_CLIENT = 'names a client application, and never a person';
 
+    public const string THE_AUTHOR = 'who did it by their kind and what names them among their kind: the subject of an administrator, the identifier of a client, the name of a directory, and nothing more for the person and the host';
+
     public const string WHAT_THE_REQUEST_ASKED = 'what a request asked of the protocol, not what the provider knows of the person';
 
     public const string WHAT_THE_SESSION_PROVED = 'what the session proved, which every token issued from it carries in the clear (OIDC Core §2)';

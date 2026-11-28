@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Ticket;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Credential\EnrolmentRefusal;
 use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Application\Ticket\CredentialTicketRefusal;
@@ -97,7 +99,7 @@ final class PasswordTicketIssueTest extends TestCase
     }
 
     #[Test]
-    public function theActOfATicketTheOperatorIssuedNamesNoAuthor(): void
+    public function theActOfATicketTheHostIssuedNamesIt(): void
     {
         // When
         $issued = $this->issue->issue($this->alice, Fixtures::context($this->clock->now()));
@@ -105,7 +107,7 @@ final class PasswordTicketIssueTest extends TestCase
         // Then
         $acts = $this->events->of(PasswordTicketIssued::class);
         static::assertCount(1, $acts);
-        static::assertSame([$issued->ticket, $this->alice->subject, null], [$acts[0]->ticket, $acts[0]->subject(), $acts[0]->author()]);
+        static::assertEquals([$issued->ticket, $this->alice->subject, new TheHost()], [$acts[0]->ticket, $acts[0]->subject(), $acts[0]->author()]);
     }
 
     /**
@@ -123,7 +125,7 @@ final class PasswordTicketIssueTest extends TestCase
         // Then
         $acts = $this->events->of(PasswordTicketIssued::class);
         static::assertCount(1, $acts);
-        static::assertSame($administrator, $acts[0]->author());
+        static::assertEquals(new AnAdministrator($administrator), $acts[0]->author());
     }
 
     #[Test]

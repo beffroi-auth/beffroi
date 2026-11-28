@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Archive;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\ToldByItsRoleInterface;
 use Beffroi\Core\Domain\Encoding\Base64Url;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -13,28 +15,23 @@ use function in_array;
 
 final readonly class ArchivedFacts
 {
-    /**
-     * What the archive of a person writes for the author of an act an administrator of their tenant did to them.
-     */
-    public const string AN_ADMINISTRATOR = 'administrator';
-
     public static function moment(?DateTimeImmutable $moment): ?string
     {
         return $moment?->format(DateTimeInterface::ATOM);
     }
 
     /**
-     * An act as the archive of the person it concerns holds it: one an administrator of the tenant did says so, and
-     * nothing else of them, neither who they are, nor the client they acted through, nor where they were. The client an
-     * act is about is the person's, whoever did it.
+     * An act as the archive of the person it concerns holds it: one an author told by their role did says so, and nothing
+     * else of them, neither who they are, nor the client they acted through, nor where they were. The client an act is
+     * about is the person's, whoever did it.
      *
      * @param list<string> $aboutTheirClient the acts whose client is what they are about
      *
      * @return array<string, mixed>
      */
-    public static function act(JournalEntry $act, array $aboutTheirClient = []): array
+    public static function act(JournalEntry $act, array $aboutTheirClient): array
     {
-        if ($act->author === null) {
+        if (! $act->author instanceof ToldByItsRoleInterface) {
             return self::actAsWritten($act);
         }
 
@@ -43,13 +40,13 @@ final readonly class ArchivedFacts
             'occurred_at' => self::moment($act->occurredAt),
             'client' => in_array($act->act, $aboutTheirClient, true) ? $act->client : null,
             'from' => null,
-            'author' => self::AN_ADMINISTRATOR,
+            'author' => self::author($act->author),
         ];
     }
 
     /**
-     * An act as the journal holds it, its author by the subject of their account: what the operator of the instance
-     * reads.
+     * An act as the journal holds it, its author by what names them among their kind: what the operator of the instance
+     * reads. An act written before acts named the kind of their author names none.
      *
      * @return array<string, mixed>
      */
@@ -60,8 +57,19 @@ final readonly class ArchivedFacts
             'occurred_at' => self::moment($act->occurredAt),
             'client' => $act->client,
             'from' => self::context($act->context),
-            'author' => $act->author?->value,
+            'author' => $act->author?->toDocument(),
         ];
+    }
+
+    /**
+     * What the person is told of who acted on them: an author told by their role by their kind alone, any other by the
+     * document it writes (decision 0066).
+     *
+     * @return non-empty-array<string, string>
+     */
+    public static function author(AuthorInterface $author): array
+    {
+        return $author instanceof ToldByItsRoleInterface ? [AuthorInterface::MEMBER => $author->kind()] : $author->toDocument();
     }
 
     /**

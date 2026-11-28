@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use DateTimeImmutable;
@@ -29,5 +31,10 @@ final readonly class ChainSignedAnew implements DomainEventInterface
     public function name(): string
     {
         return self::NAME;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new TheHost();
     }
 }

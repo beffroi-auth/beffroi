@@ -5,12 +5,21 @@ declare(strict_types=1);
 namespace Beffroi\Core\Tests\Domain\Archive;
 
 use Beffroi\Core\Domain\Archive\ArchivedFacts;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
+use Beffroi\Core\Domain\Author\AClient;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\Device;
 use Beffroi\Core\Domain\Session\DeviceType;
 use Beffroi\Core\Domain\Session\GeoLocation;
 use Beffroi\Core\Tests\Fixture\Fixtures;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -18,16 +27,18 @@ use Symfony\Component\Uid\Uuid;
 final class ArchivedFactsTest extends TestCase
 {
     /**
-     * Decision 0038, RGPD article 15(4)
+     * Decisions 0038 and 0066, RGPD article 15(4): an administrator, or the host acting at the order of its operator,
+     * neither by who they are nor by where they were.
      */
     #[Test]
-    public function anActAnAdministratorDidIsArchivedByTheirRoleAlone(): void
+    #[DataProvider('provideAuthorsToldByTheirRole')]
+    public function anActOfAnAuthorToldByTheirRoleIsArchivedByThatRoleAlone(AuthorInterface $author, string $role): void
     {
         // Given
-        $act = self::act(new Subject('mallory-subject'));
+        $act = self::act($author);
 
         // When
-        $facts = ArchivedFacts::act($act);
+        $facts = ArchivedFacts::act($act, []);
 
         // Then
         static::assertSame(
@@ -36,10 +47,54 @@ final class ArchivedFactsTest extends TestCase
                 'occurred_at' => '2026-09-15T10:00:00+00:00',
                 'client' => null,
                 'from' => null,
-                'author' => 'administrator',
+                'author' => ['kind' => $role],
             ],
             $facts,
         );
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface, string}>
+     */
+    public static function provideAuthorsToldByTheirRole(): iterable
+    {
+        yield 'an administrator' => [new AnAdministrator(new Subject('mallory-subject')), 'administrator'];
+        yield 'the host' => [new TheHost(), 'host'];
+    }
+
+    /**
+     * Decision 0066
+     *
+     * @param array<string, string>|null $archived
+     */
+    #[Test]
+    #[DataProvider('provideAuthorsToldWhoTheyAre')]
+    public function anActOfAnAuthorNotToldByTheirRoleIsArchivedWithWhoTheyAreAndWhereItCameFrom(?AuthorInterface $author, ?array $archived): void
+    {
+        // Given
+        $act = self::act($author);
+
+        // When
+        $facts = ArchivedFacts::act($act, []);
+
+        // Then
+        static::assertSame(
+            ['tui-of-mallory', ArchivedFacts::context(Fixtures::context()), $archived],
+            [$facts['client'], $facts['from'], $facts['author']],
+        );
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface|null, array<string, string>|null}>
+     */
+    public static function provideAuthorsToldWhoTheyAre(): iterable
+    {
+        yield 'the person' => [new ThePerson(), ['kind' => 'person']];
+        yield 'a client' => [new AClient('oidc-demo'), ['kind' => 'client', 'client_id' => 'oidc-demo']];
+        yield 'a directory, by its name' => [new ADirectory('Entra ID'), ['kind' => 'directory', 'name' => 'Entra ID']];
+        yield 'an upstream provider, by its name' => [new AnUpstreamProvider('Acme SSO'), ['kind' => 'upstream', 'name' => 'Acme SSO']];
+        yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller(), ['kind' => 'unauthenticated']];
+        yield 'nobody, written before acts named the kind of their author' => [null, null];
     }
 
     /**
@@ -49,27 +104,14 @@ final class ArchivedFactsTest extends TestCase
     public function anActAboutItsClientThatAnAdministratorDidKeepsTheClient(): void
     {
         // Given
-        $act = self::act(new Subject('mallory-subject'));
+        $act = self::act(new AnAdministrator(new Subject('mallory-subject')), 'session_tokens.revoked');
 
         // When
-        $facts = ArchivedFacts::act($act, ['administration.person_read']);
-
-        // Then
-        static::assertSame(['tui-of-mallory', null, 'administrator'], [$facts['client'], $facts['from'], $facts['author']]);
-    }
-
-    #[Test]
-    public function anActNoAdministratorDidIsArchivedWithWhereItCameFrom(): void
-    {
-        // Given
-        $act = self::act(null);
-
-        // When
-        $facts = ArchivedFacts::act($act);
+        $facts = ArchivedFacts::act($act, ['session_tokens.revoked']);
 
         // Then
         static::assertSame(
-            ['tui-of-mallory', ArchivedFacts::context(Fixtures::context()), null],
+            ['tui-of-mallory', null, ['kind' => 'administrator']],
             [$facts['client'], $facts['from'], $facts['author']],
         );
     }
@@ -78,11 +120,11 @@ final class ArchivedFactsTest extends TestCase
     public function anActAsWrittenNamesTheAdministratorWhoDidIt(): void
     {
         // When
-        $facts = ArchivedFacts::actAsWritten(self::act(new Subject('mallory-subject')));
+        $facts = ArchivedFacts::actAsWritten(self::act(new AnAdministrator(new Subject('mallory-subject'))));
 
         // Then
         static::assertSame(
-            ['tui-of-mallory', ArchivedFacts::context(Fixtures::context()), 'mallory-subject'],
+            ['tui-of-mallory', ArchivedFacts::context(Fixtures::context()), ['kind' => 'administrator', 'subject' => 'mallory-subject']],
             [$facts['client'], $facts['from'], $facts['author']],
         );
     }
@@ -163,17 +205,17 @@ final class ArchivedFactsTest extends TestCase
         static::assertNull($facts['device']);
     }
 
-    private static function act(?Subject $administrator): JournalEntry
+    private static function act(?AuthorInterface $author, string $name = 'administration.person_read'): JournalEntry
     {
         return new JournalEntry(
             Uuid::v7(),
             Fixtures::tenant(),
-            'administration.person_read',
+            $name,
             Fixtures::now(),
             Fixtures::context(),
             new Subject('alice-subject'),
             'tui-of-mallory',
-            $administrator,
+            $author,
         );
     }
 }

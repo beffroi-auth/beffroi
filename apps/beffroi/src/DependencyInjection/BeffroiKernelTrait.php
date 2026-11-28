@@ -6,6 +6,7 @@ namespace App\DependencyInjection;
 
 use function is_a;
 use App\Doctrine\Type\NeedsAuthenticationPredicatesInterface;
+use App\Doctrine\Type\NeedsAuthorReaderInterface;
 use App\Doctrine\Type\NeedsAuthorizationDetailTypesInterface;
 use App\Doctrine\Type\NeedsCodeChallengeMethodsInterface;
 use App\Doctrine\Type\NeedsConfirmationReaderInterface;
@@ -13,6 +14,7 @@ use App\Doctrine\Type\NeedsPasskeyAttestationsInterface;
 use App\Doctrine\Type\NeedsPasswordAlgorithmsInterface;
 use Beffroi\Core\Application\Passkey\PasskeyAttestations;
 use Beffroi\Core\Port\AuthenticationPredicatesInterface;
+use Beffroi\Core\Port\AuthorReaderInterface;
 use Beffroi\Core\Port\PasswordAlgorithmsInterface;
 use Beffroi\Oidc\Port\AuthorizationDetailsReaderInterface;
 use Beffroi\Oidc\Port\CodeChallengeMethodsInterface;
@@ -44,6 +46,7 @@ trait BeffroiKernelTrait
         $codeChallengeMethods = $container->has('beffroi.code_challenge_methods') ? $container->get('beffroi.code_challenge_methods') : null;
         $predicates = $container->has('beffroi.authentication_predicates') ? $container->get('beffroi.authentication_predicates') : null;
         $passkeyAttestations = $container->has('beffroi.passkey_attestations') ? $container->get('beffroi.passkey_attestations') : null;
+        $authors = $container->has('beffroi.authors') ? $container->get('beffroi.authors') : null;
         foreach (BeffroiExtension::DBAL_TYPES as $class) {
             if ($algorithms instanceof PasswordAlgorithmsInterface && is_a($class, NeedsPasswordAlgorithmsInterface::class, true)) {
                 $class::resolveWith($algorithms);
@@ -62,6 +65,9 @@ trait BeffroiKernelTrait
             }
             if ($passkeyAttestations instanceof PasskeyAttestations && is_a($class, NeedsPasskeyAttestationsInterface::class, true)) {
                 $class::resolveWith($passkeyAttestations);
+            }
+            if ($authors instanceof AuthorReaderInterface && is_a($class, NeedsAuthorReaderInterface::class, true)) {
+                $class::resolveWith($authors);
             }
         }
     }

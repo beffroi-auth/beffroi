@@ -18,8 +18,9 @@
       first, by an identifier that is a UUIDv7 and so sorts chronologically. The second is what the timed
       step reads, which walks by the date of the change and not by identifier.
 
-      The author is the administrator of the tenant who made the change, by the subject of their account as
-      the journal names them, and nothing when the person made it (decision 0038).
+      The author is who made the change, as the journal names them (decision 0066). A change written before
+      changes named the kind of their author holds an administrator by their bare subject, and the person by
+      NULL (ClaimChangeAuthorType).
     -->
     <entity name="Beffroi\Core\Domain\Identity\ClaimChange" table="beffroi_claim_change">
         <indexes>
@@ -39,6 +40,6 @@
         <field name="became" type="beffroi_encrypted_claim_change_string" column="became" length="255" nullable="true"/>
         <field name="changedAt" type="datetime_immutable" column="changed_at"/>
         <field name="context" type="beffroi_encrypted_claim_change_request_context" column="context"/>
-        <field name="author" type="beffroi_subject" column="author" length="255" nullable="true"/>
+        <field name="author" type="beffroi_claim_change_author" column="author" nullable="true"/>
     </entity>
 </doctrine-mapping>

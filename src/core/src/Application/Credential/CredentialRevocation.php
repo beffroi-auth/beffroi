@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Credential;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Credential\Credential;
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Credential\RevocableCredentialInterface;
@@ -28,9 +30,12 @@ final readonly class CredentialRevocation
     ) {
     }
 
-    public function revoke(Credential&RevocableCredentialInterface $credential, RequestContext $context): void
+    /**
+     * The act of the revocation names its author: the person, or the host (decision 0066).
+     */
+    public function revoke(Credential&RevocableCredentialInterface $credential, AuthorInterface $author, RequestContext $context): void
     {
-        $this->revokeOnce($credential, $context, null);
+        $this->revokeOnce($credential, $context, $author);
     }
 
     /**
@@ -38,10 +43,10 @@ final readonly class CredentialRevocation
      */
     public function revokeByAnAdministrator(Credential&RevocableCredentialInterface $credential, Subject $administrator, RequestContext $context): void
     {
-        $this->revokeOnce($credential, $context, $administrator);
+        $this->revokeOnce($credential, $context, new AnAdministrator($administrator));
     }
 
-    private function revokeOnce(Credential&RevocableCredentialInterface $credential, RequestContext $context, ?Subject $administrator): void
+    private function revokeOnce(Credential&RevocableCredentialInterface $credential, RequestContext $context, AuthorInterface $author): void
     {
         if ($credential->isRevoked()) {
             return;
@@ -49,7 +54,7 @@ final readonly class CredentialRevocation
         $now = $this->clock->now();
         $credential->revoke($now);
         $this->credentials->save($credential);
-        $this->events->dispatch(new CredentialRevoked($credential, $now, $context, $administrator));
+        $this->events->dispatch(new CredentialRevoked($credential, $now, $context, $author));
         $this->notifier->tell(new CredentialChange($credential->user, CredentialRevoked::NAME, $now, $credential->kind()));
     }
 }

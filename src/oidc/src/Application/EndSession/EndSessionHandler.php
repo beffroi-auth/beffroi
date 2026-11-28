@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\EndSession;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use DateTimeImmutable;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
@@ -90,9 +91,12 @@ final readonly class EndSessionHandler
         return $session->isActive($now) ? $session : null;
     }
 
+    /**
+     * The person asked for the logout through her browser at the relying party: the end is hers (decision 0066).
+     */
     private function end(EndSessionRequest $request, AuthenticationSession $session, RequestContext $context): LoggedOut
     {
-        $this->sessions->end($session, SessionEnd::RelyingParty, $context);
+        $this->sessions->end($session, SessionEnd::RelyingParty, new ThePerson(), $context);
 
         return new LoggedOut($request, $session, $request->redirect());
     }

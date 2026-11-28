@@ -10,6 +10,7 @@ use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Journal\JournalQuestion;
 use Beffroi\Core\Domain\Listing\Listing;
 use Beffroi\Core\Port\CanPageActsOfAPersonInterface;
+use Beffroi\Core\Port\KindsOfAuthorInterface;
 use Beffroi\Oidc\Domain\Administration\ReadsByAnAdministrator;
 use Beffroi\Oidc\Domain\Client\ActsAboutTheirClient;
 use Beffroi\Oidc\Domain\Consent\ConsentActs;
@@ -39,12 +40,9 @@ final readonly class ActsPage
 
     public const string AUTHOR = 'by';
 
-    public const string BY_A_REQUEST = 'request';
-
-    public const string BY_AN_ADMINISTRATOR = 'administrator';
-
     public function __construct(
         private CanPageActsOfAPersonInterface $acts,
+        private KindsOfAuthorInterface $kinds,
         private AskedPage $asked,
         private AskedPeriod $period,
         private AskedWord $word,
@@ -60,7 +58,7 @@ final readonly class ActsPage
             $act === null ? self::ACTS : [$act],
             period: $this->period->asked($user),
             unlessTheirOwn: ReadsByAnAdministrator::NAMES,
-            byAnAdministrator: $this->word->either(self::AUTHOR, self::BY_AN_ADMINISTRATOR, self::BY_A_REQUEST),
+            by: $this->word->among(self::AUTHOR, $this->kinds->kinds()),
         );
 
         $acts = $this->acts->pageOfActs($user, $question, $this->asked->asked());
@@ -71,8 +69,9 @@ final readonly class ActsPage
             'applications' => $this->applicationsOf($user, $acts),
             'question' => $question,
             'act' => $act,
-            'narrowed' => $act !== null || $question->period !== null || $question->byAnAdministrator !== null,
+            'narrowed' => $act !== null || $question->period !== null || $question->by !== null,
             'offered' => self::ACTS,
+            'kinds' => $this->kinds->kinds(),
         ]);
     }
 

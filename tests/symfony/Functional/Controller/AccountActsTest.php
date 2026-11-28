@@ -10,10 +10,18 @@ use function array_values;
 use App\Http\ActsPage;
 use App\Http\AskedPage;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
+use Beffroi\Core\Domain\Event\CredentialForgotten;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Event\CredentialRevoked;
+use Beffroi\Core\Domain\Event\PersonDisabled;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -87,7 +95,7 @@ final class AccountActsTest extends BrowserTestCase
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, $act, 'tui-of-mallory', author: new Subject('mallory-subject'));
+        self::record($alice, $act, 'tui-of-mallory', author: new AnAdministrator(new Subject('mallory-subject')));
         self::reload();
         $this->signIn($alice);
 
@@ -117,6 +125,86 @@ final class AccountActsTest extends BrowserTestCase
     }
 
     /**
+     * Decision 0066: the person reads the name of the directory that did it, in place of where it came from.
+     */
+    #[Test]
+    public function anActADirectoryDidIsOnThePageByItsName(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, PersonDisabled::NAME, author: new ADirectory('Entra <ID>'));
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame(
+            ['The directory Entra <ID>', 'directory', false],
+            [$row->filter('[data-author]')->text(), $row->filter('[data-author]')->attr('data-author'), str_contains($row->html(), SealedRows::IP_ADDRESS)],
+        );
+    }
+
+    /**
+     * Decision 0066: the person reads that the host did an act, and neither the user of its shell nor its name, which
+     * the provenance of a command names.
+     */
+    #[Test]
+    public function anActOfTheHostIsOnThePageByItsRoleAlone(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, CredentialForgotten::NAME, author: new TheHost());
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame(['This service', 'host', false], [
+            $row->filter('[data-author]')->text(),
+            $row->filter('[data-author]')->attr('data-author'),
+            str_contains($row->html(), SealedRows::IP_ADDRESS),
+        ]);
+    }
+
+    /**
+     * Decision 0066: an act the person did, a refused attempt and an act written before acts named their author say
+     * where they came from.
+     */
+    #[Test]
+    #[DataProvider('provideAuthorsSaidByWhereTheyActedFrom')]
+    public function anActToldByWhereItCameFromSaysIt(?AuthorInterface $author): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, CredentialRevoked::NAME, author: $author);
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame([0, true], [$row->filter('[data-author]')->count(), str_contains($row->html(), SealedRows::IP_ADDRESS)]);
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface|null}>
+     */
+    public static function provideAuthorsSaidByWhereTheyActedFrom(): iterable
+    {
+        yield 'the person' => [new ThePerson()];
+        yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller()];
+        yield 'nobody, written before acts named their author' => [null];
+    }
+
+    /**
      * Decision 0022
      */
     #[Test]
@@ -125,7 +213,7 @@ final class AccountActsTest extends BrowserTestCase
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, $act, 'oidc-demo', author: $author === null ? null : new Subject($author));
+        self::record($alice, $act, 'oidc-demo', author: $author === null ? null : new AnAdministrator(new Subject($author)));
         self::reload();
         $this->signIn($alice);
 
@@ -174,7 +262,7 @@ final class AccountActsTest extends BrowserTestCase
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, PersonReadByAnAdministrator::NAME, 'oidc-demo', author: new Subject('mallory-subject'));
+        self::record($alice, PersonReadByAnAdministrator::NAME, 'oidc-demo', author: new AnAdministrator(new Subject('mallory-subject')));
         self::reload();
         $this->signIn($alice);
 
@@ -190,7 +278,7 @@ final class AccountActsTest extends BrowserTestCase
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-alice', author: $alice->subject);
+        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-alice', author: new AnAdministrator($alice->subject));
         self::reload();
         $this->signIn($alice);
 
@@ -206,7 +294,7 @@ final class AccountActsTest extends BrowserTestCase
     {
         // Given
         $alice = self::user('alice');
-        self::record($alice, AuthenticationSessionEnded::NAME, author: $alice->subject);
+        self::record($alice, AuthenticationSessionEnded::NAME, author: new AnAdministrator($alice->subject));
         self::reload();
         $this->signIn($alice);
 
@@ -359,14 +447,28 @@ final class AccountActsTest extends BrowserTestCase
         static::assertSame(self::sorted(['', ...ActsPage::ACTS]), self::sorted($offered));
     }
 
+    /**
+     * Decision 0066: an act written before acts named their author is an administrator's when it names a bare subject,
+     * and of no kind the page can ask for when it names nobody.
+     *
+     * @param list<string> $acts
+     */
     #[Test]
     #[DataProvider('provideAuthors')]
-    public function whetherAnAdministratorDidTheActIsReadApart(string $by, string $act): void
+    public function theActsOfAKindOfAuthorAreReadApart(string $by, array $acts): void
     {
         // Given
         $alice = self::user('alice');
         self::record($alice, UserAuthenticated::NAME);
-        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-mallory', author: new Subject('mallory-subject'));
+        self::record($alice, CredentialRevoked::NAME, author: new ThePerson());
+        self::record($alice, PersonDisabled::NAME, author: new ADirectory('Entra ID'));
+        self::record($alice, PersonReadByAnAdministrator::NAME, 'tui-of-mallory', author: new AnAdministrator(new Subject('mallory-subject')));
+        self::record($alice, JournalReadByAnAdministrator::NAME, 'tui-of-mallory', author: new AnAdministrator(new Subject('mallory-subject')));
+        self::record($alice, CredentialForgotten::NAME, author: new TheHost());
+        self::record($alice, AuthenticationFailed::NAME, author: new AnUnauthenticatedCaller());
+        self::entityManager()
+            ->getConnection()
+            ->executeStatement('UPDATE beffroi_journal SET author = ? WHERE act = ?', ['mallory-subject', JournalReadByAnAdministrator::NAME]);
         self::reload();
         $this->signIn($alice);
 
@@ -374,16 +476,19 @@ final class AccountActsTest extends BrowserTestCase
         $page = $this->actsPage(narrowed: [ActsPage::AUTHOR => $by]);
 
         // Then
-        static::assertSame([$act], $page->filter('tbody tr')->extract(['data-act']));
+        static::assertSame(self::sorted($acts), self::sorted($page->filter('tbody tr')->extract(['data-act'])));
     }
 
     /**
-     * @return iterable<string, array{string, string}>
+     * @return iterable<string, array{string, list<string>}>
      */
     public static function provideAuthors(): iterable
     {
-        yield 'what an administrator did' => [ActsPage::BY_AN_ADMINISTRATOR, PersonReadByAnAdministrator::NAME];
-        yield 'what a request in their name did' => [ActsPage::BY_A_REQUEST, UserAuthenticated::NAME];
+        yield 'what an administrator did' => ['administrator', [PersonReadByAnAdministrator::NAME, JournalReadByAnAdministrator::NAME]];
+        yield 'what the person did' => ['person', [CredentialRevoked::NAME]];
+        yield 'what a directory did' => ['directory', [PersonDisabled::NAME]];
+        yield 'what the host did' => ['host', [CredentialForgotten::NAME]];
+        yield 'what an unauthenticated caller tried' => ['unauthenticated', [AuthenticationFailed::NAME]];
     }
 
     #[Test]
@@ -510,8 +615,13 @@ final class AccountActsTest extends BrowserTestCase
         return $rows;
     }
 
-    private static function record(User $user, string $act, ?string $client = null, ?DateTimeImmutable $occurredAt = null, ?Subject $author = null): void
-    {
+    private static function record(
+        User $user,
+        string $act,
+        ?string $client = null,
+        ?DateTimeImmutable $occurredAt = null,
+        ?AuthorInterface $author = null,
+    ): void {
         self::service('test.beffroi.journal', JournalInterface::class)
             ->record(new JournalEntry(
                 Uuid::v7(),

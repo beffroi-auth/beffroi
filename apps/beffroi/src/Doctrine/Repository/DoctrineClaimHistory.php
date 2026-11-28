@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Doctrine\Repository;
 
+use App\Doctrine\Type\ClaimChangeAuthorType;
 use App\Doctrine\Chain\DoctrineChains;
 use App\Doctrine\EntityManagers;
 use App\Doctrine\PageOfRows;
@@ -51,8 +52,10 @@ final readonly class DoctrineClaimHistory extends DoctrineRepository implements
         if ($question->claim !== null) {
             $changes->andWhere('c.claim = :claim')->setParameter('claim', $question->claim);
         }
-        if ($question->byAnAdministrator !== null) {
-            $changes->andWhere($question->byAnAdministrator ? 'c.author IS NOT NULL' : 'c.author IS NULL');
+        if ($question->by !== null) {
+            new ClaimChangeAuthorType()
+                ->rowsOfKind($question->by)
+                ->narrow($changes, 'c.author');
         }
 
         return $this->rows->of(ClaimChange::class, SelectionWithinAPeriod::narrow($changes, 'c.changedAt', $question->period), 'c.id', $pagination);
