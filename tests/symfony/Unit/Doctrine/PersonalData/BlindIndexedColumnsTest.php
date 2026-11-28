@@ -59,16 +59,42 @@ final class BlindIndexedColumnsTest extends TestCase
     }
 
     /**
-     * A username written before RFC 8265 §3.3 applied, which it refuses, is found as written.
+     * A username written before RFC 8265 §3.3 applied, which it refuses, keeps the tag 0.1 derived for it.
      */
     #[Test]
-    public function aUsernameTheProfileRefusesIsTheTagOfItsValueAsWritten(): void
+    public function aUsernameTheProfileRefusesIsTheTagItHadAsWritten(): void
     {
         // Given
-        $index = self::index('username');
+        [$index, $asWritten] = self::usernameIndexes();
 
         // When / Then
-        static::assertNotSame($index->of('Jean Dupont'), $index->of('jean dupont'));
+        static::assertSame($asWritten->of('Jean Dupont'), $index->of('Jean Dupont'));
+    }
+
+    /**
+     * RFC 8265 §3.3.4: so that a lookup that tries the name as written first finds nobody else.
+     */
+    #[Test]
+    public function theTagOfAUsernameAsWrittenIsTheTagOfItsEnforcedFormWhenItIsThatForm(): void
+    {
+        // Given
+        [$index, $asWritten] = self::usernameIndexes();
+
+        // When / Then
+        static::assertSame($index->of('alice'), $asWritten->of('alice'));
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function theTagOfAUsernameAsWrittenIsNotTheTagOfItsEnforcedFormWhenItIsAnother(): void
+    {
+        // Given
+        [$index, $asWritten] = self::usernameIndexes();
+
+        // When / Then
+        static::assertNotSame($index->of('Alice'), $asWritten->of('Alice'));
     }
 
     /**
@@ -164,6 +190,20 @@ final class BlindIndexedColumnsTest extends TestCase
     {
         // When / Then
         static::assertArrayNotHasKey(BlindIndexedColumns::SCOPE, EncryptedColumnTypes::FAMILIES);
+    }
+
+    /**
+     * @return array{BlindIndexInterface, BlindIndexInterface} the index of the username, and the one 0.1 derived
+     */
+    private static function usernameIndexes(): array
+    {
+        $store = new InMemoryDataKeyStore();
+        $reference = $store->current('acme.blind_index')->reference;
+
+        return [
+            BlindIndexedColumns::of(User::class, 'username')->index($store, $reference),
+            BlindIndexedColumns::usernameAsWritten()->index($store, $reference),
+        ];
     }
 
     private static function index(string $property): BlindIndexInterface

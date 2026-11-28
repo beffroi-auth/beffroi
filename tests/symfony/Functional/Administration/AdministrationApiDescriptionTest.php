@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Administration;
 
 use App\Administration\Controller\UserDescriptionController;
 use function array_map;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use Beffroi\Core\Domain\Event\PersonDescribed;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\User;
@@ -193,6 +194,29 @@ final class AdministrationApiDescriptionTest extends AdministrationTestCase
         // Then
         static::assertSame(
             [Response::HTTP_BAD_REQUEST, 'invalid_request', 'bob'],
+            [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
+        );
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function noPersonIsRenamedWhileTheUsernamesOfTheTenantAreNotAllComparedByTheirForm(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        $token = $this->administratorToken(self::user('alice'));
+        self::entityManager()
+            ->getConnection()
+            ->executeStatement('DELETE FROM ' . BlindIndexDerivations::TABLE);
+
+        // When
+        $response = $this->patch($bob, $token, '{"username": "bob.martin"}');
+
+        // Then
+        static::assertSame(
+            [Response::HTTP_SERVICE_UNAVAILABLE, 'temporarily_unavailable', 'bob'],
             [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
         );
     }

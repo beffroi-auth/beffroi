@@ -13,6 +13,7 @@ use Doctrine\ORM\Tools\SchemaTool;
 use Doctrine\Persistence\ManagerRegistry;
 use App\Doctrine\TenantProvider;
 use App\Doctrine\EntityManagers;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use App\Doctrine\TenantSynchronizer;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
 use Beffroi\Core\Application\Tenant\TenantHardening;
@@ -140,6 +141,11 @@ abstract class DatabaseTestCase extends WebTestCase
     protected static function managers(): EntityManagers
     {
         return new EntityManagers(self::registry());
+    }
+
+    protected static function derivations(): BlindIndexDerivations
+    {
+        return self::service(BlindIndexDerivations::class, BlindIndexDerivations::class);
     }
 
     protected static function tenant(): Tenant

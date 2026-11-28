@@ -22,6 +22,7 @@ use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Port\AuthenticationSessionRepositoryInterface;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
+use Beffroi\Core\Port\PasswordHasherInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Beffroi\Oidc\Port\InteractionRepositoryInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -74,6 +75,30 @@ final class LoginTest extends BrowserTestCase
 
         // Then
         static::assertTrue($this->boundSession()->user->id->equals($user->id));
+    }
+
+    /**
+     * RFC 8265 §3.3.4: before beffroi:user:reindex derives the tag of a person of 0.1 again.
+     */
+    #[Test]
+    public function aPersonOf01SignsInUnderTheirUsernameAsWritten(): void
+    {
+        // Given
+        $bob = self::personOf01('Bob', 'bob');
+        self::service('test.beffroi.credentials', CredentialRepositoryInterface::class)
+            ->save(new PasswordCredential(
+                Uuid::v7(),
+                self::service('test.beffroi.users', UserRepositoryInterface::class)->find($bob->id) ?? static::fail('Bob is not stored.'),
+                self::service('test.beffroi.password_hasher', PasswordHasherInterface::class)->hash(self::PASSWORD),
+                self::now(),
+            ));
+        $interaction = $this->authorize();
+
+        // When
+        $this->submitLogin($interaction, 'Bob', self::PASSWORD);
+
+        // Then
+        static::assertTrue($this->boundSession()->user->id->equals($bob->id));
     }
 
     /**

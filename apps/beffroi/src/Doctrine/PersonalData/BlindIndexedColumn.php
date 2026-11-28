@@ -12,6 +12,11 @@ use Symfony\Component\KeyManagement\StoredKeyBlindIndex;
 final readonly class BlindIndexedColumn
 {
     /**
+     * What a tenant keeps its index under, the tag when the column has one projection.
+     */
+    public string $name;
+
+    /**
      * @param class-string $entity
      * @param string $value the property whose value is indexed
      * @param string $tag the property the tag is written to
@@ -21,7 +26,9 @@ final readonly class BlindIndexedColumn
         public string $value,
         public string $tag,
         private ProjectionInterface $projection,
+        ?string $name = null,
     ) {
+        $this->name = $name ?? $tag;
     }
 
     /**

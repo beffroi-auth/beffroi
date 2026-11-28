@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Administration;
 
 use App\Administration\AdministrationAnswer;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use Beffroi\Core\Domain\Enrolment\EnrolmentTicket;
 use Beffroi\Core\Domain\Event\EnrolmentTicketIssued;
 use Beffroi\Core\Domain\Event\PersonCreated;
@@ -74,6 +75,29 @@ final class AdministrationApiEnrolmentTest extends AdministrationTestCase
 
         // Then
         static::assertSame([Response::HTTP_CONFLICT, 'conflict', []], [
+            $response->getStatusCode(),
+            self::error($response),
+            self::authored(PersonCreated::NAME),
+        ]);
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function noPersonIsCreatedWhileTheUsernamesOfTheTenantAreNotAllComparedByTheirForm(): void
+    {
+        // Given
+        $token = $this->administratorToken(self::user('alice'));
+        self::entityManager()
+            ->getConnection()
+            ->executeStatement('DELETE FROM ' . BlindIndexDerivations::TABLE);
+
+        // When
+        $response = $this->api('/users', $token, method: 'POST', content: '{"username": "bob"}');
+
+        // Then
+        static::assertSame([Response::HTTP_SERVICE_UNAVAILABLE, 'temporarily_unavailable', []], [
             $response->getStatusCode(),
             self::error($response),
             self::authored(PersonCreated::NAME),

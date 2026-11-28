@@ -23,6 +23,13 @@ final readonly class BlindIndexedColumns
     public const string SCOPE = 'blind_index';
 
     /**
+     * What the tags of this build are derived under, raised whenever a projection changes what a column indexes. A
+     * tenant records it, with the version of Unicode the profile of a username reads, once every tag of its persons is
+     * derived under it (BlindIndexDerivations); no tag of 0.1 was derived under any.
+     */
+    public const int DERIVATION = 1;
+
+    /**
      * @return list<BlindIndexedColumn>
      */
     public static function all(): array
@@ -55,6 +62,14 @@ final readonly class BlindIndexedColumns
                 new Verbatim(),
             ),
         ];
+    }
+
+    /**
+     * The username as it was written, as 0.1 indexed it, which a lookup tries first.
+     */
+    public static function usernameAsWritten(): BlindIndexedColumn
+    {
+        return new BlindIndexedColumn(User::class, 'username', 'usernameIndex', new Verbatim(), 'usernameIndex as written');
     }
 
     /**

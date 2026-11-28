@@ -27,9 +27,9 @@ use function sort;
  */
 final class SchemaClassificationTest extends DatabaseTestCase
 {
-    private const int TABLES = 41;
+    private const int TABLES = 42;
 
-    private const int COLUMNS = 415;
+    private const int COLUMNS = 421;
 
     #[Test]
     public function everyColumnOfEveryTableIsClassified(): void

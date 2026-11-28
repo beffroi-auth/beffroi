@@ -151,7 +151,7 @@ final class TenantProviderTest extends DatabaseTestCase
         $provider = new TenantProvider($factory, self::managers());
 
         // When
-        $synchronized = new TenantSynchronizer($factory, self::managers())->synchronize();
+        $synchronized = new TenantSynchronizer($factory, self::managers(), self::derivations())->synchronize();
         self::reload();
 
         // Then
@@ -163,7 +163,7 @@ final class TenantProviderTest extends DatabaseTestCase
     public function theSynchroniserRefusesToMoveTheIssuer(): void
     {
         // Given
-        $synchronizer = new TenantSynchronizer(self::factory('https://moved.test', 'default', null), self::managers());
+        $synchronizer = new TenantSynchronizer(self::factory('https://moved.test', 'default', null), self::managers(), self::derivations());
 
         // Then
         $this->expectException(TenantNotSynchronizedException::class);
@@ -177,7 +177,7 @@ final class TenantProviderTest extends DatabaseTestCase
     public function anotherSlugIsAnotherTenant(): void
     {
         // When
-        $other = new TenantSynchronizer(self::factory('https://other.test', 'other', null), self::managers())->synchronize();
+        $other = new TenantSynchronizer(self::factory('https://other.test', 'other', null), self::managers(), self::derivations())->synchronize();
         self::reload();
 
         // Then
@@ -212,7 +212,7 @@ final class TenantProviderTest extends DatabaseTestCase
         $provider = new TenantProvider($factory, self::managers());
 
         // When
-        $synchronized = new TenantSynchronizer($factory, self::managers())->synchronize();
+        $synchronized = new TenantSynchronizer($factory, self::managers(), self::derivations())->synchronize();
         self::reload();
 
         // Then
@@ -249,7 +249,7 @@ final class TenantProviderTest extends DatabaseTestCase
         $factory = self::factory('https://op.test', 'default', null, passkeyAttestation: self::DIRECT);
 
         // When
-        new TenantSynchronizer($factory, self::managers())->synchronize();
+        new TenantSynchronizer($factory, self::managers(), self::derivations())->synchronize();
         self::reload();
 
         // Then
@@ -293,7 +293,7 @@ final class TenantProviderTest extends DatabaseTestCase
         $provider = new TenantProvider($factory, self::managers());
 
         // When
-        $synchronized = new TenantSynchronizer($factory, self::managers())->synchronize();
+        $synchronized = new TenantSynchronizer($factory, self::managers(), self::derivations())->synchronize();
         self::reload();
 
         // Then

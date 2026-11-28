@@ -231,6 +231,7 @@ final class DoctrineUserRepositoryTest extends DatabaseTestCase
         $other = new TenantSynchronizer(
             new TenantFactory('https://other.test', 'other', null, new MockClock(self::now()), Predicates::wired()),
             self::managers(),
+            self::derivations(),
         )->synchronize();
         $stranger = User::create(Uuid::v7(), $other, new Subject('alice-subject'), 'alice', self::now());
         self::users()->save($stranger);
