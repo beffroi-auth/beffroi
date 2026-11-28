@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Credential;
 
 use Beffroi\Core\Domain\Precis\OpaqueString;
-use Beffroi\Core\Exception\PasswordRefusedException;
+use Beffroi\Core\Exception\OpaqueStringRefusedException;
 use Closure;
 use SensitiveParameter;
 
@@ -75,7 +75,7 @@ final readonly class TypedPassword
     {
         try {
             return OpaqueString::enforce($typed);
-        } catch (PasswordRefusedException) {
+        } catch (OpaqueStringRefusedException) {
             return null;
         }
     }

@@ -164,6 +164,22 @@ final class PlainPasswordTest extends TestCase
     }
 
     /**
+     * RFC 8265 §4.1, NIST SP 800-63B §3.1.1.2
+     */
+    #[Test]
+    public function anEmptyPasswordIsTooShort(): void
+    {
+        // When
+        try {
+            new PlainPassword('', self::alone());
+            static::fail('An empty password was held.');
+        } catch (PasswordRefusedException $exception) {
+            // Then
+            static::assertSame(PasswordRefusal::TooShort, $exception->refusal);
+        }
+    }
+
+    /**
      * NIST SP 800-63B §3.1.1.2, RFC 8265 §4.2.2 rule 4
      */
     #[Test]

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Domain\Precis;
 
-use Beffroi\Core\Domain\Credential\PasswordRefusal;
 use Beffroi\Core\Domain\Precis\OpaqueString;
-use Beffroi\Core\Exception\PasswordRefusedException;
+use Beffroi\Core\Domain\Precis\OpaqueStringRefusal;
+use Beffroi\Core\Exception\OpaqueStringRefusedException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +14,8 @@ use function str_repeat;
 
 final class OpaqueStringTest extends TestCase
 {
+    private const string CLASS_REFUSAL = 'A password holds no control character, no ignorable, unassigned or private-use code point, no old Hangul jamo, and a joiner or a contextual mark only where its rule allows it (RFC 8264 §4.3).';
+
     /**
      * RFC 8265 §4.2.2, §4.3
      */
@@ -106,7 +108,8 @@ final class OpaqueStringTest extends TestCase
     public function theClassIsHeldToWhatWasTypedBeforeNormalizationFormC(string $typed): void
     {
         // Then
-        $this->expectException(PasswordRefusedException::class);
+        $this->expectException(OpaqueStringRefusedException::class);
+        $this->expectExceptionMessageIs(self::CLASS_REFUSAL);
 
         // When
         OpaqueString::enforce($typed);
@@ -146,34 +149,34 @@ final class OpaqueStringTest extends TestCase
      */
     #[Test]
     #[DataProvider('providePasswordsTheProfileRefuses')]
-    public function aPasswordTheProfileRefusesIsRefusedWithItsReason(string $password, PasswordRefusal $refusal): void
+    public function aPasswordTheProfileRefusesIsRefusedWithItsReason(string $password, OpaqueStringRefusal $refusal): void
     {
         // When
         try {
             OpaqueString::enforce($password);
             static::fail('The profile admitted what it refuses.');
-        } catch (PasswordRefusedException $exception) {
+        } catch (OpaqueStringRefusedException $exception) {
             // Then
             static::assertSame($refusal, $exception->refusal);
         }
     }
 
     /**
-     * @return iterable<string, array{string, PasswordRefusal}>
+     * @return iterable<string, array{string, OpaqueStringRefusal}>
      */
     public static function providePasswordsTheProfileRefuses(): iterable
     {
-        yield 'nothing, example 17 of RFC 8265 §4.3' => ['', PasswordRefusal::TooShort];
-        yield 'a tabulation, example 18' => ["my cat is a \u{0009}by", PasswordRefusal::DisallowedCharacter];
-        yield 'a soft hyphen, ignorable' => ["correct\u{00AD}horse", PasswordRefusal::DisallowedCharacter];
-        yield 'a zero width space, ignorable' => ["correct\u{200B}horse", PasswordRefusal::DisallowedCharacter];
-        yield 'the variation selector of an emoji, ignorable' => ["I\u{2764}\u{FE0F}NY", PasswordRefusal::DisallowedCharacter];
-        yield 'a zero width joiner between two emoji' => ["\u{1F468}\u{200D}\u{1F469}", PasswordRefusal::DisallowedCharacter];
-        yield 'a code point of private use' => ["correct\u{E000}", PasswordRefusal::DisallowedCharacter];
-        yield 'a code point no version of Unicode assigns yet' => ["correct\u{40000}", PasswordRefusal::DisallowedCharacter];
-        yield 'bytes that are no UTF-8' => ["correct\xC3", PasswordRefusal::DisallowedCharacter];
-        yield 'one byte more than a hasher takes' => [str_repeat('a', OpaqueString::MAXIMUM_BYTES + 1), PasswordRefusal::TooLong];
-        yield 'bytes Normalization Form C makes more than a hasher takes' => [str_repeat("\u{0958}", 1365), PasswordRefusal::TooLong];
+        yield 'nothing, example 17 of RFC 8265 §4.3' => ['', OpaqueStringRefusal::Empty];
+        yield 'a tabulation, example 18' => ["my cat is a \u{0009}by", OpaqueStringRefusal::Disallowed];
+        yield 'a soft hyphen, ignorable' => ["correct\u{00AD}horse", OpaqueStringRefusal::Disallowed];
+        yield 'a zero width space, ignorable' => ["correct\u{200B}horse", OpaqueStringRefusal::Disallowed];
+        yield 'the variation selector of an emoji, ignorable' => ["I\u{2764}\u{FE0F}NY", OpaqueStringRefusal::Disallowed];
+        yield 'a zero width joiner between two emoji' => ["\u{1F468}\u{200D}\u{1F469}", OpaqueStringRefusal::Disallowed];
+        yield 'a code point of private use' => ["correct\u{E000}", OpaqueStringRefusal::Disallowed];
+        yield 'a code point no version of Unicode assigns yet' => ["correct\u{40000}", OpaqueStringRefusal::Disallowed];
+        yield 'bytes that are no UTF-8' => ["correct\xC3", OpaqueStringRefusal::Disallowed];
+        yield 'one byte more than a hasher takes' => [str_repeat('a', OpaqueString::MAXIMUM_BYTES + 1), OpaqueStringRefusal::TooLong];
+        yield 'bytes Normalization Form C makes more than a hasher takes' => [str_repeat("\u{0958}", 1365), OpaqueStringRefusal::TooLong];
     }
 
     /**
@@ -184,7 +187,7 @@ final class OpaqueStringTest extends TestCase
     public function aRefusalSaysWhatThePasswordBreaksAndNoneOfItsCharacters(string $password, string $message): void
     {
         // Then
-        $this->expectException(PasswordRefusedException::class);
+        $this->expectException(OpaqueStringRefusedException::class);
         $this->expectExceptionMessageIs($message);
 
         // When
@@ -198,7 +201,7 @@ final class OpaqueStringTest extends TestCase
     {
         yield 'a code point the class refuses' => [
             "secret\u{0007}",
-            'A password holds no control character, and no code point that Unicode leaves unassigned, ignorable or to private use (RFC 8264 §4.3).',
+            self::CLASS_REFUSAL,
         ];
         yield 'nothing' => ['', 'A password is never empty (RFC 8265 §4.1).'];
         yield 'the length' => [str_repeat('a', OpaqueString::MAXIMUM_BYTES + 1), 'A password is at most 4096 bytes long.'];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Credential;
 
 use Beffroi\Core\Domain\Precis\OpaqueString;
+use Beffroi\Core\Exception\OpaqueStringRefusedException;
 use Beffroi\Core\Exception\PasswordRefusedException;
 use function hash_equals;
 use SensitiveParameter;
@@ -34,7 +35,11 @@ final readonly class PlainPassword
         string $value,
         PasswordLength $length,
     ) {
-        $enforced = OpaqueString::enforce($value);
+        try {
+            $enforced = OpaqueString::enforce($value);
+        } catch (OpaqueStringRefusedException $refused) {
+            throw new PasswordRefusedException(PasswordRefusal::of($refused->refusal), $refused->getMessage(), $refused);
+        }
         if (! $length->reachedBy($enforced)) {
             throw new PasswordRefusedException(
                 PasswordRefusal::TooShort,
