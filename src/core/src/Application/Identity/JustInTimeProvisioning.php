@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Beffroi\Core\Application\Identity;
 
 use Beffroi\Core\Application\Group\MembershipAlreadyHeldException;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
+use Beffroi\Core\Application\Group\UpstreamMembershipChange;
 use Beffroi\Core\Application\Group\UpstreamMemberships;
 use Beffroi\Core\Domain\Event\PersonProvisioned;
+use Beffroi\Core\Domain\Event\GroupMembershipAdded;
+use Beffroi\Core\Domain\Event\GroupMembershipRemoved;
 use Beffroi\Core\Domain\Group\GroupMapping;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\EmailDomain;
@@ -50,7 +54,7 @@ final readonly class JustInTimeProvisioning
      * @param list<mixed> $asserted
      *
      * @throws UpstreamProvisioningRefusedException
-     * @throws InvalidArgumentException when the subject is empty, or a claim is said in a form the profile refuses
+     * @throws InvalidArgumentException when the subject is empty, a claim is said in a form the profile refuses, or a provider that maps groups is named as no author can be
      */
     public function personNamedBy(
         Tenant $tenant,
@@ -97,9 +101,10 @@ final readonly class JustInTimeProvisioning
         if ($renamed) {
             $this->assertNobodyIsNamed($tenant, $email, $user);
         }
+        $author = self::authorOfTheMemberships($provider, $groups);
         $now = $this->clock->now();
         try {
-            $this->writes->atomically(function () use (
+            $change = $this->writes->atomically(function () use (
                 $user,
                 $provider,
                 $subject,
@@ -112,7 +117,7 @@ final readonly class JustInTimeProvisioning
                 $phoneNumber,
                 $groups,
                 $asserted,
-            ): void {
+            ): ?UpstreamMembershipChange {
                 $user->heldBy($source, $now);
                 $user->changeEmail($email, true, $now);
                 if ($renamed) {
@@ -122,7 +127,8 @@ final readonly class JustInTimeProvisioning
                 $this->writePhoneNumber($user, $phoneNumber, $now);
                 $this->users->save($user);
                 $this->linker->link($user, $provider->name, $subject, $snapshot);
-                $this->writeGroups($user, $groups, $asserted);
+
+                return $this->writeGroups($user, $groups, $asserted);
             });
         } catch (UserAlreadyExistsException) {
             // Another sign-in gave the address as a username between the check and the unit.
@@ -130,6 +136,7 @@ final readonly class JustInTimeProvisioning
         } catch (MembershipAlreadyHeldException) {
             throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::MembershipWrittenMeanwhile);
         }
+        $this->announceMemberships($user, $author, $change, $context);
 
         return $user;
     }
@@ -140,6 +147,7 @@ final readonly class JustInTimeProvisioning
      * @param list<mixed> $asserted
      *
      * @throws UpstreamProvisioningRefusedException
+     * @throws InvalidArgumentException
      */
     private function created(
         Tenant $tenant,
@@ -162,10 +170,11 @@ final readonly class JustInTimeProvisioning
         if ($this->users->findBySubject($tenant, $person) !== null) {
             throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::DrawnSubjectTaken);
         }
+        $author = self::authorOfTheMemberships($provider, $groups);
         $now = $this->clock->now();
         // All or none: a person kept without its linked identity is found by no sign-in, yet holds its address.
         try {
-            $user = $this->writes->atomically(function () use (
+            [$user, $change] = $this->writes->atomically(function () use (
                 $tenant,
                 $provider,
                 $subject,
@@ -178,21 +187,21 @@ final readonly class JustInTimeProvisioning
                 $phoneNumber,
                 $groups,
                 $asserted,
-            ): User {
+            ): array {
                 $user = $this->provisioner->create($tenant, $email->value, $email, true, $person, $source);
                 $user->updateProfile($profile, $now);
                 $this->writePhoneNumber($user, $phoneNumber, $now);
                 $this->users->save($user);
                 $this->linker->link($user, $provider->name, $subject, $snapshot);
-                $this->writeGroups($user, $groups, $asserted);
 
-                return $user;
+                return [$user, $this->writeGroups($user, $groups, $asserted)];
             });
         } catch (IdentityAlreadyLinkedException|UserAlreadyExistsException) {
             // Not chained to the caught exception: its message names the person, which this refusal must not tell.
             throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::IdentityLinkedMeanwhile);
         }
         $this->events->dispatch(new PersonProvisioned($now, $tenant, $user->subject, $provider->name, $context));
+        $this->announceMemberships($user, $author, $change, $context);
 
         return $user;
     }
@@ -207,10 +216,33 @@ final readonly class JustInTimeProvisioning
     /**
      * @param list<mixed> $asserted
      */
-    private function writeGroups(User $user, ?GroupMapping $groups, array $asserted): void
+    private function writeGroups(User $user, ?GroupMapping $groups, array $asserted): ?UpstreamMembershipChange
     {
-        if ($groups !== null) {
-            $this->memberships->replace($user, $asserted, $groups);
+        return $groups === null ? null : $this->memberships->replace($user, $asserted, $groups);
+    }
+
+    /**
+     * Before the unit: an entity ID the author cannot hold refuses the sign-in before anything is written, not after.
+     *
+     * @throws InvalidArgumentException
+     */
+    private static function authorOfTheMemberships(UpstreamProvider $provider, ?GroupMapping $groups): ?AnUpstreamProvider
+    {
+        return $groups === null ? null : new AnUpstreamProvider($provider->name);
+    }
+
+    private function announceMemberships(User $user, ?AnUpstreamProvider $author, ?UpstreamMembershipChange $change, RequestContext $context): void
+    {
+        if ($author === null || $change === null) {
+            return;
+        }
+        foreach ($change->removed as $group) {
+            $this->events->dispatch(
+                new GroupMembershipRemoved($user->tenant, $user->subject, $group->id, $group->name, $change->replacedAt, $context, $author),
+            );
+        }
+        foreach ($change->granted as $group) {
+            $this->events->dispatch(new GroupMembershipAdded($user->tenant, $user->subject, $group->id, $group->name, $change->replacedAt, $context, $author));
         }
     }
 

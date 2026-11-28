@@ -1355,7 +1355,7 @@
       </trans-unit>
       <trans-unit id="author.upstream.named" resname="author.upstream.named">
         <source>author.upstream.named</source>
-        <target>Постачальник ідентичності {name}</target>
+        <target>Вхід через {name}</target>
       </trans-unit>
       <trans-unit id="author.unauthenticated" resname="author.unauthenticated">
         <source>author.unauthenticated</source>

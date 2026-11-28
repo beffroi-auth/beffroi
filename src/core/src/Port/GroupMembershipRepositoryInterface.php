@@ -10,5 +10,8 @@ interface GroupMembershipRepositoryInterface
 {
     public function save(GroupMembership $membership): void;
 
-    public function remove(GroupMembership $membership): void;
+    /**
+     * @return bool false when the row was already gone, another write having removed it first
+     */
+    public function remove(GroupMembership $membership): bool;
 }

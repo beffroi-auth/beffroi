@@ -17,6 +17,7 @@ use Beffroi\Core\Port\MembersOfAGroupInterface;
 use PHPUnit\Framework\Attributes\Test;
 use function sprintf;
 use function array_map;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -59,6 +60,26 @@ final class GroupMembershipsTest extends DatabaseTestCase
         self::reload();
         static::assertSame([], self::groupsOf($user));
         static::assertNotNull(self::entityManager()->find(Group::class, $admins->id));
+    }
+
+    /**
+     * beffroi/saml S-56
+     */
+    #[Test]
+    public function aMembershipAnotherWriteRemovedFirstIsNotRemovedAgain(): void
+    {
+        // Given
+        $user = self::user();
+        self::memberships()->save(new GroupMembership(Uuid::v7(), self::group('admins'), $user, GroupSource::UpstreamClaims, self::now()));
+        self::reload();
+        $membership = self::groupsOf($user)[0];
+        self::entityManager()->getConnection()->executeStatement('DELETE FROM beffroi_group_membership WHERE id = ?', [$membership->id], [UuidType::NAME]);
+
+        // When
+        $removed = self::memberships()->remove($membership);
+
+        // Then
+        static::assertFalse($removed);
     }
 
     #[Test]

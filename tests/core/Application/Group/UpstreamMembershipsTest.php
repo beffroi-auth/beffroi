@@ -14,6 +14,7 @@ use Beffroi\Core\Domain\Group\GroupSource;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -71,6 +72,88 @@ final class UpstreamMembershipsTest extends TestCase
         static::assertSame($this->user, $memberships[0]->user);
         static::assertSame(GroupSource::UpstreamClaims, $memberships[0]->source);
         static::assertEquals($this->clock->now(), $memberships[0]->addedAt);
+    }
+
+    #[Test]
+    public function aReplacementSaysTheGroupsItGranted(): void
+    {
+        // When
+        $change = $this->upstream->replace($this->user, ['sales-guid'], $this->mapping);
+
+        // Then
+        static::assertEquals([[$this->sales], [], $this->clock->now()], [$change->granted, $change->removed, $change->replacedAt]);
+    }
+
+    #[Test]
+    public function aReplacementSaysTheGroupsItTookAway(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['admins-guid', 'sales-guid'], $this->mapping);
+
+        // When
+        $change = $this->upstream->replace($this->user, ['admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([[], [$this->sales]], [$change->granted, $change->removed]);
+    }
+
+    #[Test]
+    public function aMembershipAnotherWriteTookAwayFirstIsNotSaidTakenAway(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['admins-guid', 'sales-guid'], $this->mapping);
+        $removedMeanwhile = new readonly class($this->memberships) implements GroupMembershipRepositoryInterface {
+            public function __construct(
+                private GroupMembershipRepositoryInterface $stored,
+            ) {
+            }
+
+            public function save(GroupMembership $membership): void
+            {
+                $this->stored->save($membership);
+            }
+
+            public function remove(GroupMembership $membership): bool
+            {
+                $this->stored->remove($membership);
+
+                return false;
+            }
+        };
+        $upstream = new UpstreamMemberships($this->memberships, $removedMeanwhile, new SymfonyUuidGenerator(), $this->clock);
+
+        // When
+        $change = $upstream->replace($this->user, ['admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([], $change->removed);
+    }
+
+    #[Test]
+    public function theValuesOfTheLastSignInAssertedAgainChangeNothing(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['admins-guid', 'sales-guid'], $this->mapping);
+
+        // When
+        $change = $this->upstream->replace($this->user, ['sales-guid', 'admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([[], []], [$change->granted, $change->removed]);
+    }
+
+    #[Test]
+    #[DataProvider('provideSourcesASignInLeaves')]
+    public function aGroupThePersonHoldsFromAnotherSourceIsNotGrantedAgain(GroupSource $source): void
+    {
+        // Given
+        $this->memberships->save(new GroupMembership(Uuid::v7(), $this->admins, $this->user, $source, Fixtures::now()));
+
+        // When
+        $change = $this->upstream->replace($this->user, ['admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([[], []], [$change->granted, $change->removed]);
     }
 
     #[Test]

@@ -15,6 +15,7 @@ use Beffroi\Core\Domain\Group\GroupSource;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\GroupMembershipException;
+use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Domain\Event\GroupMembershipAdded;
 use Beffroi\Core\Domain\Event\GroupMembershipRemoved;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -68,9 +69,9 @@ final class LocalMembershipsTest extends TestCase
 
         // Then
         static::assertEquals(
-            [[$this->user->subject->value, 'administrators', new TheHost()]],
+            [[$this->user->subject->value, $this->group->id, 'administrators', new TheHost()]],
             array_map(
-                static fn (GroupMembershipAdded $act): array => [$act->subject()->value, $act->group, $act->author()],
+                static fn (GroupMembershipAdded $act): array => [$act->subject()->value, $act->groupId, $act->group, $act->author()],
                 $this->events->of(GroupMembershipAdded::class),
             ),
         );
@@ -97,9 +98,9 @@ final class LocalMembershipsTest extends TestCase
 
         // Then
         static::assertEquals(
-            [[$this->user->subject->value, 'administrators', new TheHost()]],
+            [[$this->user->subject->value, $this->group->id, 'administrators', new TheHost()]],
             array_map(
-                static fn (GroupMembershipRemoved $act): array => [$act->subject()->value, $act->group, $act->author()],
+                static fn (GroupMembershipRemoved $act): array => [$act->subject()->value, $act->groupId, $act->group, $act->author()],
                 $this->events->of(GroupMembershipRemoved::class),
             ),
         );
@@ -200,6 +201,36 @@ final class LocalMembershipsTest extends TestCase
         $this->local->remove($this->group, $this->user, Fixtures::context());
     }
 
+    #[Test]
+    public function aMembershipAnotherRemovalTookAwayFirstIsRefusedAsOneThePersonDoesNotHold(): void
+    {
+        // Given
+        $this->local->add($this->group, $this->user, Fixtures::context());
+
+        // Then
+        $this->expectException(GroupMembershipException::class);
+        $this->expectExceptionMessageIs('This person is not a member of the group "administrators".');
+
+        // When
+        $this->removedMeanwhile()->remove($this->group, $this->user, Fixtures::context());
+    }
+
+    #[Test]
+    public function aMembershipAnotherRemovalTookAwayFirstIsNotAnnouncedAgain(): void
+    {
+        // Given
+        $this->local->add($this->group, $this->user, Fixtures::context());
+
+        // When
+        try {
+            $this->removedMeanwhile()->remove($this->group, $this->user, Fixtures::context());
+        } catch (GroupMembershipException) {
+        }
+
+        // Then
+        static::assertSame([], $this->events->of(GroupMembershipRemoved::class));
+    }
+
     /**
      * The next assertion of the upstream provider would write it again.
      */
@@ -215,5 +246,32 @@ final class LocalMembershipsTest extends TestCase
 
         // When
         $this->local->remove($this->group, $this->user, Fixtures::context());
+    }
+
+    /**
+     * The use case on a store whose row another removal deleted between the reading and the deletion.
+     */
+    private function removedMeanwhile(): LocalMemberships
+    {
+        $writer = new readonly class($this->memberships) implements GroupMembershipRepositoryInterface {
+            public function __construct(
+                private GroupMembershipRepositoryInterface $stored,
+            ) {
+            }
+
+            public function save(GroupMembership $membership): void
+            {
+                $this->stored->save($membership);
+            }
+
+            public function remove(GroupMembership $membership): bool
+            {
+                $this->stored->remove($membership);
+
+                return false;
+            }
+        };
+
+        return new LocalMemberships($writer, $this->memberships, new SymfonyUuidGenerator(), $this->clock, $this->events);
     }
 }

@@ -50,6 +50,20 @@ final readonly class SerializedProperties
     }
 
     /**
+     * @template T of object
+     *
+     * @param class-string<T> $class
+     *
+     * @throws InvalidArgumentException
+     *
+     * @return T|null null when the body holds no such property, as one the version before wrote
+     */
+    public function nullableObject(string $name, string $class): ?object
+    {
+        return isset($this->properties[$name]) ? $this->object($name, $class) : null;
+    }
+
+    /**
      * @throws InvalidArgumentException
      */
     public function string(string $name): string

@@ -68,7 +68,16 @@ final readonly class AdministeredMemberships
         if ($user->id->equals($administrator->user->id) && in_array($found->name, $this->administrators->groupsAdministering($administrator->tenant), true)) {
             throw new OwnAccountRefusedException('An administrator does not take themselves out of a group whose members administer the tenant.');
         }
-        $this->memberships->removeByAnAdministrator($found, $user, $administrator->user->subject, $context);
+        try {
+            $this->memberships->removeByAnAdministrator($found, $user, $administrator->user->subject, $context);
+        } catch (GroupMembershipException $exception) {
+            // Another removal took them out after the reading above: answered as when it came first.
+            if (! $this->isAMember($found, $user)) {
+                return null;
+            }
+
+            throw $exception;
+        }
 
         return $found;
     }
