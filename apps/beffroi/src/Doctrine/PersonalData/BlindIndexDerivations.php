@@ -13,6 +13,7 @@ use Closure;
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Table;
@@ -140,6 +141,14 @@ final readonly class BlindIndexDerivations implements ClassifiedFieldsInterface
             ->addColumn(Column::editor()->setUnquotedName('joined')->setTypeName(Types::INTEGER)->create())
             ->addColumn(Column::editor()->setUnquotedName('derived_at')->setTypeName(Types::DATETIME_IMMUTABLE)->create())
             ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('tenant_id')->create())
+            ->addForeignKeyConstraint(
+                ForeignKeyConstraint::editor()
+                    ->setUnquotedName(self::TABLE . '_tenant')
+                    ->setUnquotedReferencingColumnNames('tenant_id')
+                    ->setUnquotedReferencedTableName('beffroi_tenant')
+                    ->setUnquotedReferencedColumnNames('id')
+                    ->create(),
+            )
             ->create();
     }
 
