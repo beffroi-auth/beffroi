@@ -5,7 +5,7 @@ Thank you for looking at Beffroi. The project is young: the scope is narrow on p
 ## Before opening a pull request
 
 - Open or pick an issue first; the milestones say what is in scope now.
-- Run `castor prepare-pr` and `castor phpunit`. CI runs the same tools on PHP 8.5.
+- Run `castor prepare-pr` and `castor phpunit`. CI runs the same tools on PHP 8.5, and the tests on 8.4 and 8.6 as well.
 - A node added, renamed or re-worded in the configuration of the provider (the `beffroi:` tree): run `castor config-reference-fix` and commit `apps/beffroi/config/reference.php` and `apps/beffroi/config/schema.json` with it. CI checks them.
 - Name tests after the specification section they verify.
 - Comment only what the names and the code cannot say: the types PHP cannot express, `@throws`, the section a class implements, a reason someone would otherwise undo. No comment that restates a name, no design narrative, no history.

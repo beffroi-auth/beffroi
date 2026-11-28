@@ -142,7 +142,7 @@ Without a TTY (CI, agents), pass `</dev/null` or the Docker flag falls back to `
 
 ## Conventions
 
-- PHP 8.4 is the floor in `composer.json`; 8.5 is what actually runs, on the machine as in CI, where the 8.4 job is commented out. Symfony 8.2 (dev branches until release). `declare(strict_types=1)`, `final` by default, public readonly properties on value objects, no getters/setters on entities.
+- PHP 8.4 is the floor in `composer.json`; 8.5 is what runs on the machine and in CI, where the tests and the suite of the application run on 8.4 and 8.6 as well, and on the next version, allowed to fail, once there is a phpqa image of it (`.github/php-versions.sh`). Symfony 8.2 (dev branches until release). `declare(strict_types=1)`, `final` by default, public readonly properties on value objects, no getters/setters on entities.
 - No variadic parameter (`Type ...$values`): a function that takes several values takes a typed list (`@param list<Type> $values`). Spreading a list into a call (`...$arguments`) is not concerned.
 - Test names cite the specification section they verify: `#[Test] public function itRejectsPlainPkceMethod(): void` with `RFC 7636 §4.3` in the docblock. The form of a test is fixed, see "Tests" below.
 - Every secret string comes from `random_bytes()`, every secret comparison goes through `hash_equals()`, no boolean coming from a third party is ever cast.
