@@ -6,9 +6,11 @@ namespace App\Http;
 
 use Doctrine\DBAL\Connection;
 use LogicException;
+use RuntimeException;
 use SensitiveParameter;
 use SessionHandlerInterface;
 use SessionUpdateTimestampHandlerInterface;
+use function session_create_id;
 use Symfony\Component\KeyManagement\EnvelopeDecrypterInterface;
 use Symfony\Component\KeyManagement\EnvelopeEncrypterInterface;
 
@@ -63,6 +65,20 @@ final class DatabaseSessions implements SessionHandlerInterface, SessionUpdateTi
     public function gc(int $max_lifetime): int|false
     {
         return $this->rows()->gc($max_lifetime);
+    }
+
+    /**
+     * @throws RuntimeException when PHP creates no identifier
+     */
+    public function create_sid(): string
+    {
+        // Within a call of the handler, session_create_id() takes the generator of PHP, not this method.
+        $id = session_create_id();
+        if ($id === false) {
+            throw new RuntimeException('PHP created no identifier for the session.');
+        }
+
+        return $id;
     }
 
     public function validateId(#[SensitiveParameter] string $id): bool
