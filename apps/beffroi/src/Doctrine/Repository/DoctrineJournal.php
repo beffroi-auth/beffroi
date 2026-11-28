@@ -70,7 +70,7 @@ final readonly class DoctrineJournal extends DoctrineRepository implements
             throw new RuntimeException(sprintf('The tenant "%s" of an act of the journal has no row.', $entry->tenant->slug));
         }
 
-        return new JournalEntry($entry->id, $tenant, $entry->act, $entry->occurredAt, $entry->context, $entry->subject, $entry->client, $entry->author);
+        return $entry->withTenant($tenant);
     }
 
     public function countActsSince(Tenant $tenant, DateTimeImmutable $since): array
