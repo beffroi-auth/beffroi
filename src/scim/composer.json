@@ -1,0 +1,33 @@
+{
+    "name": "beffroi/scim",
+    "description": "SCIM 2.0 module of the IdP: the service provider of RFC 7643 and RFC 7644 for the directories of a tenant, the User, EnterpriseUser and Group schemas mapped onto the identity model of the core and the record of a directory, the filter, the pagination and the versioning of the protocol. Pure PHP.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "scim",
+        "scim2",
+        "provisioning",
+        "directory",
+        "identity-provider"
+    ],
+    "authors": [
+        {
+            "name": "All contributors"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "ext-intl": "*",
+        "beffroi/core": "self.version"
+    },
+    "autoload": {
+        "psr-4": {
+            "Beffroi\\Scim\\": "src/"
+        }
+    },
+    "extra": {
+        "thanks": {
+            "name": "beffroi/framework"
+        }
+    }
+}
