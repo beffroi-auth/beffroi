@@ -9,12 +9,17 @@ use function array_values;
 use DateTimeImmutable;
 use Beffroi\Oidc\Domain\Consent\Consent;
 use Beffroi\Oidc\Domain\Token\RefreshToken;
+use Beffroi\Oidc\Port\CanRevokeARefreshTokenOnceInterface;
 use Beffroi\Oidc\Port\RefreshTokenRepositoryInterface;
 use Beffroi\Oidc\Port\RefreshTokenRotationInterface;
 use Beffroi\Oidc\Port\RefreshTokensOfAConsentInterface;
 use Symfony\Component\Uid\Uuid;
 
-final class InMemoryRefreshTokenRepository implements RefreshTokenRepositoryInterface, RefreshTokenRotationInterface, RefreshTokensOfAConsentInterface
+final class InMemoryRefreshTokenRepository implements
+    CanRevokeARefreshTokenOnceInterface,
+    RefreshTokenRepositoryInterface,
+    RefreshTokenRotationInterface,
+    RefreshTokensOfAConsentInterface
 {
     /**
      * @var array<string, RefreshToken> by token hash
@@ -58,6 +63,24 @@ final class InMemoryRefreshTokenRepository implements RefreshTokenRepositoryInte
         if ($token !== $stored) {
             $token->rotate($now);
         }
+
+        return true;
+    }
+
+    public function revokeOnce(RefreshToken $token, DateTimeImmutable $now): bool
+    {
+        $stored = $this->tokens[$token->tokenHash] ?? null;
+        if ($stored === null) {
+            return false;
+        }
+        if ($stored->revokedAt !== null) {
+            $token->revoke($stored->revokedAt);
+
+            return false;
+        }
+        $stored->revoke($now);
+        $token->revoke($now);
+        ++$this->saves;
 
         return true;
     }

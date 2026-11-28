@@ -87,7 +87,7 @@ final class ConsentRevocationTest extends TestCase
         $this->revocation = new ConsentRevocation(
             $this->consents,
             new RecordedGrants([$this->codes, $deviceRecords, $backchannelRecords]),
-            new RefreshTokenRevocation($this->refreshTokens),
+            new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens),
             $this->refreshTokens,
             $this->accessTokens,
             $this->events,

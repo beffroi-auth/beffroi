@@ -6,6 +6,7 @@ namespace Beffroi\Oidc\Application\Token;
 
 use DateTimeImmutable;
 use Beffroi\Oidc\Domain\Token\RefreshToken;
+use Beffroi\Oidc\Port\CanRevokeARefreshTokenOnceInterface;
 use Beffroi\Oidc\Port\RefreshTokenRepositoryInterface;
 use Symfony\Component\Uid\Uuid;
 
@@ -13,6 +14,7 @@ final readonly class RefreshTokenRevocation
 {
     public function __construct(
         private RefreshTokenRepositoryInterface $refreshTokens,
+        private CanRevokeARefreshTokenOnceInterface $revocations,
     ) {
     }
 
@@ -54,18 +56,15 @@ final readonly class RefreshTokenRevocation
     /**
      * @param iterable<RefreshToken> $tokens
      *
-     * @return list<RefreshToken> the tokens revoked by this call
+     * @return list<RefreshToken> the tokens revoked by this call, and not by another that revoked them first
      */
     public function revokeAll(iterable $tokens, DateTimeImmutable $now): array
     {
         $revoked = [];
         foreach ($tokens as $token) {
-            if ($token->isRevoked()) {
-                continue;
+            if (! $token->isRevoked() && $this->revocations->revokeOnce($token, $now)) {
+                $revoked[] = $token;
             }
-            $token->revoke($now);
-            $this->refreshTokens->save($token);
-            $revoked[] = $token;
         }
 
         return $revoked;

@@ -13,6 +13,7 @@ use function base64_decode;
 use function base64_encode;
 use App\Message\AdvanceKeyLifecycle;
 use App\Message\IssueLogoutToken;
+use App\Message\RevokeTheTokensOfTheSession;
 use App\Message\SendLogoutToken;
 use App\Message\SendAddressConfirmation;
 use App\Message\TellUserOfCredentialChange;
@@ -113,6 +114,13 @@ final class SealedBodySerializerTest extends TestCase
             Fixtures::tenant(),
             'oidc-demo',
             Uuid::v7(),
+            Fixtures::user()->subject,
+            Fixtures::context(),
+        )];
+        yield 'the revocation of the tokens of an ended session' => [new RevokeTheTokensOfTheSession(
+            Fixtures::tenant(),
+            Uuid::v7(),
+            Fixtures::now(),
             Fixtures::user()->subject,
             Fixtures::context(),
         )];

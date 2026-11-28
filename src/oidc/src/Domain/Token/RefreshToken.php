@@ -144,6 +144,20 @@ final class RefreshToken extends ExpiringRecord implements HashedTokenInterface,
         $this->revokedAt = $now;
     }
 
+    /**
+     * Whether the end of its session, at that moment, is what ended it: it was serving then, neither expired nor
+     * rotated, and it is revoked since. The store keeps the second of a revocation, the clock the microsecond of an end.
+     */
+    public function endedWithItsSession(DateTimeImmutable $endedAt): bool
+    {
+        return (
+            ! $this->isExpired($endedAt)
+            && ($this->rotatedAt === null || $this->rotatedAt > $endedAt)
+            && $this->revokedAt !== null
+            && $this->revokedAt->getTimestamp() >= $endedAt->getTimestamp()
+        );
+    }
+
     public function isRotated(): bool
     {
         return $this->rotatedAt !== null;

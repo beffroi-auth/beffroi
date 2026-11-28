@@ -832,6 +832,7 @@ use Beffroi\Oidc\Port\CompactJwtReaderInterface;
 use Beffroi\Oidc\Port\ConsentRepositoryInterface;
 use Beffroi\Oidc\Port\CanRevokeAccessTokensByConsentInterface;
 use Beffroi\Oidc\Port\CanRevokeAccessTokensBySessionInterface;
+use Beffroi\Oidc\Port\CanRevokeARefreshTokenOnceInterface;
 use Beffroi\Oidc\Port\RefreshTokensOfAConsentInterface;
 use Beffroi\Oidc\Port\DpopProofReplayGuardInterface;
 use Beffroi\Oidc\Port\EndpointLocatorInterface;
@@ -1495,6 +1496,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(DoctrineRefreshTokenRepository::class)->tag('beffroi.dead_records');
     $services->alias(RefreshTokenRepositoryInterface::class, DoctrineRefreshTokenRepository::class);
     $services->alias(RefreshTokenRotationInterface::class, DoctrineRefreshTokenRepository::class);
+    $services->alias(CanRevokeARefreshTokenOnceInterface::class, DoctrineRefreshTokenRepository::class);
     $services->alias(RefreshTokensOfAConsentInterface::class, DoctrineRefreshTokenRepository::class);
     $services->set(DoctrineAccessTokenRepository::class)->tag('beffroi.dead_records');
     $services->alias(AccessTokenRepositoryInterface::class, DoctrineAccessTokenRepository::class);

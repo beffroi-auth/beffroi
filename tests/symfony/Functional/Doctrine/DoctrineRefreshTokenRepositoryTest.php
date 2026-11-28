@@ -23,6 +23,7 @@ use Beffroi\Oidc\Domain\Token\RefreshToken;
 use Beffroi\Oidc\Domain\Token\RefreshTokenFamily;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Oidc\Domain\Consent\Consent;
+use Beffroi\Oidc\Port\CanRevokeARefreshTokenOnceInterface;
 use Beffroi\Oidc\Port\RefreshTokenRepositoryInterface;
 use Beffroi\Oidc\Port\RefreshTokenRotationInterface;
 use Beffroi\Oidc\Port\RefreshTokensOfAConsentInterface;
@@ -153,6 +154,59 @@ final class DoctrineRefreshTokenRepositoryTest extends DatabaseTestCase
 
         // When / Then
         static::assertFalse(self::rotation()->rotate($token, self::now()->modify('+1 hour')));
+    }
+
+    #[Test]
+    public function aRevocationClaimedIsWrittenToTheStore(): void
+    {
+        // Given
+        $token = self::stored();
+
+        // When
+        self::revocation()->revokeOnce($token, self::now()->modify('+1 hour'));
+
+        // Then
+        self::reload();
+        $revoked = self::tokens()->findByTokenHash($token->tokenHash) ?? static::fail('The token was not stored.');
+        static::assertEquals(self::now()->modify('+1 hour'), $revoked->revokedAt);
+    }
+
+    #[Test]
+    public function aRevocationClaimedMarksTheCopyOfTheCaller(): void
+    {
+        // Given
+        $token = self::stored();
+
+        // When
+        self::revocation()->revokeOnce($token, self::now()->modify('+1 hour'));
+
+        // Then
+        static::assertEquals(self::now()->modify('+1 hour'), $token->revokedAt);
+    }
+
+    #[Test]
+    public function aTokenAnotherWorkerRevokedIsNotRevokedAgain(): void
+    {
+        // Given
+        $token = self::stored();
+        self::changedByAnotherRequest($token, 'revoked_at');
+
+        // When / Then
+        static::assertFalse(self::revocation()->revokeOnce($token, self::now()->modify('+1 hour')));
+    }
+
+    #[Test]
+    public function aTokenAnotherWorkerRevokedIsReadBackRevokedByTheCaller(): void
+    {
+        // Given
+        $token = self::stored();
+        self::changedByAnotherRequest($token, 'revoked_at');
+
+        // When
+        self::revocation()->revokeOnce($token, self::now()->modify('+1 hour'));
+
+        // Then
+        static::assertEquals(self::now()->modify('+30 minutes'), $token->revokedAt);
     }
 
     #[Test]
@@ -399,6 +453,11 @@ final class DoctrineRefreshTokenRepositoryTest extends DatabaseTestCase
                 self::now()->modify('+30 minutes')->format('Y-m-d H:i:s'),
                 $token->tokenHash,
             ]);
+    }
+
+    private static function revocation(): CanRevokeARefreshTokenOnceInterface
+    {
+        return self::service('test.beffroi.refresh_token_revocation', CanRevokeARefreshTokenOnceInterface::class);
     }
 
     private static function rotation(): RefreshTokenRotationInterface

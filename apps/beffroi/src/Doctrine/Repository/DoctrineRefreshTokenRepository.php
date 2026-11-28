@@ -17,6 +17,7 @@ use Doctrine\DBAL\Types\Types;
 use Beffroi\Oidc\Domain\Consent\Consent;
 use Beffroi\Oidc\Domain\Token\RefreshToken;
 use Beffroi\Oidc\Domain\Token\RefreshTokenFamily;
+use Beffroi\Oidc\Port\CanRevokeARefreshTokenOnceInterface;
 use Beffroi\Oidc\Port\RefreshTokenRepositoryInterface;
 use Beffroi\Oidc\Port\RefreshTokenRotationInterface;
 use Beffroi\Oidc\Port\RefreshTokensOfAConsentInterface;
@@ -29,6 +30,7 @@ use Symfony\Component\Uid\Uuid;
  * @extends DoctrineRepository<RefreshToken>
  */
 final readonly class DoctrineRefreshTokenRepository extends DoctrineRepository implements
+    CanRevokeARefreshTokenOnceInterface,
     DeadRecordsInterface,
     RefreshTokenRepositoryInterface,
     RefreshTokenRotationInterface,
@@ -183,6 +185,53 @@ final readonly class DoctrineRefreshTokenRepository extends DoctrineRepository i
         }
 
         return $claimed;
+    }
+
+    /**
+     * Through the connection, not the unit of work: of two workers revoking the same token, one revokes it, and the other
+     * reads the moment it was revoked, a refresh of the entity refusing its read-only value objects.
+     */
+    public function revokeOnce(RefreshToken $token, DateTimeImmutable $now): bool
+    {
+        $manager = $this->manager();
+        $connection = $manager->getConnection();
+        $metadata = $manager->getClassMetadata(RefreshToken::class);
+        $revokedAt = $metadata->getColumnName('revokedAt');
+        $tokenHash = $metadata->getColumnName('tokenHash');
+        $revoked =
+            $connection->executeStatement(
+                sprintf(
+                    'UPDATE %s SET %s = :now WHERE %s = :tokenHash AND %s IS NULL',
+                    $metadata->getTableName(),
+                    $revokedAt,
+                    $tokenHash,
+                    $revokedAt,
+                ),
+                [
+                    'now' => $now,
+                    'tokenHash' => $token->tokenHash,
+                ],
+                [
+                    'now' => Types::DATETIME_IMMUTABLE,
+                    'tokenHash' => ParameterType::STRING,
+                ],
+            ) === 1;
+        if ($revoked) {
+            $token->revoke($now);
+
+            return true;
+        }
+        $first = $connection->convertToPHPValue(
+            $connection->fetchOne(sprintf('SELECT %s FROM %s WHERE %s = :tokenHash', $revokedAt, $metadata->getTableName(), $tokenHash), [
+                'tokenHash' => $token->tokenHash,
+            ]),
+            Types::DATETIME_IMMUTABLE,
+        );
+        if ($first instanceof DateTimeImmutable) {
+            $token->revoke($first);
+        }
+
+        return false;
     }
 
     public function save(RefreshToken $token): void

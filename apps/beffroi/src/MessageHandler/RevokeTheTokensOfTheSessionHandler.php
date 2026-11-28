@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\MessageHandler;
 
-use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
+use App\Message\RevokeTheTokensOfTheSession;
 use Beffroi\Oidc\Application\EndSession\SessionTokensRevocation;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
-#[AsMessageHandler(bus: 'event.bus')]
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class RevokeTheTokensOfTheSessionHandler
 {
     public function __construct(
@@ -16,15 +16,15 @@ final readonly class RevokeTheTokensOfTheSessionHandler
     ) {
     }
 
-    public function __invoke(AuthenticationSessionEnded $event): void
+    public function __invoke(RevokeTheTokensOfTheSession $command): void
     {
         $this->revocation->sessionEnded(
-            $event->session->id,
-            $event->occurredAt,
-            $event->tenant,
-            $event->subject(),
-            $event->context,
-            $event->administrator,
+            $command->sessionId,
+            $command->endedAt,
+            $command->tenant,
+            $command->subject,
+            $command->context,
+            $command->administrator,
         );
     }
 }
