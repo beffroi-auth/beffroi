@@ -55,7 +55,7 @@ final readonly class UsernameCaseMapped
     /**
      * The enforced form, or the username as written when the profile refuses it. No person is created or renamed under
      * a refused username; one written before the profile applied is compared as written, an exception that ends with
-     * 1.0.0.
+     * 1.0.0 (beffroi#1464).
      */
     public static function comparisonForm(string $username): string
     {
