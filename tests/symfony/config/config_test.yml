@@ -1421,6 +1421,12 @@ services:
     test.beffroi.refresh_tokens:
         alias: Beffroi\Oidc\Port\RefreshTokenRepositoryInterface
         public: true
+    test.beffroi.refresh_token_revocation:
+        alias: Beffroi\Oidc\Port\CanRevokeARefreshTokenOnceInterface
+        public: true
+    test.beffroi.announced_session_ends:
+        alias: Beffroi\Oidc\Port\AnnouncedSessionEndsInterface
+        public: true
     test.beffroi.refresh_token_rotation:
         alias: Beffroi\Oidc\Port\RefreshTokenRotationInterface
         public: true

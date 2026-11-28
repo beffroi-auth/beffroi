@@ -541,6 +541,19 @@ final class InMemoryRepositoriesTest extends TestCase
         static::assertSame(3, $repository->saves);
     }
 
+    #[Test]
+    public function aRefreshTokenIsRevokedOnce(): void
+    {
+        // Given
+        $repository = new InMemoryRefreshTokenRepository();
+        $token = Tokens::refreshToken('first', $this->client, $this->session, Fixtures::now());
+        $repository->save($token);
+        $repository->revokeOnce($token, Fixtures::now()->modify('+1 hour'));
+
+        // When / Then
+        static::assertFalse($repository->revokeOnce($token, Fixtures::now()->modify('+2 hours')));
+    }
+
     /**
      * Architecture §4.6
      */

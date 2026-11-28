@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Command;
 
+use App\Command\UserRevokeSessionCommand;
+use App\Tests\Symfony\Functional\Controller\TokensOfASession;
+use function array_map;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Session\SessionEnd;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use PHPUnit\Framework\Attributes\Test;
+use function str_starts_with;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -14,6 +20,8 @@ use Symfony\Component\Console\Tester\CommandTester;
  */
 final class SessionsTest extends ConsoleTestCase
 {
+    use TokensOfASession;
+
     #[Test]
     public function theSessionsOpenInTheNameOfTheUserAreListed(): void
     {
@@ -55,6 +63,32 @@ final class SessionsTest extends ConsoleTestCase
         static::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
         static::assertTrue(self::sessionAgain($session)->hasEnded());
         static::assertSame(SessionEnd::Administrator, self::sessionAgain($session)->endedBy);
+    }
+
+    /**
+     * Decisions 0022 and 0066, Architecture §5.5
+     */
+    #[Test]
+    public function theTokensASessionEndedAtTheConsoleLostAreAnActFromTheConsole(): void
+    {
+        // Given
+        $session = self::session(self::user('alice'), self::currentSecond());
+        self::tokensIssuedIn($session);
+
+        // When
+        self::end('alice', $session->id->toString());
+
+        // Then
+        static::assertEquals([['oidc-demo', 1, 1, new TheHost(), true]], array_map(
+            static fn (SessionTokensRevoked $act): array => [
+                $act->clientId,
+                $act->refreshTokens,
+                $act->accessTokens,
+                $act->author(),
+                str_starts_with((string) $act->context->userAgent, 'beffroi-console/' . UserRevokeSessionCommand::NAME . ' '),
+            ],
+            self::events(SessionTokensRevoked::class),
+        ));
     }
 
     #[Test]

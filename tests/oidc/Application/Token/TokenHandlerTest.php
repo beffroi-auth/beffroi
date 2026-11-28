@@ -137,7 +137,7 @@ final class TokenHandlerTest extends TestCase
         $sessions->save($this->session);
         $this->codeGrant = new AuthorizationCodeGrant(
             $this->codes,
-            new RefreshTokenRevocation($this->refreshTokens),
+            new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens),
             new InMemoryAccessTokenRepository(),
             $sessions,
             $this->issuer,
@@ -151,7 +151,7 @@ final class TokenHandlerTest extends TestCase
             $this->refreshTokens,
             $this->refreshTokens,
             $this->codes,
-            new RefreshTokenRevocation($this->refreshTokens),
+            new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens),
             $sessions,
             $this->issuer,
             new RequestedAuthorizationDetails(AuthorizationDetailTypes::served()),

@@ -335,8 +335,10 @@ use Beffroi\Core\Application\Chain\ChainSignature;
 use Beffroi\Core\Application\Chain\ChainVerification;
 use Beffroi\Core\Domain\Journal\JournalChain;
 use Beffroi\Core\Domain\Identity\ClaimHistoryChain;
+use Beffroi\Oidc\Domain\Client\ActsAboutTheirClient;
 use Beffroi\Oidc\Domain\Disclosure\DisclosureChain;
 use App\Doctrine\Repository\DoctrineDisclosures;
+use App\Doctrine\Repository\DoctrineAnnouncedSessionEnds;
 use Beffroi\Oidc\Application\Archive\DisclosuresChapter;
 use Beffroi\Oidc\Application\Disclosure\DisclosureRecording;
 use Beffroi\Oidc\Application\Disclosure\DisclosureRetention;
@@ -842,6 +844,8 @@ use Beffroi\Oidc\Port\CompactJwtReaderInterface;
 use Beffroi\Oidc\Port\ConsentRepositoryInterface;
 use Beffroi\Oidc\Port\CanRevokeAccessTokensByConsentInterface;
 use Beffroi\Oidc\Port\CanRevokeAccessTokensBySessionInterface;
+use Beffroi\Oidc\Port\CanRevokeARefreshTokenOnceInterface;
+use Beffroi\Oidc\Port\AnnouncedSessionEndsInterface;
 use Beffroi\Oidc\Port\RefreshTokensOfAConsentInterface;
 use Beffroi\Oidc\Port\DpopProofReplayGuardInterface;
 use Beffroi\Oidc\Port\EndpointLocatorInterface;
@@ -1133,7 +1137,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(GroupsChapter::class)->tag('beffroi.archive_chapter');
     $services->set(ConsentsChapter::class)->tag('beffroi.archive_chapter');
     $services->set(SessionsChapter::class)->tag('beffroi.archive_chapter');
-    $services->set(JournalChapter::class)->tag('beffroi.archive_chapter');
+    $services->set(JournalChapter::class)->arg('$actsAboutTheirClient', ActsAboutTheirClient::NAMES)->tag('beffroi.archive_chapter');
     $services->set(ChangesChapter::class)->tag('beffroi.archive_chapter');
     $services->set(DisclosuresChapter::class)->tag('beffroi.archive_chapter');
     $services->set(ArchiveAssembly::class)->args([
@@ -1517,6 +1521,9 @@ return static function (ContainerConfigurator $container): void {
     $services->set(DoctrineRefreshTokenRepository::class)->tag('beffroi.dead_records');
     $services->alias(RefreshTokenRepositoryInterface::class, DoctrineRefreshTokenRepository::class);
     $services->alias(RefreshTokenRotationInterface::class, DoctrineRefreshTokenRepository::class);
+    $services->alias(CanRevokeARefreshTokenOnceInterface::class, DoctrineRefreshTokenRepository::class);
+    $services->set(DoctrineAnnouncedSessionEnds::class);
+    $services->alias(AnnouncedSessionEndsInterface::class, DoctrineAnnouncedSessionEnds::class);
     $services->alias(RefreshTokensOfAConsentInterface::class, DoctrineRefreshTokenRepository::class);
     $services->set(DoctrineAccessTokenRepository::class)->tag('beffroi.dead_records');
     $services->alias(AccessTokenRepositoryInterface::class, DoctrineAccessTokenRepository::class);

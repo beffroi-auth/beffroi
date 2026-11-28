@@ -1413,6 +1413,10 @@
         <source>act.session.ended</source>
         <target>Seanss lõpetatud</target>
       </trans-unit>
+      <trans-unit id="act.session_tokens.revoked" resname="act.session_tokens.revoked">
+        <source>act.session_tokens.revoked</source>
+        <target>Rakendus logiti koos seansiga välja</target>
+      </trans-unit>
       <trans-unit id="act.credential.enrolled" resname="act.credential.enrolled">
         <source>act.credential.enrolled</source>
         <target>Sisselogimisviis lisatud</target>

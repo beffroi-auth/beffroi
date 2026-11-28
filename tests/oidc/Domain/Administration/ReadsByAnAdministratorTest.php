@@ -11,6 +11,7 @@ use function basename;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Oidc\Domain\Administration\ReadsByAnAdministrator;
 use Beffroi\Oidc\Domain\Consent\ConsentActs;
+use Beffroi\Oidc\Domain\EndSession\SessionEndActs;
 use Beffroi\Oidc\Domain\Event\AuthorizationCodeIssued;
 use Beffroi\Oidc\Domain\Event\AuthorizationCodeReplayed;
 use Beffroi\Oidc\Domain\Event\BackchannelRequestAnswered;
@@ -67,7 +68,12 @@ final class ReadsByAnAdministratorTest extends TestCase
     public function everyActOfAPersonIsOnTheirPageOrIsNamedAsOffIt(): void
     {
         // Given
-        $onThePage = [...ReadsByAnAdministrator::NAMES, ...ConsentActs::NAMES, ...array_keys(self::OFF_THE_PAGE)];
+        $onThePage = [
+            ...ReadsByAnAdministrator::NAMES,
+            ...ConsentActs::NAMES,
+            ...SessionEndActs::NAMES,
+            ...array_keys(self::OFF_THE_PAGE),
+        ];
 
         // When
         $named = self::actsOfAPerson();

@@ -66,7 +66,7 @@ final class RefreshTokenRevocationTest extends TestCase
         foreach ([$this->first, $this->second, $this->alreadyRevoked, $this->ofAnotherFamily] as $token) {
             $this->refreshTokens->save($token);
         }
-        $this->revocation = new RefreshTokenRevocation($this->refreshTokens);
+        $this->revocation = new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens);
     }
 
     #[Test]
@@ -89,7 +89,7 @@ final class RefreshTokenRevocationTest extends TestCase
     {
         // Given
         $successor = Tokens::refreshToken('successor', $this->client, $this->session, $this->clock->now(), $this->family);
-        $revocation = new RefreshTokenRevocation(new SuccessorWrittenAfterARead($this->refreshTokens, $successor));
+        $revocation = new RefreshTokenRevocation(new SuccessorWrittenAfterARead($this->refreshTokens, $successor), $this->refreshTokens);
 
         // When
         $revocation->revokeFamily($this->family->id, $this->clock->now());

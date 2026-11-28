@@ -1232,7 +1232,7 @@ final class RefreshTokenGrantTest extends TestCase
             $this->refreshTokens,
             $rotations,
             $this->grants,
-            new RefreshTokenRevocation($this->refreshTokens),
+            new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens),
             $this->sessions,
             $this->issuer,
             new RequestedAuthorizationDetails(AuthorizationDetailTypes::served()),

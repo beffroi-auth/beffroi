@@ -6,8 +6,9 @@
    found nothing. Who did an act is said in place of where it came from when its kind tells it by its role
    or by its name (beffroi_author, decision 0066): an administrator of the tenant or the host by their role
    and nothing else of them, a directory or an upstream provider by its name; the others, and an act that
-   names no author, by where it came from. An act is named from the catalogue, so an act this provider
-   comes to write down is named here by being translated and this page is not edited.
+   names no author, by where it came from. The application an act is about is the person's, and is named
+   under it whoever did the act. An act is named from the catalogue, so an act this provider comes to
+   write down is named here by being translated and this page is not edited.
 
    The list is narrowed by what ActsPage reads ("question", a JournalQuestion): the days of the act, one
    act of those "offered" ("act", the one read), and the kind of its author among the wired "kinds". #}
@@ -51,7 +52,12 @@
             <tbody>
                 {% for act in acts %}
                     <tr data-act="{{ act.act }}">
-                        <td data-label="{{ 'acts.what'|trans }}">{{ ('act.' ~ act.act)|trans }}</td>
+                        <td data-label="{{ 'acts.what'|trans }}">
+                            {{- ('act.' ~ act.act)|trans -}}
+                            {%- if applications[act.client] is defined -%}
+                                <span data-application>{{ applications[act.client] }}</span>
+                            {%- endif -%}
+                        </td>
                         <td data-label="{{ 'acts.when'|trans }}"><time datetime="{{ act.occurredAt|date('c') }}">{{ act.occurredAt|beffroi_moment(user) }}</time></td>
                         <td data-label="{{ 'acts.from'|trans }}">
                             {%- set told = act.author|beffroi_author -%}

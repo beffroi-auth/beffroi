@@ -5,11 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Controller;
 
 use function array_filter;
+use function array_map;
 use function base64_encode;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Port\AuthenticationSessionRepositoryInterface;
 use Beffroi\Core\Port\TenantKeyRepositoryInterface;
 use Beffroi\Core\Tests\Fixture\Algorithms;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use Beffroi\Oidc\Domain\Secret\DrawnSecret;
 use Beffroi\Oidc\Domain\Token\RefreshToken;
 use Beffroi\Oidc\Port\RefreshTokenRepositoryInterface;
@@ -18,6 +24,7 @@ use const DATE_ATOM;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * OIDC RP-Initiated Logout 1.0 §2 to §4, Architecture §4.9, §5.2
@@ -238,6 +245,63 @@ final class EndSessionControllerTest extends BrowserTestCase
     }
 
     /**
+     * Decision 0022, beffroi/saml S-25
+     */
+    #[Test]
+    public function aLateRefreshTokenRevokedAtItsFirstUseIsAnnouncedByNoAct(): void
+    {
+        // Given
+        self::signingKey();
+        $session = $this->signIn(self::user('alice'));
+        $idToken = $this->idTokenOfTheBoundBrowser();
+        $this->browser->request('GET', '/logout', [
+            'id_token_hint' => $idToken,
+            'post_logout_redirect_uri' => 'https://demo.test/',
+        ]);
+        self::reload();
+        $late = self::tokensIssuedIn(self::sessions()->find($session->id) ?? static::fail('The session is gone.'))['refresh'];
+        self::forgetEvents();
+
+        // When
+        $this->refresh($late);
+
+        // Then
+        static::assertSame([], self::events(SessionTokensRevoked::class));
+    }
+
+    /**
+     * Decision 0038
+     */
+    #[Test]
+    public function theEndHandledAfterARefreshNamesTheAdministratorWhoEndedTheSession(): void
+    {
+        // Given
+        $session = $this->signIn(self::user('alice'));
+        $tokens = self::tokensIssuedIn($session);
+        $ended = self::sessions()->find($session->id) ?? static::fail('The session is gone.');
+        $ended->end(SessionEnd::Administrator, self::currentSecond());
+        self::sessions()->save($ended);
+        self::reload();
+        $this->refresh($tokens['refresh']);
+        self::forgetEvents();
+
+        // When
+        self::service('event.bus', MessageBusInterface::class)
+            ->dispatch(new AuthenticationSessionEnded(
+                $ended,
+                self::currentSecond(),
+                self::context(),
+                new AnAdministrator(new Subject('administrator-subject')),
+            ));
+
+        // Then
+        static::assertEquals([['oidc-demo', 1, 1, new AnAdministrator(new Subject('administrator-subject'))]], array_map(
+            static fn (SessionTokensRevoked $act): array => [$act->clientId, $act->refreshTokens, $act->accessTokens, $act->author()],
+            self::events(SessionTokensRevoked::class),
+        ));
+    }
+
+    /**
      * RP-Initiated Logout 1.0 §2
      */
     #[Test]
@@ -392,6 +456,21 @@ final class EndSessionControllerTest extends BrowserTestCase
         $this->signIn($user);
 
         return $this->idTokenOfTheBoundBrowser();
+    }
+
+    private function refresh(string $refreshToken): void
+    {
+        $this->browser->request(
+            'POST',
+            '/token',
+            [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $refreshToken,
+            ],
+            server: [
+                'HTTP_AUTHORIZATION' => 'Basic ' . base64_encode('oidc-demo:demo-secret-of-at-least-32-characters-long'),
+            ],
+        );
     }
 
     private static function sessions(): AuthenticationSessionRepositoryInterface

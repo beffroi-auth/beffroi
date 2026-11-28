@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Controller;
 
 use App\Http\SessionsPage;
+use function array_map;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\AuthenticationMethod;
 use Beffroi\Core\Domain\Session\AuthenticationProofs;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Port\AuthenticationSessionRepositoryInterface;
+use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\DomCrawler\Crawler;
@@ -77,6 +81,29 @@ final class AccountSessionsTest extends BrowserTestCase
 
         // Then
         self::assertTheTokensAreRevoked($tokens);
+    }
+
+    /**
+     * Decision 0022
+     */
+    #[Test]
+    public function theTokensTheEndOfASessionRevokedAreAnActOfThePersonThatNamesTheClient(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        $this->signIn($alice);
+        $other = self::session($alice, self::currentSecond()->modify('-1 hour'));
+        self::tokensIssuedIn($other);
+        $token = $this->token($other);
+
+        // When
+        $this->browser->request('POST', '/account/sessions/' . $other->id . '/revoke', ['_token' => $token]);
+
+        // Then
+        static::assertEquals([[$alice->subject->value, 'oidc-demo', new ThePerson()]], array_map(
+            static fn (JournalEntry $act): array => [$act->subject?->value, $act->client, $act->author],
+            self::entityManager()->getRepository(JournalEntry::class)->findBy(['act' => SessionTokensRevoked::NAME]),
+        ));
     }
 
     #[Test]

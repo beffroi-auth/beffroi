@@ -1042,6 +1042,10 @@ La réponse revient à {redirect_uri}.</target>
         <source>act.session.ended</source>
         <target>sessions terminées</target>
       </trans-unit>
+      <trans-unit id="f02390255c" resname="act.session_tokens.revoked">
+        <source>act.session_tokens.revoked</source>
+        <target>jetons de session révoqués</target>
+      </trans-unit>
       <trans-unit id="84aae6eedc" resname="act.consent.granted">
         <source>act.consent.granted</source>
         <target>consentements donnés</target>

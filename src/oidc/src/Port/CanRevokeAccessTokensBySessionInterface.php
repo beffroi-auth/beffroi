@@ -10,7 +10,7 @@ use Symfony\Component\Uid\Uuid;
 interface CanRevokeAccessTokensBySessionInterface
 {
     /**
-     * @return list<StoredAccessToken>
+     * @return list<StoredAccessToken> those this call removed, and not another that removed them first
      */
     public function revokeBySession(Uuid $session): array;
 }

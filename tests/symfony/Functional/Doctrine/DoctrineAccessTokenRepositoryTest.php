@@ -38,6 +38,8 @@ use Beffroi\Oidc\Port\CanRevokeAccessTokensBySessionInterface;
 use Beffroi\Oidc\Tests\Fixture\Clients;
 use Beffroi\Oidc\Tests\Fixture\Methods;
 use Beffroi\Oidc\Tests\Fixture\Tokens;
+use Doctrine\ORM\Event\PostLoadEventArgs;
+use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Uid\Uuid;
@@ -358,6 +360,25 @@ final class DoctrineAccessTokenRepositoryTest extends DatabaseTestCase
         static::assertNotNull(self::tokens()->find($elsewhere));
     }
 
+    /**
+     * Decision 0022
+     */
+    #[Test]
+    public function aTokenAnotherWorkerRemovesBetweenTheReadAndTheRemovalIsNotTold(): void
+    {
+        // Given
+        $session = self::session(self::user());
+        self::issued(self::authorization($session), self::now(), self::now()->modify('+10 minutes'));
+        self::reload();
+        self::removedByAnotherWorkerOnceRead();
+
+        // When
+        $revoked = self::sessionRevoker()->revokeBySession($session->id);
+
+        // Then
+        static::assertSame([], $revoked);
+    }
+
     #[Test]
     public function aTokenOfAnUnregisteredClientIsNeitherFoundNorTold(): void
     {
@@ -463,6 +484,29 @@ final class DoctrineAccessTokenRepositoryTest extends DatabaseTestCase
     private static function grantRevoker(): CanRevokeAccessTokensByGrantInterface
     {
         return self::service('test.beffroi.access_tokens_store', CanRevokeAccessTokensByGrantInterface::class);
+    }
+
+    /**
+     * What a worker revoking the same session writes between this one's read and its removal.
+     */
+    private static function removedByAnotherWorkerOnceRead(): void
+    {
+        self::entityManager()
+            ->getEventManager()
+            ->addEventListener(Events::postLoad, new class {
+                public function postLoad(PostLoadEventArgs $event): void
+                {
+                    $token = $event->getObject();
+                    if ($token instanceof StoredUserAccessToken) {
+                        $event
+                            ->getObjectManager()
+                            ->getConnection()
+                            ->executeStatement('DELETE FROM beffroi_access_token WHERE token_hash = ?', [
+                                $token->tokenHash,
+                            ]);
+                    }
+                }
+            });
     }
 
     private static function sessionRevoker(): CanRevokeAccessTokensBySessionInterface

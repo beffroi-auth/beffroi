@@ -1190,7 +1190,7 @@
         @apply font-mono;
     }
 
-    main[data-page="account"] td span[data-user-agent] {
+    main[data-page="account"] td :is(span[data-user-agent], span[data-application]) {
         @apply block text-xs opacity-60;
     }
 

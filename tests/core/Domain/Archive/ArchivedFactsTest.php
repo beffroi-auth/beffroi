@@ -38,7 +38,7 @@ final class ArchivedFactsTest extends TestCase
         $act = self::act($author);
 
         // When
-        $facts = ArchivedFacts::act($act);
+        $facts = ArchivedFacts::act($act, []);
 
         // Then
         static::assertSame(
@@ -75,7 +75,7 @@ final class ArchivedFactsTest extends TestCase
         $act = self::act($author);
 
         // When
-        $facts = ArchivedFacts::act($act);
+        $facts = ArchivedFacts::act($act, []);
 
         // Then
         static::assertSame(
@@ -95,6 +95,25 @@ final class ArchivedFactsTest extends TestCase
         yield 'an upstream provider, by its name' => [new AnUpstreamProvider('Acme SSO'), ['kind' => 'upstream', 'name' => 'Acme SSO']];
         yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller(), ['kind' => 'unauthenticated']];
         yield 'nobody, written before acts named the kind of their author' => [null, null];
+    }
+
+    /**
+     * Decision 0038
+     */
+    #[Test]
+    public function anActAboutItsClientThatAnAdministratorDidKeepsTheClient(): void
+    {
+        // Given
+        $act = self::act(new AnAdministrator(new Subject('mallory-subject')), 'session_tokens.revoked');
+
+        // When
+        $facts = ArchivedFacts::act($act, ['session_tokens.revoked']);
+
+        // Then
+        static::assertSame(
+            ['tui-of-mallory', null, ['kind' => 'administrator']],
+            [$facts['client'], $facts['from'], $facts['author']],
+        );
     }
 
     #[Test]
@@ -186,12 +205,12 @@ final class ArchivedFactsTest extends TestCase
         static::assertNull($facts['device']);
     }
 
-    private static function act(?AuthorInterface $author): JournalEntry
+    private static function act(?AuthorInterface $author, string $name = 'administration.person_read'): JournalEntry
     {
         return new JournalEntry(
             Uuid::v7(),
             Fixtures::tenant(),
-            'administration.person_read',
+            $name,
             Fixtures::now(),
             Fixtures::context(),
             new Subject('alice-subject'),

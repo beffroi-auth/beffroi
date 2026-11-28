@@ -8,6 +8,7 @@ use function array_filter;
 use function array_merge;
 use function array_values;
 use DateTimeImmutable;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\ClassMetadata as OrmClassMetadata;
 use App\Doctrine\EntityManagers;
@@ -159,14 +160,42 @@ final class DoctrineAccessTokenRepository implements
     /**
      * @param list<StoredAccessToken> $tokens
      *
-     * @return list<StoredAccessToken> oldest first, those of an unregistered client left out
+     * @return list<StoredAccessToken> those this call removed, oldest first, those of an unregistered client left out
      */
     private function removeAll(array $tokens): array
     {
         usort($tokens, static fn (StoredAccessToken $a, StoredAccessToken $b): int => [$a->issuedAt, $a->tokenHash] <=> [$b->issuedAt, $b->tokenHash]);
-        $this->remove($tokens);
 
-        return array_values(array_filter($tokens, ClientResolver::isResolved(...)));
+        $removed = [];
+        foreach ($tokens as $token) {
+            if ($this->removeOnce($token) && ClientResolver::isResolved($token)) {
+                $removed[] = $token;
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Through the connection, not the unit of work, which deletes a row another worker deleted first without a word.
+     */
+    private function removeOnce(StoredAccessToken $token): bool
+    {
+        $manager = $this->managers->forClass($token::class);
+        $metadata = $manager->getClassMetadata($token::class);
+        $removed =
+            $manager->getConnection()->executeStatement(
+                sprintf('DELETE FROM %s WHERE %s = :tokenHash', $metadata->getTableName(), $metadata->getColumnName('tokenHash')),
+                [
+                    'tokenHash' => $token->tokenHash,
+                ],
+                [
+                    'tokenHash' => ParameterType::STRING,
+                ],
+            ) === 1;
+        $manager->detach($token);
+
+        return $removed;
     }
 
     /**

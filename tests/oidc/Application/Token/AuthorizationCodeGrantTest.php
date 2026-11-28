@@ -1432,7 +1432,7 @@ final class AuthorizationCodeGrantTest extends TestCase
 
         return new AuthorizationCodeGrant(
             $this->codes,
-            new RefreshTokenRevocation($this->refreshTokens),
+            new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens),
             $this->accessTokens,
             $this->sessions,
             $issuer,
