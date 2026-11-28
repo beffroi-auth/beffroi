@@ -510,6 +510,43 @@ final class ProvisioningTest extends ConsoleTestCase
         static::assertStringContainsString('A user named "carol" already exists', $tester->getDisplay());
     }
 
+    /**
+     * RFC 8265 §3.3.4, RFC 7643 §4.1.1
+     */
+    #[Test]
+    public function aUsernameComparingEqualToATakenOneIsNotTakenTwice(): void
+    {
+        // Given
+        self::console('beffroi:user:create', [
+            'username' => 'carol',
+        ]);
+
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => 'CAROL',
+        ]);
+
+        // Then
+        static::assertSame(Command::FAILURE, $tester->getStatusCode());
+        static::assertStringContainsString('A user named "CAROL" already exists', $tester->getDisplay());
+    }
+
+    /**
+     * RFC 8265 §3.3, RFC 8264 §4.2.3
+     */
+    #[Test]
+    public function aUsernameTheProfileRefusesIsRefused(): void
+    {
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => "carol\u{1F642}",
+        ]);
+
+        // Then
+        static::assertSame(Command::INVALID, $tester->getStatusCode());
+        static::assertStringContainsString('U+1F642 is none of them', self::flattened($tester));
+    }
+
     #[Test]
     public function aSubjectIsNotTakenTwice(): void
     {

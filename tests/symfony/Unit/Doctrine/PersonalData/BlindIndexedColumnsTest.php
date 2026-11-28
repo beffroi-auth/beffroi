@@ -10,6 +10,7 @@ use App\Doctrine\PersonalData\BlindIndexedColumns;
 use App\Doctrine\PersonalData\EncryptedColumnTypes;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\KeyManagement\BlindIndexInterface;
@@ -20,14 +21,54 @@ use Symfony\Component\KeyManagement\Test\InMemoryDataKeyStore;
  */
 final class BlindIndexedColumnsTest extends TestCase
 {
+    /**
+     * RFC 8265 §3.3.4
+     */
     #[Test]
-    public function aUsernameDifferingOnlyByItsCaseIsADifferentTag(): void
+    #[DataProvider('provideUsernamesThatCompareEqual')]
+    public function twoUsernamesThatCompareEqualAreTheSameTag(string $one, string $other): void
     {
         // Given
         $index = self::index('username');
 
         // When / Then
-        static::assertNotSame($index->of('alice'), $index->of('Alice'));
+        static::assertSame($index->of($one), $index->of($other));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideUsernamesThatCompareEqual(): iterable
+    {
+        yield 'by case' => ['Alice', 'alice'];
+        yield 'by width' => ["\u{FF41}\u{FF4C}\u{FF49}\u{FF43}\u{FF45}", 'alice'];
+        yield 'by composition' => ["jose\u{0301}", "jos\u{00E9}"];
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function twoUsernamesThatDoNotCompareEqualAreTwoTags(): void
+    {
+        // Given
+        $index = self::index('username');
+
+        // When / Then
+        static::assertNotSame($index->of('fussball'), $index->of('fußball'));
+    }
+
+    /**
+     * A username written before RFC 8265 §3.3 applied, which it refuses, is found as written.
+     */
+    #[Test]
+    public function aUsernameTheProfileRefusesIsTheTagOfItsValueAsWritten(): void
+    {
+        // Given
+        $index = self::index('username');
+
+        // When / Then
+        static::assertNotSame($index->of('Jean Dupont'), $index->of('jean dupont'));
     }
 
     /**
@@ -51,6 +92,19 @@ final class BlindIndexedColumnsTest extends TestCase
 
         // When / Then
         static::assertSame($index->of('Ada@example.org'), $index->of('ada@example.org'));
+    }
+
+    /**
+     * RFC 6532 §3.1
+     */
+    #[Test]
+    public function anAddressDifferingOnlyByTheCompositionOfItsLocalPartIsTheSameTag(): void
+    {
+        // Given
+        $index = self::index('email');
+
+        // When / Then
+        static::assertSame($index->of("jose\u{0301}@example.org"), $index->of("jos\u{00E9}@example.org"));
     }
 
     #[Test]

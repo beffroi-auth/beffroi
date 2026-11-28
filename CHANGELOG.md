@@ -10,7 +10,19 @@ All notable changes to this project are documented in this file, in reverse chro
 
 ### Changed
 
-- Nothing.
+- `beffroi/core`: a username is prepared, enforced and compared by the UsernameCaseMapped profile of PRECIS (RFC 8265
+  §3.3), which RFC 7644 §5 requires of a `userName`: `Alice`, `ALICE` and `alice`, a name in fullwidth letters and an
+  `é` written with a combining accent are each one person. Letters and digits of every script and printable ASCII
+  pass; a space, a symbol or a punctuation mark outside ASCII, an emoji, a code point with a compatibility equivalent
+  and a username written right to left that breaks the Bidi Rule (RFC 5893 §2) are refused, by `UsernameRefusedException`,
+  at the console, at the administration API (`400 invalid_request`) and at the first sign-in through an upstream
+  provider alike. The username is kept as it was written. The local part of an address is brought to Normalization
+  Form C (RFC 6532 §3.1) before it is lowercased.
+- `beffroi/beffroi`: the blind index of a username is its enforced form. A deployment that upgrades runs
+  `bin/console beffroi:user:reindex` once, right after the upgrade: until then, a person whose username is not already
+  in lowercase NFC is not found at the login. The command names each person whose username the profile refuses, who
+  signs in under it as written meanwhile, and the persons whose usernames it compares as one, whose blind indexes it
+  leaves as they were; it exits with a failure until an administrator has renamed them and it has run again.
 
 ### Deprecated
 

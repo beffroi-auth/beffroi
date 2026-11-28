@@ -60,6 +60,23 @@ final class LoginTest extends BrowserTestCase
     }
 
     /**
+     * RFC 8265 §3.3.4, RFC 7643 §4.1.1
+     */
+    #[Test]
+    public function aLoginUnderAnotherCaseOfTheUsernameSignsThePersonIn(): void
+    {
+        // Given
+        $user = self::userWithPassword('alice', self::PASSWORD);
+        $interaction = $this->authorize();
+
+        // When
+        $this->submitLogin($interaction, 'ALICE', self::PASSWORD);
+
+        // Then
+        static::assertTrue($this->boundSession()->user->id->equals($user->id));
+    }
+
+    /**
      * OIDC Core §2, RFC 8176 §2, Architecture §3.2, §3.5
      */
     #[Test]

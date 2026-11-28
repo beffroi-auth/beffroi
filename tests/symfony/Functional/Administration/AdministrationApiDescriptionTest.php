@@ -177,6 +177,26 @@ final class AdministrationApiDescriptionTest extends AdministrationTestCase
         );
     }
 
+    /**
+     * RFC 8265 §3.3, RFC 8264 §4.2.3
+     */
+    #[Test]
+    public function aUsernameTheProfileRefusesIsRefusedAndChangesNothing(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $response = $this->patch($bob, $token, '{"username": "bob smith"}');
+
+        // Then
+        static::assertSame(
+            [Response::HTTP_BAD_REQUEST, 'invalid_request', 'bob'],
+            [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
+        );
+    }
+
     #[Test]
     public function aPersonTheTenantDoesNotHoldIsNotFound(): void
     {

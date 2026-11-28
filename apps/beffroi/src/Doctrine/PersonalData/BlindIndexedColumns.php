@@ -28,12 +28,11 @@ final readonly class BlindIndexedColumns
     public static function all(): array
     {
         return [
-            // Byte for byte: folding the case of a username is a rule of the identity model, not of an index.
             new BlindIndexedColumn(
                 User::class,
                 'username',
                 'usernameIndex',
-                new Verbatim(),
+                new CaseMappedUsername(),
             ),
             new BlindIndexedColumn(
                 User::class,

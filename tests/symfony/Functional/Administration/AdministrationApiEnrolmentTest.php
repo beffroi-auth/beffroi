@@ -108,6 +108,7 @@ final class AdministrationApiEnrolmentTest extends AdministrationTestCase
         yield 'no username' => ['{"email": "dave@example.com"}', 'application/json'];
         yield 'a username that is no string' => ['{"username": 7}', 'application/json'];
         yield 'an empty username' => ['{"username": " "}', 'application/json'];
+        yield 'a username RFC 8265 §3.3 refuses' => ['{"username": "dave\\ud83d\\ude42"}', 'application/json'];
         yield 'an address that is no email address' => ['{"username": "dave", "email": "dave"}', 'application/json'];
         yield 'an address verified that is not given' => ['{"username": "dave", "email_verified": true}', 'application/json'];
         yield 'a verification that is no boolean' => ['{"username": "dave", "email": "dave@example.com", "email_verified": "true"}', 'application/json'];
