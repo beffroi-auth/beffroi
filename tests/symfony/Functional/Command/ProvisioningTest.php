@@ -948,6 +948,31 @@ final class ProvisioningTest extends ConsoleTestCase
     }
 
     /**
+     * RFC 8265 §4.1, §4.3, RFC 8264 §4.3
+     */
+    #[Test]
+    public function aPasswordTheProfileRefusesIsRefusedWithWhatItBreaks(): void
+    {
+        // Given
+        $user = self::user('alice');
+
+        // When
+        $tester = self::console(
+            'beffroi:user:set-password',
+            [
+                'username' => 'alice',
+                '--password-stdin' => true,
+            ],
+            ["my cat is a \u{0009}by and a long one"],
+        );
+
+        // Then
+        static::assertSame(Command::INVALID, $tester->getStatusCode());
+        static::assertStringContainsString('no control character', $tester->getDisplay());
+        static::assertSame([], self::service('test.beffroi.credentials', CredentialRepositoryInterface::class)->findByUser($user, PasswordCredential::class));
+    }
+
+    /**
      * NIST SP 800-63B §3.1.1.2
      */
     #[Test]

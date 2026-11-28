@@ -12,6 +12,7 @@ use App\Doctrine\EntityManagers;
 use Beffroi\Core\Domain\Credential\Credential;
 use Beffroi\Core\Domain\Credential\CredentialQuestion;
 use Beffroi\Core\Domain\Credential\ExternallyIdentifiedCredentialInterface;
+use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
@@ -20,6 +21,7 @@ use Beffroi\Core\Domain\Listing\Pagination;
 use Beffroi\Core\Port\CanForgetCredentialsInterface;
 use Beffroi\Core\Port\CanPageCredentialsInterface;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
+use Beffroi\Core\Port\PasswordsHashedAsTypedInterface;
 use function is_a;
 use function is_subclass_of;
 use function sort;
@@ -28,7 +30,11 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 use function usort;
 
-final class DoctrineCredentialRepository implements CanForgetCredentialsInterface, CanPageCredentialsInterface, CredentialRepositoryInterface
+final class DoctrineCredentialRepository implements
+    CanForgetCredentialsInterface,
+    CanPageCredentialsInterface,
+    CredentialRepositoryInterface,
+    PasswordsHashedAsTypedInterface
 {
     /**
      * @var list<class-string<Credential>>|null
@@ -147,6 +153,19 @@ final class DoctrineCredentialRepository implements CanForgetCredentialsInterfac
         }
         $manager->remove($managed);
         $manager->flush();
+    }
+
+    /**
+     * Through the index beffroi_password_credential_hashed_as_typed, which finds nothing at once when nothing remains.
+     */
+    public function remainIn(Tenant $tenant): bool
+    {
+        return $this->managers
+            ->forClass(PasswordCredential::class)
+            ->createQuery(sprintf('SELECT 1 FROM %s c WHERE c.hashedAsTyped = true AND c.tenant = :tenant', PasswordCredential::class))
+            ->setParameter('tenant', $tenant->id, UuidType::NAME)
+            ->setMaxResults(1)
+            ->getOneOrNullResult() !== null;
     }
 
     /**

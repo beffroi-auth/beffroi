@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Doctrine;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Types\Types;
 use App\Doctrine\Type\BytesType;
 use Beffroi\Core\Domain\Credential\PasskeyCredential;
 use Beffroi\Core\Bridge\Password\Algorithm\Argon2id;
@@ -14,9 +15,13 @@ use Beffroi\Core\Bridge\Password\Algorithm\Pbkdf2Sha256;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Credential\PasswordHash;
 use Beffroi\Core\Domain\Credential\TotpCredential;
+use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Tenant\Issuer;
+use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
+use Beffroi\Core\Port\PasswordsHashedAsTypedInterface;
 use Beffroi\Core\Port\SecretSealerInterface;
 use Beffroi\Core\Tests\Fixture\FakePasswordHasher;
 use Beffroi\Core\Tests\Fixture\Fixtures;
@@ -27,6 +32,7 @@ use PHPUnit\Framework\Attributes\Test;
 use function random_bytes;
 use function strtoupper;
 use Symfony\Component\KeyManagement\Envelope;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -242,6 +248,67 @@ final class DoctrineCredentialRepositoryTest extends DatabaseTestCase
         static::assertEquals(self::now()->modify('+1 hour'), $found->hashChangedAt);
     }
 
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aRowWrittenBeforeTheProfileKeepsItsTenantHoldingAPasswordHashedAsTyped(): void
+    {
+        // Given
+        self::writtenBeforeTheProfile(self::passwordOf(self::user()));
+
+        // When / Then
+        static::assertTrue(self::hashedAsTyped()->remainIn(self::tenant()));
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aPasswordWrittenUnderTheProfileIsNoneHashedAsTyped(): void
+    {
+        // Given
+        self::passwordOf(self::user());
+
+        // When / Then
+        static::assertFalse(self::hashedAsTyped()->remainIn(self::tenant()));
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function theRehashOfTheLastRowWrittenBeforeTheProfileLeavesNone(): void
+    {
+        // Given
+        $user = self::user();
+        self::writtenBeforeTheProfile(self::passwordOf($user));
+        self::reload();
+        $credential = self::credentials()->findByUser($user, PasswordCredential::class)[0] ?? static::fail('The credential was not stored.');
+        $credential->rehash(new PasswordHash(new Argon2id(), '$argon2id$enforced'), self::now()->modify('+1 hour'));
+        self::credentials()->save($credential);
+
+        // When / Then
+        static::assertFalse(self::hashedAsTyped()->remainIn(self::tenant()));
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aRowOfAnotherTenantWrittenBeforeTheProfileIsNotOfThisTenant(): void
+    {
+        // Given
+        $other = new Tenant(Uuid::v7(), 'other', new Issuer('https://other.test'), 'Other', self::now());
+        self::entityManager()->persist($other);
+        $bob = User::create(Uuid::v7(), $other, new Subject('bob-subject'), 'bob', self::now());
+        self::entityManager()->persist($bob);
+        self::writtenBeforeTheProfile(self::passwordOf($bob));
+
+        // When / Then
+        static::assertFalse(self::hashedAsTyped()->remainIn(self::tenant()));
+    }
+
     #[Test]
     public function aUserWithoutPasswordHasNone(): void
     {
@@ -343,6 +410,39 @@ final class DoctrineCredentialRepositoryTest extends DatabaseTestCase
             Fixtures::userHandle(),
             $createdAt ?? self::now(),
         );
+    }
+
+    private static function passwordOf(User $user): PasswordCredential
+    {
+        $credential = new PasswordCredential(Uuid::v7(), $user, new PasswordHash(new Argon2id(), '$argon2id$hash'), self::now());
+        self::credentials()->save($credential);
+
+        return $credential;
+    }
+
+    /**
+     * What the default of the column gives a row a migration found, or one a process of the version before inserted.
+     */
+    private static function writtenBeforeTheProfile(PasswordCredential $credential): void
+    {
+        self::entityManager()
+            ->getConnection()
+            ->executeStatement(
+                'UPDATE beffroi_password_credential SET hashed_as_typed = :hashed_as_typed WHERE id = :id',
+                [
+                    'hashed_as_typed' => true,
+                    'id' => $credential->id,
+                ],
+                [
+                    'hashed_as_typed' => Types::BOOLEAN,
+                    'id' => UuidType::NAME,
+                ],
+            );
+    }
+
+    private static function hashedAsTyped(): PasswordsHashedAsTypedInterface
+    {
+        return self::service('test.beffroi.passwords_hashed_as_typed', PasswordsHashedAsTypedInterface::class);
     }
 
     private static function credentials(): CredentialRepositoryInterface

@@ -6,6 +6,8 @@ namespace App\Security;
 
 use Beffroi\Core\Domain\Credential\PasswordAlgorithmInterface;
 use Beffroi\Core\Domain\Credential\PasswordHash;
+use Beffroi\Core\Domain\Credential\TypedPassword;
+use Beffroi\Core\Domain\Precis\OpaqueString;
 use Beffroi\Core\Exception\ExceptionInterface;
 use Beffroi\Core\Exception\UnsupportedAlgorithmException;
 use Beffroi\Core\Port\PasswordAlgorithmsInterface;
@@ -21,6 +23,10 @@ use SensitiveParameter;
 use Symfony\Component\PasswordHasher\Exception\InvalidPasswordException;
 use Symfony\Component\PasswordHasher\PasswordHasherInterface;
 
+/**
+ * What a component of Symfony hashes or verifies is the form OpaqueString enforces, as in the core (decision 0065): a
+ * string the profile refuses is no password, which is never hashed and verifies against nothing.
+ */
 final readonly class CorePasswordHasher implements PasswordHasherInterface
 {
     public function __construct(
@@ -32,7 +38,7 @@ final readonly class CorePasswordHasher implements PasswordHasherInterface
     public function hash(#[SensitiveParameter] string $plainPassword): string
     {
         try {
-            return self::encode($this->hasher->hash($plainPassword));
+            return self::encode($this->hasher->hash(OpaqueString::enforce($plainPassword)));
         } catch (ExceptionInterface $exception) {
             throw new InvalidPasswordException($exception->getMessage(), 0, $exception);
         }
@@ -45,7 +51,10 @@ final readonly class CorePasswordHasher implements PasswordHasherInterface
             return false;
         }
         try {
-            return $this->hasher->verify($hash, $plainPassword);
+            return (
+                TypedPassword::orAsTyped($plainPassword)?->verifiedBy(fn (#[SensitiveParameter] string $form): bool => $this->hasher->verify($hash, $form))
+                === true
+            );
         } catch (ExceptionInterface) {
             return false;
         }

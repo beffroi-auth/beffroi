@@ -7,6 +7,7 @@ namespace Beffroi\Core\Tests\Domain\Credential;
 use Beffroi\Core\Domain\Credential\PasswordLength;
 use Beffroi\Core\Domain\Credential\PasswordRefusal;
 use Beffroi\Core\Domain\Credential\PlainPassword;
+use Beffroi\Core\Domain\Precis\OpaqueString;
 use Beffroi\Core\Domain\Session\SingleFactor;
 use Beffroi\Core\Domain\Session\TwoFactors;
 use Beffroi\Core\Exception\PasswordRefusedException;
@@ -18,7 +19,7 @@ use function strlen;
 use function substr;
 
 /**
- * NIST SP 800-63B §3.1.1.2, CVE-2013-1443
+ * NIST SP 800-63B §3.1.1.2, CVE-2013-1443, RFC 8265 §4.2
  */
 final class PlainPasswordTest extends TestCase
 {
@@ -81,10 +82,10 @@ final class PlainPasswordTest extends TestCase
     public function fourThousandAndNinetySixBytesAreAccepted(): void
     {
         // Given
-        $password = self::bytes(PlainPassword::MAXIMUM_BYTES);
+        $password = self::bytes(OpaqueString::MAXIMUM_BYTES);
 
         // When / Then
-        static::assertSame(PlainPassword::MAXIMUM_BYTES, strlen(new PlainPassword($password, self::alone())->value));
+        static::assertSame(OpaqueString::MAXIMUM_BYTES, strlen(new PlainPassword($password, self::alone())->value));
     }
 
     #[Test]
@@ -95,7 +96,7 @@ final class PlainPasswordTest extends TestCase
         $this->expectExceptionMessageIs('A password is at most 4096 bytes long.');
 
         // When
-        new PlainPassword(self::bytes(PlainPassword::MAXIMUM_BYTES + 1), self::alone());
+        new PlainPassword(self::bytes(OpaqueString::MAXIMUM_BYTES + 1), self::alone());
     }
 
     /**
@@ -123,7 +124,71 @@ final class PlainPasswordTest extends TestCase
         yield 'a word written twice' => ['passwordpassword'];
         yield 'a euro sign repeated' => [str_repeat('€', 15)];
         yield 'an emoji repeated' => [str_repeat('😀', 12)];
+    }
+
+    /**
+     * RFC 8265 §4.2.2
+     */
+    #[Test]
+    public function theValueIsTheFormTheProfileEnforces(): void
+    {
+        // When / Then
+        static::assertSame('correct horse battery staple', new PlainPassword("correct\u{00A0}horse battery\u{1680}staple", self::alone())->value);
+    }
+
+    /**
+     * RFC 8265 §4.1, §4.3, RFC 8264 §4.3.3
+     */
+    #[Test]
+    #[DataProvider('providePasswordsTheProfileRefuses')]
+    public function aPasswordTheProfileRefusesIsRefusedForItsCharacter(string $password): void
+    {
+        // When
+        try {
+            new PlainPassword($password, self::alone());
+            static::fail('A password the profile refuses was held.');
+        } catch (PasswordRefusedException $exception) {
+            // Then
+            static::assertSame(PasswordRefusal::DisallowedCharacter, $exception->refusal);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function providePasswordsTheProfileRefuses(): iterable
+    {
+        yield 'a tabulation, example 18 of RFC 8265 §4.3' => ["my cat is a \u{0009}by and a long one"];
         yield 'a letter padded with zero-width spaces' => ['a' . str_repeat("\u{200B}", 14)];
+        yield 'an emoji followed by its variation selector' => ["I love New York \u{2764}\u{FE0F}"];
+    }
+
+    /**
+     * NIST SP 800-63B §3.1.1.2, RFC 8265 §4.2.2 rule 4
+     */
+    #[Test]
+    public function theLengthIsCountedOnTheEnforcedForm(): void
+    {
+        // Then
+        $this->expectException(PasswordRefusedException::class);
+        $this->expectExceptionMessageIs('A password is at least 15 characters long.');
+
+        // When
+        new PlainPassword(str_repeat("e\u{0301}", 8) . 'wxyz', self::alone());
+    }
+
+    /**
+     * NIST SP 800-63B §3.1.1.2, RFC 8265 §4.2.2 rule 2
+     */
+    #[Test]
+    public function theStrengthIsMeasuredOnTheEnforcedForm(): void
+    {
+        // Then
+        $this->expectException(PasswordRefusedException::class);
+        $this->expectExceptionMessageIs('A password this short of length and of alphabet is guessed: make it longer, or several words.');
+
+        // When
+        new PlainPassword(str_repeat("abcd\u{00A0}", 3) . 'a', self::withASecondFactor());
     }
 
     #[Test]
@@ -142,6 +207,43 @@ final class PlainPasswordTest extends TestCase
         yield 'four words of letters only' => [self::A_PASSWORD];
         yield 'thirteen letters and nothing else' => [self::THIRTEEN_LETTERS];
         yield 'twelve of every alphabet' => ['Tr0ub4dor&31'];
+    }
+
+    /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aPasswordTypedAgainInAnotherFormIsConfirmed(): void
+    {
+        // Given
+        $password = new PlainPassword("correct\u{00A0}horse battery staple", self::alone());
+
+        // When / Then
+        static::assertTrue($password->confirmedBy("correct horse battery\u{3000}staple"));
+    }
+
+    /**
+     * RFC 8265 §4.2.3, §4.1
+     */
+    #[Test]
+    #[DataProvider('provideConfirmationsOfAnotherPassword')]
+    public function aPasswordTypedAgainAsAnotherOneIsNotConfirmed(string $again): void
+    {
+        // Given
+        $password = new PlainPassword(self::A_PASSWORD, self::alone());
+
+        // When / Then
+        static::assertFalse($password->confirmedBy($again));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideConfirmationsOfAnotherPassword(): iterable
+    {
+        yield 'another password' => ['correct horse battery stable'];
+        yield 'the same letters in capitals, rule 3 of RFC 8265 §4.2.2' => ['Correct Horse Battery Staple'];
+        yield 'what the profile refuses' => ["correct horse battery staple\u{0009}"];
     }
 
     /**

@@ -1230,6 +1230,9 @@ services:
     test.beffroi.credentials:
         alias: Beffroi\Core\Port\CredentialRepositoryInterface
         public: true
+    test.beffroi.passwords_hashed_as_typed:
+        alias: Beffroi\Core\Port\PasswordsHashedAsTypedInterface
+        public: true
     test.beffroi.totp_uses:
         alias: Beffroi\Core\Port\TotpUsesInterface
         public: true

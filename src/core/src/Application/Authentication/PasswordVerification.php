@@ -7,6 +7,7 @@ namespace Beffroi\Core\Application\Authentication;
 use Beffroi\Core\Application\Credential\ActivePassword;
 use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
+use Beffroi\Core\Domain\Credential\TypedPassword;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Domain\Event\PasswordRehashed;
 use Beffroi\Core\Domain\Event\PasswordUsed;
@@ -17,6 +18,7 @@ use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
 use Beffroi\Core\Port\PasswordAttemptLimiterInterface;
 use Beffroi\Core\Port\PasswordHasherInterface;
+use Beffroi\Core\Port\PasswordsHashedAsTypedInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -24,7 +26,10 @@ use SensitiveParameter;
 use function trim;
 
 /**
- * The attempt is counted as soon as the user is named, before anything is verified.
+ * The attempt is counted as soon as the user is named, before anything is verified, and once whatever the number of
+ * forms of the password verified (decision 0014). What is verified is the form OpaqueString enforces (RFC 8265 §4.2.3,
+ * §8.2), and the bytes as typed when they differ while the tenant holds a hash computed over them, on every path of
+ * the tenant so that the time says nothing of the account (decision 0065).
  */
 final readonly class PasswordVerification
 {
@@ -39,6 +44,7 @@ final readonly class PasswordVerification
         private ClockInterface $clock,
         private EventDispatcherInterface $events,
         private FederatedDomains $federated,
+        private PasswordsHashedAsTypedInterface $hashedAsTyped,
     ) {
     }
 
@@ -65,24 +71,30 @@ final readonly class PasswordVerification
             );
         }
 
+        $typed = $this->hashedAsTyped->remainIn($tenant) ? TypedPassword::orAsTyped($password) : TypedPassword::of($password);
         $user = $this->users->findByUsername($tenant, trim($identifier));
         if ($user === null) {
-            throw $this->refuseAtTheCostOfAPassword($tenant, $context, AuthenticationFailureReason::UnknownUser, $identifier, $password, null);
+            throw $this->refuseAtTheCostOfAPassword($tenant, $context, AuthenticationFailureReason::UnknownUser, $identifier, $password, $typed, null);
         }
 
         if (! $this->attempts->attempt($user)) {
-            throw $this->refuseAtTheCostOfAPassword($tenant, $context, AuthenticationFailureReason::TooManyAttempts, $identifier, $password, $user);
+            throw $this->refuseAtTheCostOfAPassword($tenant, $context, AuthenticationFailureReason::TooManyAttempts, $identifier, $password, $typed, $user);
         }
 
         $credential = $this->activePassword->of($user);
         if ($credential === null) {
-            throw $this->refuseAtTheCostOfAPassword($tenant, $context, AuthenticationFailureReason::NoSuchCredential, $identifier, $password, $user);
+            throw $this->refuseAtTheCostOfAPassword($tenant, $context, AuthenticationFailureReason::NoSuchCredential, $identifier, $password, $typed, $user);
         }
 
-        $replaced = $this->hasher->needsRehash($credential->hash);
-        $verified = $replaced
-            ? $this->decoy->verifyNoFaster($credential->hash, $password)
-            : $this->hasher->verify($credential->hash, $password);
+        if ($typed === null) {
+            throw $this->refuseAtTheCostOfAPassword($tenant, $context, AuthenticationFailureReason::DisallowedCharacter, $identifier, $password, null, $user);
+        }
+
+        $hash = $credential->hash;
+        $replaced = $this->hasher->needsRehash($hash);
+        $verified = $typed->verifiedBy(fn (#[SensitiveParameter] string $form): bool => $replaced
+            ? $this->decoy->verifyNoFaster($hash, $form)
+            : $this->hasher->verify($hash, $form));
         if (! $verified) {
             throw $this->refusals->refuse(
                 $tenant,
@@ -114,8 +126,9 @@ final readonly class PasswordVerification
         $this->attempts->reset($user);
         $now = $this->clock->now();
         $credential->recordUse($now);
-        if ($replaced) {
-            $credential->rehash($this->hasher->hash($password), $now);
+        // A hash computed before the profile is replaced whatever form verified it, so that none is left in the tenant.
+        if ($replaced || $credential->hashedAsTyped) {
+            $credential->rehash($this->hasher->hash($typed->enforced), $now);
             $this->credentials->save($credential);
             $this->events->dispatch(new PasswordRehashed($credential, $now, $context));
         } else {
@@ -126,6 +139,10 @@ final readonly class PasswordVerification
         return $credential;
     }
 
+    /**
+     * The decoy is verified once for each form a password of the account would be verified under, once when the
+     * profile refuses what was typed.
+     */
     private function refuseAtTheCostOfAPassword(
         Tenant $tenant,
         RequestContext $context,
@@ -133,9 +150,13 @@ final readonly class PasswordVerification
         string $identifier,
         #[SensitiveParameter]
         string $password,
+        #[SensitiveParameter]
+        ?TypedPassword $typed,
         ?User $user,
     ): AuthenticationFailedException {
-        $this->decoy->verify($password);
+        foreach ($typed?->forms() ?? [$password] as $form) {
+            $this->decoy->verify($form);
+        }
 
         return $this->refusals->refuse($tenant, $context, $reason, AuthenticationMethod::password(), $identifier, $user);
     }

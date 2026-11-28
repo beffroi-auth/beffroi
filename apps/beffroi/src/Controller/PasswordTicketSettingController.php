@@ -16,7 +16,6 @@ use Beffroi\Core\Exception\CredentialEnrolmentFailedException;
 use Beffroi\Core\Exception\PasswordChangeRefusedException;
 use Beffroi\Core\Exception\PasswordRefusedException;
 use Beffroi\Core\Exception\TicketRefusedException;
-use function hash_equals;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -67,14 +66,21 @@ final readonly class PasswordTicketSettingController
         if ($refusal !== null) {
             return $refusal;
         }
-        $posed = $request->request->getString(AccountPasswordChangeController::POSED_PARAMETER);
-        if (! hash_equals($posed, $request->request->getString(AccountPasswordChangeController::POSED_AGAIN_PARAMETER))) {
+        try {
+            $posed = new PlainPassword(
+                $request->request->getString(AccountPasswordChangeController::POSED_PARAMETER),
+                PasswordLength::under($ticket->tenant->loginFloor),
+            );
+        } catch (PasswordRefusedException $exception) {
+            return $this->refused($request, $exception->refusal->value);
+        }
+        if (! $posed->confirmedBy($request->request->getString(AccountPasswordChangeController::POSED_AGAIN_PARAMETER))) {
             return $this->refused($request, AccountPasswordChangeController::NOT_CONFIRMED);
         }
         try {
             $this->redemption->spend(
                 $ticket,
-                new PlainPassword($posed, PasswordLength::under($ticket->tenant->loginFloor)),
+                $posed,
                 $this->contexts->fromRequest($request),
             );
         } catch (PasswordRefusedException|PasswordChangeRefusedException $exception) {

@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Passordet kunne ikke kontrolleres. Prøv igjen.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Passordet inneholder et usynlig tegn eller en emoji som består av flere symboler. Velg et annet.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>De to passordene er ikke like.</target>

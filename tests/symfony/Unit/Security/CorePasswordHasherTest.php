@@ -19,6 +19,7 @@ use function password_hash;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\PasswordHasher\Exception\InvalidPasswordException;
 
 /**
  * Architecture §5.4
@@ -133,6 +134,61 @@ final class CorePasswordHasherTest extends TestCase
         // When / Then
         static::assertFalse($this->hasher->verify($encoded, 'correct horse battery staple'));
         static::assertFalse($this->hasher->needsRehash($encoded));
+    }
+
+    /**
+     * RFC 8265 §8.2, decision 0065
+     */
+    #[Test]
+    public function aPasswordIsHashedInTheFormTheProfileEnforces(): void
+    {
+        // Given
+        $encoded = $this->hasher->hash("correct\u{00A0}horse battery staple");
+
+        // When
+        $hash = self::hasher()->decode($encoded) ?? static::fail('The hash is no hash of the core.');
+
+        // Then
+        static::assertTrue(new NativePasswordHasher()->verify($hash, 'correct horse battery staple'));
+    }
+
+    /**
+     * RFC 8265 §4.1, §4.3
+     */
+    #[Test]
+    public function aPasswordTheProfileRefusesIsNotHashed(): void
+    {
+        // Then
+        $this->expectException(InvalidPasswordException::class);
+
+        // When
+        $this->hasher->hash("my cat is a \u{0009}by");
+    }
+
+    /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aPasswordTypedInAnotherFormVerifiesTheHashOfItsEnforcedForm(): void
+    {
+        // Given
+        $encoded = $this->hasher->hash('correct horse battery staple');
+
+        // When / Then
+        static::assertTrue($this->hasher->verify($encoded, "correct horse battery\u{3000}staple"));
+    }
+
+    /**
+     * RFC 8265 §6.2
+     */
+    #[Test]
+    public function aHashOfTheBytesAsTypedBeforeTheProfileVerifiesThoseBytes(): void
+    {
+        // Given
+        $encoded = CorePasswordHasher::encode(new NativePasswordHasher()->hash("correct\u{00A0}horse"));
+
+        // When / Then
+        static::assertTrue($this->hasher->verify($encoded, "correct\u{00A0}horse"));
     }
 
     private static function hasher(): CorePasswordHasher

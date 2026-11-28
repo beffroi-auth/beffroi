@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Precis;
 
 use IntlChar;
+use SensitiveParameter;
 
 /**
  * RFC 5892 Appendix A.1 and A.2: Canonical_Combining_Class(Before(cp)) .eq. Virama.
@@ -16,7 +17,7 @@ final readonly class Virama
     /**
      * @param list<int> $codePoints
      */
-    public static function precedes(array $codePoints, int $position): bool
+    public static function precedes(#[SensitiveParameter] array $codePoints, int $position): bool
     {
         return $position > 0 && IntlChar::getCombiningClass($codePoints[$position - 1]) === self::COMBINING_CLASS;
     }

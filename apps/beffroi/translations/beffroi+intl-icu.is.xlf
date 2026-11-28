@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Ekki tókst að athuga lykilorðið. Reyndu aftur.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Þetta lykilorð inniheldur ósýnilegt tákn eða tjákn úr mörgum táknum. Veldu annað.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Lykilorðin tvö eru ekki eins.</target>

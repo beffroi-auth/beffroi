@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>No s'ha pogut comprovar la contrasenya. Torni-ho a provar.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Aquesta contrasenya conté un caràcter invisible o un emoji format per diversos símbols. Triï'n una altra.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Les dues contrasenyes no coincideixen.</target>

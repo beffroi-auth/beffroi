@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Salasanaa ei voitu tarkistaa. Yritä uudelleen.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Salasanassa on näkymätön merkki tai useasta symbolista koostuva emoji. Valitse toinen.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Salasanat eivät täsmää.</target>

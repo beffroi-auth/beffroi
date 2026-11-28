@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Het wachtwoord kon niet worden gecontroleerd. Probeer het opnieuw.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Dit wachtwoord bevat een onzichtbaar teken of een emoji die uit meerdere symbolen bestaat. Kies een ander wachtwoord.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>De twee wachtwoorden komen niet overeen.</target>

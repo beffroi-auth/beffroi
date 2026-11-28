@@ -115,6 +115,7 @@ final class PasswordAuthenticatorTest extends TestCase
                 $this->clock,
                 $this->events,
                 new FederatedDomains($this->upstreamProviders),
+                $this->credentials,
             ),
             new SessionOpener(
                 $this->sessions,
@@ -793,11 +794,375 @@ final class PasswordAuthenticatorTest extends TestCase
         static::assertSame(['pwd'], $session->methodReferences());
     }
 
-    private function carolHolds(PasswordHash $hash): void
+    /**
+     * RFC 8265 §4.2.3, §4.3, RFC 7644 §5
+     */
+    #[Test]
+    #[DataProvider('provideFormsOfOnePassword')]
+    public function aPasswordTypedInAnotherFormThanItWasSetInSignsIn(string $set, string $typed): void
     {
-        $carol = Fixtures::user($this->tenant, 'carol', 'carol-subject');
-        $this->users->save($carol);
-        $this->credentials->save(new PasswordCredential(Uuid::v7(), $carol, $hash, Fixtures::now()));
+        // Given
+        $this->carolHolds(new FakePasswordHasher()->hash($set));
+
+        // When
+        $session = $this->authenticator->authenticate($this->tenant, 'carol', $typed, Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertInstanceOf(AuthenticationSession::class, $session);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideFormsOfOnePassword(): iterable
+    {
+        yield 'an ogham space mark, example 16 of RFC 8265 §4.3' => ['foo bar', "foo\u{1680}bar"];
+        yield 'a no-break space' => ['correct horse battery staple', "correct\u{00A0}horse battery staple"];
+        yield 'an e and a combining acute accent' => ["jos\u{00E9} is home", "jose\u{0301} is home"];
+        yield 'a Greek question mark' => ['ab;cd', "ab\u{037E}cd"];
+    }
+
+    /**
+     * RFC 8265 §4.2.2 rules 1 and 3, §4.3
+     */
+    #[Test]
+    #[DataProvider('provideOtherPasswords')]
+    public function aPasswordThatDiffersByItsEnforcedFormFails(string $set, string $typed): void
+    {
+        // Given
+        $this->carolHolds(new FakePasswordHasher()->hash($set));
+
+        // When
+        $exception = $this->failToAuthenticate('carol', $typed);
+
+        // Then
+        static::assertSame(AuthenticationFailureReason::InvalidCredential, $exception->reason);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideOtherPasswords(): iterable
+    {
+        yield 'examples 12 and 13 of RFC 8265 §4.3, which differ by case' => ['correct horse battery staple', 'Correct Horse Battery Staple'];
+        yield 'a fullwidth letter' => ['abc', "\u{FF41}bc"];
+        yield 'a ligature' => ['office', "o\u{FB03}ce"];
+    }
+
+    /**
+     * RFC 8265 §6.2, decision 0065
+     */
+    #[Test]
+    public function aHashOfTheBytesAsTheyWereTypedBeforeTheProfileSignsInWithThoseBytes(): void
+    {
+        // Given
+        $this->carolHeldBefore(new FakePasswordHasher()->hash("correct\u{00A0}horse"));
+
+        // When
+        $session = $this->authenticator->authenticate($this->tenant, 'carol', "correct\u{00A0}horse", Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertInstanceOf(AuthenticationSession::class, $session);
+    }
+
+    /**
+     * RFC 8265 §8.2, decision 0065
+     */
+    #[Test]
+    public function aHashOfBeforeTheProfileIsReplacedByAHashOfTheEnforcedFormAtTheSignIn(): void
+    {
+        // Given
+        $hasher = new FakePasswordHasher();
+        $carol = $this->carolHeldBefore($hasher->hash("correct\u{00A0}horse"));
+
+        // When
+        $this->authenticator->authenticate($this->tenant, 'carol', "correct\u{00A0}horse", Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertSame($hasher->hash('correct horse')->encoded, $this->credentials->findByUser($carol, PasswordCredential::class)[0]?->hash->encoded);
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function anAsciiHashOfBeforeTheProfileIsReplacedTooSoThatNoneIsLeftInTheTenant(): void
+    {
+        // Given
+        $this->carolHeldBefore(new FakePasswordHasher()->hash('correct horse'));
+
+        // When
+        $this->authenticator->authenticate($this->tenant, 'carol', 'correct horse', Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertFalse($this->credentials->remainIn($this->tenant));
+    }
+
+    /**
+     * RFC 8265 §6.2
+     */
+    #[Test]
+    public function theReplacementOfAHashOfBeforeTheProfileIsAnnounced(): void
+    {
+        // Given
+        $this->carolHeldBefore(new FakePasswordHasher()->hash("correct\u{00A0}horse"));
+
+        // When
+        $this->authenticator->authenticate($this->tenant, 'carol', "correct\u{00A0}horse", Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertCount(1, $this->events->of(PasswordRehashed::class));
+    }
+
+    /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aHashOfTheEnforcedFormIsKeptWhenThePasswordIsTypedInAnotherForm(): void
+    {
+        // Given
+        $this->carolHolds(new FakePasswordHasher()->hash('correct horse'));
+
+        // When
+        $this->authenticator->authenticate($this->tenant, 'carol', "correct\u{00A0}horse", Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertSame([], $this->events->of(PasswordRehashed::class));
+    }
+
+    /**
+     * RFC 8265 §4.2.3, §8.2, decision 0058
+     */
+    #[Test]
+    public function aHashTheHasherWouldReplaceIsReplacedByAHashOfTheEnforcedForm(): void
+    {
+        // Given
+        $time = new FakeMonotonicClock();
+        $authenticator = $this->authenticatorOn(new TimedPasswordHasher($time, self::COSTS), null, $time);
+        $carol = $this->carolHolds(TimedPasswordHasher::hashOf(new Bcrypt(), 'correct horse'));
+
+        // When
+        $authenticator->authenticate($this->tenant, 'carol', "correct\u{00A0}horse", Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertSame(
+            TimedPasswordHasher::hashOf(new Argon2id(), 'correct horse')->encoded,
+            $this->credentials->findByUser($carol, PasswordCredential::class)[0]?->hash->encoded,
+        );
+    }
+
+    /**
+     * RFC 8265 §4.1, §4.3, decision 0006
+     */
+    #[Test]
+    public function aPasswordTheProfileRefusesFailsEvenAgainstAHashOfItsBytes(): void
+    {
+        // Given
+        $this->carolHeldBefore(new FakePasswordHasher()->hash("my cat is a \u{0009}by"));
+
+        // When
+        $exception = $this->failToAuthenticate('carol', "my cat is a \u{0009}by");
+
+        // Then
+        static::assertSame(AuthenticationFailureReason::DisallowedCharacter, $exception->reason);
+    }
+
+    /**
+     * Decision 0006, decision 0058
+     */
+    #[Test]
+    #[DataProvider('provideAccounts')]
+    public function aPasswordTheProfileRefusesCostsOneVerificationOfTheDecoyWhateverTheAccount(string $username, int $allowedAttempts): void
+    {
+        // Given
+        $hasher = new FakePasswordHasher();
+        $held = [
+            $this->carolHeldBefore($hasher->hash("my cat is a \u{0009}by")),
+            $this->davidHolds($hasher->hash('david pass')),
+            $this->alice,
+        ];
+        $this->users->save(Fixtures::user($this->tenant, 'bob', 'bob-subject'));
+        $authenticator = $this->authenticatorOn($hasher, new FakeAttemptLimiter($allowedAttempts));
+
+        // When
+        try {
+            $authenticator->authenticate($this->tenant, $username, "my cat is a \u{0009}by", Fixtures::context($this->clock->now()));
+        } catch (AuthenticationFailedException) {
+        }
+
+        // Then
+        static::assertCount(1, $hasher->verifiedAgainst);
+        static::assertNotContains($hasher->verifiedAgainst[0], $this->hashesOf($held));
+    }
+
+    /**
+     * Decision 0006, decision 0058, RFC 8265 §6.2
+     */
+    #[Test]
+    #[DataProvider('provideAccounts')]
+    public function aWrongPasswordTypedInAnotherFormCostsTwoVerificationsWhateverTheAccountWhileAHashOfBeforeRemains(
+        string $username,
+        int $allowedAttempts,
+    ): void {
+        // Given
+        $hasher = new FakePasswordHasher();
+        $this->carolHeldBefore($hasher->hash("carol\u{00A0}pass"));
+        $this->davidHolds($hasher->hash('david pass'));
+        $this->users->save(Fixtures::user($this->tenant, 'bob', 'bob-subject'));
+        $authenticator = $this->authenticatorOn($hasher, new FakeAttemptLimiter($allowedAttempts));
+
+        // When
+        try {
+            $authenticator->authenticate($this->tenant, $username, "not\u{00A0}the password", Fixtures::context($this->clock->now()));
+        } catch (AuthenticationFailedException) {
+        }
+
+        // Then
+        static::assertCount(2, $hasher->verifiedAgainst);
+    }
+
+    /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function provideAccounts(): iterable
+    {
+        yield 'an unknown user' => ['mallory', 5];
+        yield 'a user without a password' => ['bob', 5];
+        yield 'an attempt too many' => ['alice', 0];
+        yield 'a hash of the bytes as they were typed' => ['carol', 5];
+        yield 'a hash of an enforced form' => ['david', 5];
+    }
+
+    /**
+     * Decision 0065, decision 0058
+     */
+    #[Test]
+    #[DataProvider('provideAccountsOfATenantOfTheProfile')]
+    public function aWrongPasswordTypedInAnotherFormCostsOneVerificationWhateverTheAccountOnceNoHashOfBeforeRemains(
+        string $username,
+        int $allowedAttempts,
+    ): void {
+        // Given
+        $hasher = new FakePasswordHasher();
+        $this->davidHolds($hasher->hash('david pass'));
+        $this->users->save(Fixtures::user($this->tenant, 'bob', 'bob-subject'));
+        $authenticator = $this->authenticatorOn($hasher, new FakeAttemptLimiter($allowedAttempts));
+
+        // When
+        try {
+            $authenticator->authenticate($this->tenant, $username, "not\u{00A0}the password", Fixtures::context($this->clock->now()));
+        } catch (AuthenticationFailedException) {
+        }
+
+        // Then
+        static::assertCount(1, $hasher->verifiedAgainst);
+    }
+
+    /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function provideAccountsOfATenantOfTheProfile(): iterable
+    {
+        yield 'an unknown user' => ['mallory', 5];
+        yield 'a user without a password' => ['bob', 5];
+        yield 'an attempt too many' => ['alice', 0];
+        yield 'a hash of an enforced form' => ['david', 5];
+    }
+
+    /**
+     * Decision 0058, RFC 8265 §6.2
+     */
+    #[Test]
+    #[DataProvider('provideAccountsOfEveryHash')]
+    public function aWrongPasswordTypedInAnotherFormTakesTwiceTheTimeOfTheDecoyWhateverTheHashWhileAHashOfBeforeRemains(string $username): void
+    {
+        // Given
+        $time = new FakeMonotonicClock();
+        $authenticator = $this->authenticatorOn(new TimedPasswordHasher($time, self::COSTS), null, $time);
+        $this->carolHeldBefore(TimedPasswordHasher::hashOf(new Bcrypt(), "carol\u{00A0}pass"));
+        $this->davidHolds(TimedPasswordHasher::hashOf(new Argon2id(), 'david pass'));
+        $this->failToAuthenticateWith($authenticator, 'mallory');
+        $start = $time->now();
+
+        // When
+        try {
+            $authenticator->authenticate($this->tenant, $username, "not\u{00A0}the password", Fixtures::context($this->clock->now()));
+        } catch (AuthenticationFailedException) {
+        }
+
+        // Then
+        static::assertSame(2 * self::COSTS[Argon2id::NAME], $time->now() - $start);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideAccountsOfEveryHash(): iterable
+    {
+        yield 'an unknown user' => ['mallory'];
+        yield 'a bcrypt of the bytes as they were typed, which the hasher would replace' => ['carol'];
+        yield 'an argon2id of the enforced form' => ['david'];
+    }
+
+    /**
+     * Decision 0014
+     */
+    #[Test]
+    public function aPasswordVerifiedUnderBothItsFormsIsOneAttempt(): void
+    {
+        // Given
+        $this->carolHeldBefore(new FakePasswordHasher()->hash('carol pass'));
+
+        // When
+        $this->failToAuthenticate('alice', "not\u{00A0}the password");
+
+        // Then
+        static::assertSame([$this->alice->id->toRfc4122()], $this->attempts->attempts);
+    }
+
+    private function carolHolds(PasswordHash $hash): User
+    {
+        return $this->holds('carol', $hash);
+    }
+
+    /**
+     * A row written before the provider enforced the OpaqueString profile.
+     */
+    private function carolHeldBefore(PasswordHash $hash): User
+    {
+        $carol = $this->carolHolds($hash);
+        Fixtures::hashedAsTyped($this->credentials->findByUser($carol, PasswordCredential::class)[0] ?? static::fail('Carol holds no password.'));
+
+        return $carol;
+    }
+
+    private function davidHolds(PasswordHash $hash): User
+    {
+        return $this->holds('david', $hash);
+    }
+
+    private function holds(string $username, PasswordHash $hash): User
+    {
+        $user = Fixtures::user($this->tenant, $username, $username . '-subject');
+        $this->users->save($user);
+        $this->credentials->save(new PasswordCredential(Uuid::v7(), $user, $hash, Fixtures::now()));
+
+        return $user;
+    }
+
+    /**
+     * @param list<User> $users
+     *
+     * @return list<string>
+     */
+    private function hashesOf(array $users): array
+    {
+        return array_map(
+            fn (User $user): string => (
+                $this->credentials->findByUser($user, PasswordCredential::class)[0] ?? static::fail('A user holds no password.')
+            )->hash->encoded,
+            $users,
+        );
     }
 
     private function failToAuthenticateWith(PasswordAuthenticator $authenticator, string $identifier): void

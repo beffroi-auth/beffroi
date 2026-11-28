@@ -6,6 +6,7 @@ namespace App\Security;
 
 use App\Message\CheckThePasswordAgainstTheBreaches;
 use Beffroi\Core\Domain\Credential\PasswordDigest;
+use Beffroi\Core\Domain\Credential\TypedPassword;
 use Beffroi\Core\Port\BreachedPasswordsInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -14,7 +15,8 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
 
 /**
  * Runs on LoginSuccessEvent alone, so that nothing of a wrong guess is sent to anybody; the password is still on
- * the badge there, the firewall verifying no hash of its own.
+ * the badge there, the firewall verifying no hash of its own. What is looked up is the form OpaqueString enforces,
+ * the one that is hashed (RFC 8265 §8.2).
  */
 final readonly class BreachedPasswordListener
 {
@@ -38,6 +40,10 @@ final readonly class BreachedPasswordListener
         if ($credential === null || ! $credential->dueForABreachLookup($this->clock->now())) {
             return;
         }
-        $this->commandBus->dispatch(new CheckThePasswordAgainstTheBreaches($credential->id, PasswordDigest::of($badge->password)->value));
+        $password = TypedPassword::of($badge->password);
+        if ($password === null) {
+            return;
+        }
+        $this->commandBus->dispatch(new CheckThePasswordAgainstTheBreaches($credential->id, PasswordDigest::of($password->enforced)->value));
     }
 }

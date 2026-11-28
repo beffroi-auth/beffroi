@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Lösenordet kunde inte kontrolleras. Försök igen.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Lösenordet innehåller ett osynligt tecken eller en emoji som består av flera symboler. Välj ett annat.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Lösenorden stämmer inte överens.</target>

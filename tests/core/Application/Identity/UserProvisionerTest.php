@@ -508,6 +508,22 @@ final class UserProvisionerTest extends TestCase
         static::assertEquals($this->clock->now(), $credential->hashChangedAt);
     }
 
+    /**
+     * RFC 8265 §8.2
+     */
+    #[Test]
+    public function aPasswordIsHashedInTheFormTheProfileEnforces(): void
+    {
+        // Given
+        $user = $this->provisioner->create($this->tenant, 'alice');
+
+        // When
+        $credential = $this->provisioner->setPassword($user, Fixtures::plainPassword("correct\u{00A0}horse battery staple"));
+
+        // Then
+        static::assertTrue($this->hasher->verify($credential->hash, self::A_PASSWORD));
+    }
+
     #[Test]
     public function theNextPasswordReplacesTheHashOfTheSameCredential(): void
     {
@@ -561,6 +577,25 @@ final class UserProvisionerTest extends TestCase
         try {
             $this->provisioner->setPassword($user, Fixtures::plainPassword(self::BREACHED));
             static::fail('A password a list counts is refused.');
+        } catch (PasswordRefusedException $exception) {
+            // Then
+            static::assertSame(PasswordRefusal::Breached, $exception->refusal);
+        }
+    }
+
+    /**
+     * NIST SP 800-63B §3.1.1.2, RFC 8265 §8.2
+     */
+    #[Test]
+    public function aPasswordIsLookedUpInTheFormTheProfileEnforces(): void
+    {
+        // Given
+        $user = $this->provisioner->create($this->tenant, 'alice');
+
+        // When
+        try {
+            $this->provisioner->setPassword($user, Fixtures::plainPassword("monkey\u{00A0}business as usual"));
+            static::fail('A password a list counts in its enforced form is refused.');
         } catch (PasswordRefusedException $exception) {
             // Then
             static::assertSame(PasswordRefusal::Breached, $exception->refusal);

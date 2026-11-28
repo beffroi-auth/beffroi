@@ -22,6 +22,12 @@ enum AuthenticationFailureReason: string
 
     case FederatedDomain = 'federated_domain';
 
+    /**
+     * What was typed for a known person is no password: OpaqueString refuses it (RFC 8265 §4.1), whatever they set
+     * before the profile was enforced.
+     */
+    case DisallowedCharacter = 'disallowed_character';
+
     case UpstreamResponseRefused = 'upstream_response_refused';
 
     case UpstreamPersonRefused = 'upstream_person_refused';

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Credential;
 
 /**
- * NIST SP 800-63B §3.1.1.2
+ * NIST SP 800-63B §3.1.1.2, RFC 8265 §4.1
  */
 enum PasswordRefusal: string
 {
@@ -18,4 +18,9 @@ enum PasswordRefusal: string
     case Breached = 'breached';
 
     case NotChecked = 'not_checked';
+
+    /**
+     * A code point the FreeformClass refuses, bytes that are no UTF-8, or a form that does not settle (RFC 8264 §4.3, §7).
+     */
+    case DisallowedCharacter = 'disallowed_character';
 }

@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Precis;
 
+use SensitiveParameter;
+
 /**
  * RFC 5892 Appendix A.2
  */
 final readonly class ZeroWidthJoiner implements ContextualRuleInterface
 {
-    public function appliesTo(int $codePoint): bool
+    public function appliesTo(#[SensitiveParameter] int $codePoint): bool
     {
         return $codePoint === 0x200D;
     }
 
-    public function allows(array $codePoints, int $position): bool
+    public function allows(#[SensitiveParameter] array $codePoints, int $position): bool
     {
         return Virama::precedes($codePoints, $position);
     }

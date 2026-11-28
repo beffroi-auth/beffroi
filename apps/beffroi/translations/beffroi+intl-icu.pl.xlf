@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Nie udało się sprawdzić hasła. Spróbuj ponownie.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>To hasło zawiera niewidoczny znak lub emoji złożone z kilku symboli. Wybierz inne.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Hasła nie są identyczne.</target>

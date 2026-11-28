@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Não foi possível verificar a palavra-passe. Tente novamente.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Esta palavra-passe contém um carácter invisível ou um emoji composto por vários símbolos. Escolha outra.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>As duas palavras-passe não coincidem.</target>

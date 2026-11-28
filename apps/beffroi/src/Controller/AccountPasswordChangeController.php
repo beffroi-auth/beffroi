@@ -16,7 +16,6 @@ use Beffroi\Core\Domain\Credential\PasswordLength;
 use Beffroi\Core\Domain\Credential\PlainPassword;
 use Beffroi\Core\Exception\PasswordChangeRefusedException;
 use Beffroi\Core\Exception\PasswordRefusedException;
-use function hash_equals;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -60,8 +59,12 @@ final readonly class AccountPasswordChangeController implements AsksForARecentPr
         if ($session instanceof Response) {
             return $session;
         }
-        $posed = $request->request->getString(self::POSED_PARAMETER);
-        if (! hash_equals($posed, $request->request->getString(self::POSED_AGAIN_PARAMETER))) {
+        try {
+            $posed = new PlainPassword($request->request->getString(self::POSED_PARAMETER), PasswordLength::under($session->user->tenant->loginFloor));
+        } catch (PasswordRefusedException $exception) {
+            return $this->refused($request, $exception->refusal->value);
+        }
+        if (! $posed->confirmedBy($request->request->getString(self::POSED_AGAIN_PARAMETER))) {
             return $this->refused($request, self::NOT_CONFIRMED);
         }
         $context = $this->contexts->fromRequest($request);
@@ -70,7 +73,7 @@ final readonly class AccountPasswordChangeController implements AsksForARecentPr
             $this->change->change(
                 $session->user,
                 $request->request->getString(self::IN_USE_PARAMETER),
-                new PlainPassword($posed, PasswordLength::under($session->user->tenant->loginFloor)),
+                $posed,
                 $context,
             );
         } catch (PasswordRefusedException|PasswordChangeRefusedException $exception) {

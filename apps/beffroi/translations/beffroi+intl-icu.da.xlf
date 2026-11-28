@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Adgangskoden kunne ikke kontrolleres. Prøv igen.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>Adgangskoden indeholder et usynligt tegn eller en emoji, der består af flere symboler. Vælg en anden.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>De to adgangskoder er ikke ens.</target>

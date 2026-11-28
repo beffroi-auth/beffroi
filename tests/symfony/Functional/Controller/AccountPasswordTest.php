@@ -79,6 +79,23 @@ final class AccountPasswordTest extends BrowserTestCase
         static::assertCount(1, self::events(PasswordChanged::class));
     }
 
+    /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aPasswordTypedAgainInAnotherFormConfirmsIt(): void
+    {
+        // Given
+        $alice = self::userWithPassword('alice', self::IN_USE);
+        $this->signIn($alice);
+
+        // When
+        $this->change(self::IN_USE, "a horse walks into a\u{3000}bar", self::POSED);
+
+        // Then
+        static::assertTrue(self::hasher()->verify(self::passwordOf($alice)->hash, self::POSED));
+    }
+
     #[Test]
     public function replacingThePasswordSignsEveryOtherBrowserOut(): void
     {
@@ -200,6 +217,7 @@ final class AccountPasswordTest extends BrowserTestCase
     {
         yield 'shorter than the fifteen characters the floor asks' => ['short', 'too_short'];
         yield 'a word written twice' => ['passwordpassword', 'too_weak'];
+        yield 'a tabulation, which the profile refuses' => ["my cat is a \u{0009}by and a long one", 'disallowed_character'];
     }
 
     #[Test]

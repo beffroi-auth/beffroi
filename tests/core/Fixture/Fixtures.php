@@ -34,6 +34,7 @@ use SensitiveParameter;
 use function str_repeat;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpClient\MockHttpClient;
+use ReflectionProperty;
 use Symfony\Component\Uid\Uuid;
 use Webauthn\AuthenticatorData;
 use Webauthn\MetadataService\CertificateChain\PhpCertificateChainValidator;
@@ -106,6 +107,16 @@ final class Fixtures
             new FakePasswordHasher()->hash('correct horse battery staple'),
             $createdAt ?? self::now(),
         );
+    }
+
+    /**
+     * A row written before the provider enforced the OpaqueString profile, which no path of the core writes.
+     */
+    public static function hashedAsTyped(PasswordCredential $credential): PasswordCredential
+    {
+        new ReflectionProperty(PasswordCredential::class, 'hashedAsTyped')->setValue($credential, true);
+
+        return $credential;
     }
 
     /**

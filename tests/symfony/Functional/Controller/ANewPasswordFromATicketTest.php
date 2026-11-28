@@ -66,6 +66,22 @@ final class ANewPasswordFromATicketTest extends BrowserTestCase
         static::assertTrue(self::service('test.beffroi.password_hasher', PasswordHasherInterface::class)->verify($this->passwordOfAlice()->hash, self::POSED));
     }
 
+    /**
+     * RFC 8265 §4.2.3
+     */
+    #[Test]
+    public function aPasswordTypedAgainInAnotherFormConfirmsIt(): void
+    {
+        // Given
+        $issued = $this->issue();
+
+        // When
+        $this->pose($issued, "seven brass owls\u{00A0}guard the winter orchard", self::POSED);
+
+        // Then
+        static::assertTrue(self::service('test.beffroi.password_hasher', PasswordHasherInterface::class)->verify($this->passwordOfAlice()->hash, self::POSED));
+    }
+
     #[Test]
     public function theBrowserGoesOnToTheAccountWhereItSignsIn(): void
     {
@@ -148,6 +164,11 @@ final class ANewPasswordFromATicketTest extends BrowserTestCase
         yield 'two passwords that differ' => [self::POSED, 'seven brass owls guard the summer orchard', 'not_confirmed'];
         yield 'a password too short' => ['owls', 'owls', 'too_short'];
         yield 'the password in use' => [self::IN_USE, self::IN_USE, 'same_as_before'];
+        yield 'a tabulation, which the profile refuses' => [
+            "my cat is a \u{0009}by and a long one",
+            "my cat is a \u{0009}by and a long one",
+            'disallowed_character',
+        ];
     }
 
     #[Test]

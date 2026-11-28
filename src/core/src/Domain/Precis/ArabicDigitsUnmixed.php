@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Domain\Precis;
 
 use function array_any;
+use SensitiveParameter;
 
 /**
  * RFC 5892 Appendix A.8 and A.9, the one rule read from either side: a digit of one of the two sets of Arabic digits
@@ -38,17 +39,17 @@ final readonly class ArabicDigitsUnmixed implements WholeStringRuleInterface
         return new self(self::EXTENDED_ARABIC_INDIC_ZERO, self::ARABIC_INDIC_ZERO);
     }
 
-    public function appliesTo(int $codePoint): bool
+    public function appliesTo(#[SensitiveParameter] int $codePoint): bool
     {
         return self::isDigitOf($codePoint, $this->zero);
     }
 
-    public function allows(array $codePoints, int $position): bool
+    public function allows(#[SensitiveParameter] array $codePoints, int $position): bool
     {
         return ! array_any($codePoints, fn (int $codePoint): bool => self::isDigitOf($codePoint, $this->otherZero));
     }
 
-    private static function isDigitOf(int $codePoint, int $zero): bool
+    private static function isDigitOf(#[SensitiveParameter] int $codePoint, int $zero): bool
     {
         return $codePoint >= $zero && $codePoint <= ($zero + 9);
     }

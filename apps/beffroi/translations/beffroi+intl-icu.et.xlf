@@ -1905,6 +1905,10 @@
         <source>password.error.not_checked</source>
         <target>Parooli ei õnnestunud kontrollida. Proovige uuesti.</target>
       </trans-unit>
+      <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
+        <source>password.error.disallowed_character</source>
+        <target>See parool sisaldab nähtamatut märki või mitmest sümbolist koosnevat emojit. Valige mõni muu.</target>
+      </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
         <target>Paroolid ei ühti.</target>
