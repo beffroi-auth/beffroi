@@ -74,6 +74,56 @@ final class UpstreamMembershipsTest extends TestCase
     }
 
     #[Test]
+    public function aReplacementSaysTheGroupsItGranted(): void
+    {
+        // When
+        $change = $this->upstream->replace($this->user, ['sales-guid'], $this->mapping);
+
+        // Then
+        static::assertEquals([[$this->sales], [], $this->clock->now()], [$change->granted, $change->removed, $change->replacedAt]);
+    }
+
+    #[Test]
+    public function aReplacementSaysTheGroupsItTookAway(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['admins-guid', 'sales-guid'], $this->mapping);
+
+        // When
+        $change = $this->upstream->replace($this->user, ['admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([[], [$this->sales]], [$change->granted, $change->removed]);
+    }
+
+    #[Test]
+    public function theValuesOfTheLastSignInAssertedAgainChangeNothing(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['admins-guid', 'sales-guid'], $this->mapping);
+
+        // When
+        $change = $this->upstream->replace($this->user, ['sales-guid', 'admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([[], []], [$change->granted, $change->removed]);
+    }
+
+    #[Test]
+    #[DataProvider('provideSourcesASignInLeaves')]
+    public function aGroupThePersonHoldsFromAnotherSourceIsNotGrantedAgain(GroupSource $source): void
+    {
+        // Given
+        $this->memberships->save(new GroupMembership(Uuid::v7(), $this->admins, $this->user, $source, Fixtures::now()));
+
+        // When
+        $change = $this->upstream->replace($this->user, ['admins-guid'], $this->mapping);
+
+        // Then
+        static::assertSame([[], []], [$change->granted, $change->removed]);
+    }
+
+    #[Test]
     public function theValueGoneAtTheNextSignInTakesTheMembershipAway(): void
     {
         // Given

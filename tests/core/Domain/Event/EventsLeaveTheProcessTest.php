@@ -61,6 +61,8 @@ use Beffroi\Core\Domain\Event\TenantKeyRetired;
 use Beffroi\Core\Domain\Event\TenantKeyRotated;
 use Beffroi\Core\Domain\Event\TenantKeyStaged;
 use Beffroi\Core\Domain\Event\TotpUsed;
+use Beffroi\Core\Domain\Event\UpstreamMembershipGranted;
+use Beffroi\Core\Domain\Event\UpstreamMembershipRemoved;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Key\RetirementReason;
 use Beffroi\Core\Domain\Key\TenantKey;
@@ -138,6 +140,22 @@ final class EventsLeaveTheProcessTest extends TestCase
             $now,
             $context,
             new Subject('administrator-subject'),
+        )];
+        yield 'a member an upstream provider added to a group' => [new UpstreamMembershipGranted(
+            $tenant,
+            $user->subject,
+            'auditors',
+            'https://idp.acme.example/saml',
+            $now,
+            $context,
+        )];
+        yield 'a member an upstream provider took out of a group' => [new UpstreamMembershipRemoved(
+            $tenant,
+            $user->subject,
+            'auditors',
+            'https://idp.acme.example/saml',
+            $now,
+            $context,
         )];
         yield 'a person the operator disabled' => [new PersonDisabled($tenant, $user->subject, $now, $context)];
         yield 'a person an administrator disabled' => [new PersonDisabled($tenant, $user->subject, $now, $context, new Subject('administrator-subject'))];

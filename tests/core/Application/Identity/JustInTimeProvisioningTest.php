@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Identity;
 
+use function array_map;
 use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
@@ -31,6 +32,8 @@ use Beffroi\Core\Bridge\Password\NativePasswordHasher;
 use Beffroi\Core\Bridge\Uid\FixedUuidGenerator;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
 use Beffroi\Core\Domain\Event\PersonProvisioned;
+use Beffroi\Core\Domain\Event\UpstreamMembershipGranted;
+use Beffroi\Core\Domain\Event\UpstreamMembershipRemoved;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\EmailDomain;
 use Beffroi\Core\Domain\Identity\LinkedIdentity;
@@ -51,9 +54,11 @@ use Beffroi\Core\Tests\Fixture\FixedClaims;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
 use Beffroi\Core\Tests\Fixture\WritesAsTheyCome;
+use function count;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use RuntimeException;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -745,6 +750,140 @@ final class JustInTimeProvisioningTest extends TestCase
     }
 
     /**
+     * beffroi/saml S-56
+     */
+    #[Test]
+    public function aFirstSignInAnnouncesTheGroupsTheProviderGrants(): void
+    {
+        // Given
+        $context = Fixtures::context();
+
+        // When
+        $alice = $this->signInAsserting($this->members(), ['staff'], context: $context);
+
+        // Then
+        $announced = $this->events->of(UpstreamMembershipGranted::class);
+        static::assertCount(1, $announced);
+        static::assertSame($this->tenant, $announced[0]->tenant);
+        static::assertSame($alice->subject, $announced[0]->person);
+        static::assertSame('Staff', $announced[0]->group);
+        static::assertSame(self::PROVIDER, $announced[0]->provider);
+        static::assertEquals($this->clock->now(), $announced[0]->occurredAt);
+        static::assertSame($context, $announced[0]->context);
+    }
+
+    /**
+     * beffroi/saml S-56
+     */
+    #[Test]
+    public function aSignInAnnouncesTheGroupsTheProviderNoLongerAsserts(): void
+    {
+        // Given
+        $members = $this->members();
+        $alice = $this->signInAsserting($members, ['staff']);
+        $this->clock->modify('+1 day');
+        $context = Fixtures::context();
+
+        // When
+        $this->signInAsserting($members, [], context: $context);
+
+        // Then
+        $announced = $this->events->of(UpstreamMembershipRemoved::class);
+        static::assertCount(1, $announced);
+        static::assertSame($this->tenant, $announced[0]->tenant);
+        static::assertSame($alice->subject, $announced[0]->person);
+        static::assertSame('Staff', $announced[0]->group);
+        static::assertSame(self::PROVIDER, $announced[0]->provider);
+        static::assertEquals($this->clock->now(), $announced[0]->occurredAt);
+        static::assertSame($context, $announced[0]->context);
+    }
+
+    /**
+     * beffroi/saml S-56
+     */
+    #[Test]
+    public function aSignInThatChangesNoMembershipAnnouncesNone(): void
+    {
+        // Given
+        $members = $this->members();
+        $this->signInAsserting($members, ['staff']);
+
+        // When
+        $this->signInAsserting($members, ['staff']);
+
+        // Then
+        static::assertSame([1, 0], [count($this->events->of(UpstreamMembershipGranted::class)), count($this->events->of(UpstreamMembershipRemoved::class))]);
+    }
+
+    /**
+     * beffroi/saml S-56
+     */
+    #[Test]
+    public function aFirstSignInAnnouncesThePersonBeforeTheirGroups(): void
+    {
+        // When
+        $this->signInAsserting($this->members(), ['staff']);
+
+        // Then
+        static::assertSame(
+            [PersonProvisioned::class, UpstreamMembershipGranted::class],
+            array_map(static fn (object $event): string => $event::class, $this->events->events),
+        );
+    }
+
+    /**
+     * beffroi/saml S-56
+     *
+     * @param list<string>|null $before
+     * @param list<string>      $asserted
+     */
+    #[Test]
+    #[DataProvider('provideSignInsThatChangeAMembership')]
+    public function aMembershipIsAnnouncedOnceTheUnitOfTheSignInIsWritten(?array $before, array $asserted): void
+    {
+        // Given
+        $members = $this->members();
+        if ($before !== null) {
+            $this->signInAsserting($members, $before);
+        }
+        $events = new class($this->writes) implements EventDispatcherInterface {
+            /**
+             * @var list<bool>
+             */
+            public private(set) array $insideTheUnit = [];
+
+            public function __construct(
+                private readonly WritesAsTheyCome $writes,
+            ) {
+            }
+
+            public function dispatch(object $event): object
+            {
+                if ($event instanceof UpstreamMembershipGranted || $event instanceof UpstreamMembershipRemoved) {
+                    $this->insideTheUnit[] = $this->writes->open;
+                }
+
+                return $event;
+            }
+        };
+
+        // When
+        $this->signInAsserting($members, $asserted, $this->provisioningDrawing(new SymfonyUuidGenerator(), events: $events));
+
+        // Then
+        static::assertSame([false], $events->insideTheUnit);
+    }
+
+    /**
+     * @return iterable<string, array{list<string>|null, list<string>}>
+     */
+    public static function provideSignInsThatChangeAMembership(): iterable
+    {
+        yield 'a group granted at the first sign-in' => [null, ['staff']];
+        yield 'a group taken away at a later sign-in' => [['staff'], []];
+    }
+
+    /**
      * beffroi/saml S-45, S-56
      */
     #[Test]
@@ -922,13 +1061,14 @@ final class JustInTimeProvisioningTest extends TestCase
         ?LinkedIdentityRepositoryInterface $identities = null,
         ?GroupMembershipRepositoryInterface $memberships = null,
         ?UserRepositoryInterface $users = null,
+        ?EventDispatcherInterface $events = null,
     ): JustInTimeProvisioning {
         return new JustInTimeProvisioning(
             $identities ?? $this->identities,
             $users ?? $this->users,
             $this->provisioner,
             $this->linker,
-            $this->events,
+            $events ?? $this->events,
             $this->clock,
             $this->writes,
             $uuids,
@@ -941,6 +1081,28 @@ final class JustInTimeProvisioningTest extends TestCase
         return new GroupMapping([
             'staff' => new Group(Uuid::v7(), $this->tenant, 'Staff', GroupSource::Local, Fixtures::now()),
         ]);
+    }
+
+    /**
+     * @param list<string> $asserted
+     */
+    private function signInAsserting(
+        GroupMapping $members,
+        array $asserted,
+        ?JustInTimeProvisioning $provisioning = null,
+        ?RequestContext $context = null,
+    ): User {
+        return ($provisioning ?? $this->provisioning)->personNamedBy(
+            $this->tenant,
+            $this->provider,
+            self::SUBJECT,
+            new EmailAddress(self::ADDRESS),
+            [],
+            $context ?? Fixtures::context(),
+            null,
+            $members,
+            $asserted,
+        );
     }
 
     private function failToSignIn(string $address): UpstreamProvisioningRefusedException

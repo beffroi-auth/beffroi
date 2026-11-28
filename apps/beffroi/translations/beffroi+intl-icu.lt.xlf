@@ -1453,6 +1453,14 @@
         <source>act.group_membership.removed</source>
         <target>Pašalinimas iš grupės</target>
       </trans-unit>
+      <trans-unit id="act.upstream_membership.granted" resname="act.upstream_membership.granted">
+        <source>act.upstream_membership.granted</source>
+        <target>Įtraukimas į grupę per jūsų organizaciją</target>
+      </trans-unit>
+      <trans-unit id="act.upstream_membership.removed" resname="act.upstream_membership.removed">
+        <source>act.upstream_membership.removed</source>
+        <target>Pašalinimas iš grupės per jūsų organizaciją</target>
+      </trans-unit>
       <trans-unit id="act.consent.granted" resname="act.consent.granted">
         <source>act.consent.granted</source>
         <target>Programai leista</target>

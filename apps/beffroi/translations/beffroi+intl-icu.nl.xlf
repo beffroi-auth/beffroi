@@ -1453,6 +1453,14 @@
         <source>act.group_membership.removed</source>
         <target>Verwijderd uit een groep</target>
       </trans-unit>
+      <trans-unit id="act.upstream_membership.granted" resname="act.upstream_membership.granted">
+        <source>act.upstream_membership.granted</source>
+        <target>Toegevoegd aan een groep via uw organisatie</target>
+      </trans-unit>
+      <trans-unit id="act.upstream_membership.removed" resname="act.upstream_membership.removed">
+        <source>act.upstream_membership.removed</source>
+        <target>Verwijderd uit een groep via uw organisatie</target>
+      </trans-unit>
       <trans-unit id="act.consent.granted" resname="act.consent.granted">
         <source>act.consent.granted</source>
         <target>Applicatie toegestaan</target>

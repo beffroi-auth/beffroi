@@ -1154,6 +1154,14 @@ La réponse revient à {redirect_uri}.</target>
         <source>act.group_membership.removed</source>
         <target>appartenances retirées</target>
       </trans-unit>
+      <trans-unit id="9cc4e2a42e" resname="act.upstream_membership.granted">
+        <source>act.upstream_membership.granted</source>
+        <target>appartenances amont données</target>
+      </trans-unit>
+      <trans-unit id="3dace2843e" resname="act.upstream_membership.removed">
+        <source>act.upstream_membership.removed</source>
+        <target>appartenances amont retirées</target>
+      </trans-unit>
       <trans-unit id="ee56b59992" resname="act.enrolment_ticket.issued">
         <source>act.enrolment_ticket.issued</source>
         <target>liens de passkey émis</target>
