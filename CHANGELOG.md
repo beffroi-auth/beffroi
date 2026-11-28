@@ -10,22 +10,36 @@ All notable changes to this project are documented in this file, in reverse chro
 
 ### Changed
 
-- `beffroi/core`: an act of the journal and a change of a claim name their author by one of five kinds (decision
-  0066): the person, an administrator of the tenant by the subject of their account, a client by its identifier, a
-  directory by its name, or the host. `NamesItsAuthorInterface::author()`, `JournalEntry::$author` and
-  `ClaimChange::$author` hold an `AuthorInterface` in place of a `Subject`; `PersonCreation::create()`,
-  `PersonDescription::describe()`, `PersonDisabling::disable()` and `PersonEnabling::enable()` take the author in place
-  of their `…ByAnAdministrator()` twin, and `SessionTerminator::end()`, `CredentialRevocation::revoke()`,
-  `ConsentRevocation::revoke()`, `RegisteredClientRemoval::remove()` and `OtherSessionsTermination::endEvery()` take the
-  author their callers name. A token a client revokes (RFC 7009) names that client. Every session a disabling ends
-  ends as an act of administration, the console's included.
-- `beffroi/beffroi`: the journal of a person the administration API answers and `beffroi:user:journal --format=json`
-  name the author of an act by its document, `{"kind": "administrator", "subject": "…"}` for instance, in place of the
-  subject of an administrator, and the archive of a person names who made each act and each change by their kind, an
-  administrator by that kind alone. The migration widens the two columns to text and rewrites no row, the journal and
-  the history being chains whose head the provider signed; it refuses a database where one of them names an
-  administrator by a subject that begins with `{`. A logout token or an event queued before the upgrade does not read
-  back after it.
+- `beffroi/core`: every act of the journal and every change of a claim names its author, of one of seven kinds
+  (decision 0066): the person, an administrator of the tenant by the subject of their account, a client by its
+  identifier, a directory or an upstream provider by the name the deployment declares it under, an unauthenticated
+  caller, or the host. `DomainEventInterface` extends `NamesItsAuthorInterface`, whose `author()` returns an
+  `AuthorInterface`; `JournalEntry::$author` and `ClaimChange::$author` hold one in place of a `Subject`, `null` only for
+  an act written before acts named their author. `PersonCreation::create()`, `PersonDescription::describe()`,
+  `PersonDisabling::disable()` and `PersonEnabling::enable()` take the author in place of their `…ByAnAdministrator()`
+  twin, and `SessionTerminator::end()`, `CredentialRevocation::revoke()`, `ConsentRevocation::revoke()`,
+  `RegisteredClientRemoval::remove()` and `OtherSessionsTermination::endEvery()` take the author their callers name.
+  `JournalQuestion` and `ClaimChangeQuestion` narrow by the name of a kind (`$by`) in place of a boolean, and the wired
+  kinds are listed by `KindsOfAuthorInterface`. `SessionEnd` says how a session ended: a console ending one ends it as
+  an act of administration, as every disabling does, and another person signing in from the same browser ends it by
+  the rule of the host (`Security`).
+- `beffroi/beffroi`: the person reads who did each act and each change: an administrator and the host by their role,
+  without the user of the shell or the name of the host a command records, a directory and an upstream provider by
+  their name, the others by where the act came from, and the page of the acts and the page of the history narrow by the
+  kind of the author. The archive of a person and the journal of the administration API name the author by an object,
+  `{"kind": "administrator"}` in the archive, the whole document in the API and in `beffroi:user:journal --format=json`,
+  where both gave a string: the TUI 0.2.0 or later reads it, and an older TUI refuses the journal of a person.
+- `beffroi/beffroi`, **upgrading**: stop the processes that dispatch messages, the planes of the provider, of the
+  protocol and of the administration, then let the worker drain the four lanes, `async_priority_high`,
+  `async_priority_medium`, `async_priority_low` and `async_notifications`, the logout tokens whose issue it retries
+  later included, and empty the failure transport (`messenger:failed:retry` or `messenger:failed:remove`); then deploy.
+  A body the version before queued is read back nonetheless, naming the administrator it named, and one no class of
+  this release can build goes to the failure transport instead of stopping the worker. The migration widens two
+  columns and rewrites no row, the journal and the history being chains whose head the provider signed; it refuses a
+  database where one of them names an administrator by a subject that begins with `{`, and says how to rewrite those
+  rows. **The upgrade goes one way** once an act is written: the image of the version before reads the author of every
+  act written since as the subject of an administrator, and only a backup of the database taken before the migration
+  goes back.
 
 ### Deprecated
 

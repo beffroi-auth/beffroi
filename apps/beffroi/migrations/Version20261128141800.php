@@ -31,7 +31,10 @@ final class Version20261128141800 extends AbstractMigration
         foreach (self::RECORDS as $record) {
             $this->abortIf(
                 $this->authorsBeginningWithABrace($record) > 0,
-                sprintf('The table %s names an administrator by a subject that begins with "{", which would read as the document of an author.', $record),
+                sprintf(
+                    'The table %1$s names an administrator by a subject that begins with "{", which would read as the document of an author: rewrite the author of those rows (SELECT id FROM %1$s WHERE author LIKE \'{%%\'), then relink and sign their chain anew with beffroi:chain:sign-anew, and play the migrations again.',
+                    $record,
+                ),
             );
         }
     }
@@ -49,7 +52,10 @@ final class Version20261128141800 extends AbstractMigration
         foreach (self::RECORDS as $record) {
             $this->abortIf(
                 $this->authorsBeginningWithABrace($record) > 0,
-                sprintf('The table %s holds authors named by their kind, which the previous version would read as administrators.', $record),
+                sprintf(
+                    'The table %s holds authors named by their kind, which the previous version would read as the subjects of administrators: from the first of them the migration goes one way, and only a backup of the database taken before it goes back.',
+                    $record,
+                ),
             );
         }
     }

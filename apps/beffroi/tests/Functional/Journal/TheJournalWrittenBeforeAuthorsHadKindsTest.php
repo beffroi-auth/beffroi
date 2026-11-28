@@ -5,62 +5,70 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Journal;
 
 use App\Doctrine\Chain\DoctrineChains;
-use App\Doctrine\TenantProvider;
-use App\Doctrine\TenantSynchronizer;
+use App\Tests\Functional\BrowserTestCase;
 use Beffroi\Core\Application\Chain\ChainVerification;
 use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Chain\ChainInterface;
+use Beffroi\Core\Domain\Identity\ClaimChange;
+use Beffroi\Core\Domain\Identity\ClaimHistoryChain;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Journal\JournalChain;
 use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\RequestContext;
-use Beffroi\Core\Domain\Tenant\Tenant;
-use DateTimeImmutable;
-use Doctrine\DBAL\Connection;
-use Doctrine\ORM\EntityManagerInterface;
 use function array_map;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bridge\Doctrine\Types\UuidType;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Process\Process;
+use const PHP_BINARY;
+use function dirname;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Decisions 0060 and 0066, on PostgreSQL: the journal a version before acts named the kind of their author wrote, its
- * administrators by their bare subject in a column of 255 characters, holds together once the column holds text, and
- * reads back as it was written.
+ * Decisions 0060 and 0066, on PostgreSQL: the journal and the history of claims the version before acts named the kind of
+ * their author wrote, its administrators by their bare subject in columns of 255 characters, hold together once the
+ * migration made those columns text, and read back as they were written.
  */
-final class TheJournalWrittenBeforeAuthorsHadKindsTest extends KernelTestCase
+final class TheJournalWrittenBeforeAuthorsHadKindsTest extends BrowserTestCase
 {
+    private const string MIGRATION = 'DoctrineMigrations\Version20261128141800';
+
     protected function setUp(): void
     {
-        $synchronizer = self::getContainer()->get('test.beffroi.tenant_synchronizer');
-        static::assertInstanceOf(TenantSynchronizer::class, $synchronizer);
-        $synchronizer->synchronize();
-        self::forgetTheJournal();
-        self::database()->executeStatement('ALTER TABLE beffroi_journal ALTER author TYPE VARCHAR(255)');
-        self::actWrittenBefore('mallory-subject');
-        self::actWrittenBefore(null);
-        // What Version20261128141800 plays.
-        self::database()->executeStatement('ALTER TABLE beffroi_journal ALTER author TYPE TEXT');
-    }
-
-    protected function tearDown(): void
-    {
-        self::database()->executeStatement('ALTER TABLE beffroi_journal ALTER author TYPE TEXT');
-        self::forgetTheJournal();
-        parent::tearDown();
+        parent::setUp();
+        self::migrate('--down');
+        try {
+            $alice = self::user();
+            foreach (['mallory-subject', null] as $written) {
+                $act = new JournalEntry(Uuid::v7(), self::tenant(), 'person.disabled', self::now(), self::context(), $alice->subject, author: new TheHost());
+                self::writtenBefore(new JournalChain(), $act->id, $act, 'beffroi_journal', $written);
+                $change = new ClaimChange(Uuid::v7(), $alice, 'nickname', 'Ada', 'Augusta', self::now(), self::context(), new ThePerson());
+                self::writtenBefore(new ClaimHistoryChain(), $change->id, $change, 'beffroi_claim_change', $written);
+            }
+            self::manager()->clear();
+        } finally {
+            self::migrate('--up');
+        }
     }
 
     #[Test]
-    public function theChainOfTheJournalWrittenBeforeHoldsTogether(): void
+    public function theJournalWrittenBeforeHoldsTogether(): void
     {
-        // Given
-        $verification = self::getContainer()->get('test.beffroi.chain_verification');
-        static::assertInstanceOf(ChainVerification::class, $verification);
-
         // When
-        $verified = $verification->whole(self::tenant(), new JournalChain());
+        $verified = self::verification()->whole(self::tenant(), new JournalChain());
+
+        // Then
+        static::assertSame(2, $verified->end->position);
+    }
+
+    #[Test]
+    public function theHistoryWrittenBeforeHoldsTogether(): void
+    {
+        // When
+        $verified = self::verification()->whole(self::tenant(), new ClaimHistoryChain());
 
         // Then
         static::assertSame(2, $verified->end->position);
@@ -70,7 +78,7 @@ final class TheJournalWrittenBeforeAuthorsHadKindsTest extends KernelTestCase
     public function theActsWrittenBeforeReadBackAsTheyWereWritten(): void
     {
         // When
-        $acts = self::entityManager()->getRepository(JournalEntry::class)->findBy([], ['id' => 'ASC']);
+        $acts = self::manager()->getRepository(JournalEntry::class)->findBy([], ['id' => 'ASC']);
 
         // Then
         static::assertEquals(
@@ -79,52 +87,60 @@ final class TheJournalWrittenBeforeAuthorsHadKindsTest extends KernelTestCase
         );
     }
 
+    #[Test]
+    public function theChangesWrittenBeforeReadBackAsTheyWereWritten(): void
+    {
+        // When
+        $changes = self::manager()->getRepository(ClaimChange::class)->findBy([], ['id' => 'ASC']);
+
+        // Then
+        static::assertEquals(
+            [new AnAdministrator(new Subject('mallory-subject')), new ThePerson()],
+            array_map(static fn (ClaimChange $change): AuthorInterface => $change->author, $changes),
+        );
+    }
+
     /**
-     * Linked to the chain from the bytes that version wrote: its administrator by a bare subject, or nobody.
+     * The migration itself, as a deployment plays it, in a process of its own: the migrations of a kernel are frozen
+     * once one of them ran.
      */
-    private static function actWrittenBefore(?string $author): void
+    private static function migrate(string $direction): void
     {
-        $now = new DateTimeImmutable();
-        $entry = new JournalEntry(Uuid::v7(), self::tenant(), 'person.disabled', $now, new RequestContext($now, '203.0.113.7', 'the suite'), author: new TheHost());
-        $manager = self::entityManager();
-        $chains = self::getContainer()->get('test.beffroi.chains');
-        static::assertInstanceOf(DoctrineChains::class, $chains);
-        $chains->written(self::tenant(), new JournalChain(), $entry->id, static function () use ($manager, $entry, $author): void {
-            $manager->persist($entry);
+        $console = new Process(
+            [PHP_BINARY, 'bin/console', 'doctrine:migrations:execute', self::MIGRATION, $direction, '--no-interaction'],
+            dirname(__DIR__, 3),
+            ['APP_ENV' => 'test', 'APP_DEBUG' => '0'],
+        );
+        $console->run();
+        static::assertTrue($console->isSuccessful(), $console->getErrorOutput() . $console->getOutput());
+        self::manager()->clear();
+    }
+
+    /**
+     * A row linked to its chain from the bytes the version before wrote: an administrator by a bare subject, or nobody.
+     */
+    private static function writtenBefore(ChainInterface $chain, Uuid $id, object $row, string $table, ?string $author): void
+    {
+        $manager = self::manager();
+        self::service('test.beffroi.chains', DoctrineChains::class)->written(self::tenant(), $chain, $id, static function () use ($manager, $row, $table, $id, $author): void {
+            $manager->persist($row);
             $manager->flush();
-            $manager->getConnection()->update('beffroi_journal', ['author' => $author], ['id' => $entry->id], ['id' => UuidType::NAME]);
+            $manager->getConnection()->update($table, ['author' => $author], ['id' => $id], ['id' => UuidType::NAME]);
         });
-        $manager->clear();
     }
 
-    private static function tenant(): Tenant
+    private static function verification(): ChainVerification
     {
-        $tenants = self::getContainer()->get('test.beffroi.tenant_provider');
-        static::assertInstanceOf(TenantProvider::class, $tenants);
-
-        return $tenants->provide();
+        return self::service('test.beffroi.chain_verification', ChainVerification::class);
     }
 
-    private static function forgetTheJournal(): void
+    private static function manager(): EntityManagerInterface
     {
-        self::database()->executeStatement("DELETE FROM beffroi_chain_link WHERE chain = 'journal'");
-        self::database()->executeStatement("DELETE FROM beffroi_chain_head WHERE chain = 'journal'");
-        self::database()->executeStatement('DELETE FROM beffroi_journal');
+        return self::service('doctrine.orm.entity_manager', EntityManagerInterface::class);
     }
 
-    private static function entityManager(): EntityManagerInterface
+    private static function context(): RequestContext
     {
-        $manager = self::getContainer()->get('doctrine.orm.entity_manager');
-        static::assertInstanceOf(EntityManagerInterface::class, $manager);
-
-        return $manager;
-    }
-
-    private static function database(): Connection
-    {
-        $connection = self::getContainer()->get('doctrine.dbal.default_connection');
-        static::assertInstanceOf(Connection::class, $connection);
-
-        return $connection;
+        return new RequestContext(self::now(), '203.0.113.7', 'the suite');
     }
 }
