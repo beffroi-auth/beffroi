@@ -88,7 +88,7 @@ security:
             request_matcher: App\Administration\AdministrationRequestMatcher
             security: false
         beffroi_protocol:
-            pattern: ^/(\.well-known/(openid-configuration|oauth-authorization-server)|jwks|token|userinfo|introspect|revoke|par|device_authorization|backchannel_authentication|register(/.+)?)$
+            pattern: ^/(\.well-known/(openid-configuration|oauth-authorization-server)|jwks|token|userinfo|introspect|revoke|par|device_authorization|backchannel_authentication|register(/.+)?|scim/v2/.+)$
             security: false
         # The application signs its own users in at the provider it serves (issue #282), with the "oidc_login"
         # of Symfony: what it was declared with under

@@ -155,7 +155,7 @@ nelmio_security:
             # answer that is not a document has no business carrying either. CORP is the one that applies,
             # and it refuses an embedding without touching a CORS fetch, which is checked elsewhere
             # (nelmio_cors.yaml) and is how a browser-based client reaches these endpoints.
-            '^/(\.well-known/|jwks|token|userinfo|introspect|revoke|par|register|device_authorization|backchannel_authentication)':
+            '^/(\.well-known/|jwks|token|userinfo|introspect|revoke|par|register|device_authorization|backchannel_authentication|scim/v2/)':
                 corp: same-origin
 
             # The pages a relying party drives. These carry no COOP, and the reason is the protocol: a

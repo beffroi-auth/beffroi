@@ -2306,6 +2306,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             },
  *         }>,
  *     },
+ *     scim?: bool|array{ // SCIM 2.0 (beffroi/scim, spec/scim.md): the service provider of RFC 7643 and RFC 7644 that the directories of the tenant push its persons and groups to, under /scim/v2 on the protocol plane, switched by "enabled", which may be an environment variable, read when the container builds what the module changes. Disabled, the default, nothing of the module is built and every route of it answers 404.
+ *         enabled?: bool|Param, // Default: false
+ *     },
  * }
  * @psalm-type ConfigType = array{
  *     imports?: ImportsConfig,

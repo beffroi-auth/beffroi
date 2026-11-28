@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "182fa66958a8f28c0079bb2a64a64a1b",
+    "content-hash": "8ce9ce0606bd2b476efda99efee42fb8",
     "packages": [
         {
             "name": "async-aws/core",
@@ -433,6 +433,51 @@
                 "sso",
                 "xml-security",
                 "xml-signature"
+            ],
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "beffroi/scim",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../src/scim",
+                "reference": "aea879f9b6b6445539f2fb39469bc565c1730241"
+            },
+            "require": {
+                "beffroi/core": "self.version",
+                "ext-intl": "*",
+                "ext-mbstring": "*",
+                "php": ">=8.4"
+            },
+            "type": "library",
+            "extra": {
+                "thanks": {
+                    "name": "beffroi/framework"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Beffroi\\Scim\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "All contributors"
+                }
+            ],
+            "description": "SCIM 2.0 module of the IdP: the service provider of RFC 7643 and RFC 7644 for the directories of a tenant, the User, EnterpriseUser and Group schemas mapped onto the identity model of the core and the record of a directory, the filter, the pagination and the versioning of the protocol. Pure PHP.",
+            "keywords": [
+                "directory",
+                "identity-provider",
+                "provisioning",
+                "scim",
+                "scim2"
             ],
             "transport-options": {
                 "relative": true
@@ -10488,7 +10533,8 @@
     "stability-flags": {
         "beffroi/core": 20,
         "beffroi/oidc": 20,
-        "beffroi/saml": 20
+        "beffroi/saml": 20,
+        "beffroi/scim": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

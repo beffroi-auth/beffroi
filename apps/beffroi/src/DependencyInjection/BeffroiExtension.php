@@ -57,6 +57,7 @@ use App\Configuration\RequestObjectsSection;
 use App\Configuration\TenantSection;
 use App\Configuration\TokensSection;
 use App\Configuration\SamlSection;
+use App\Configuration\ScimSection;
 use App\Configuration\SelfClientSection;
 use App\Configuration\SmsSection;
 use App\Configuration\TrustedIssuersSection;
@@ -358,6 +359,7 @@ final class BeffroiExtension extends AbstractExtension
             new ClientRegistrationSection(),
             new OutboundSection(),
             new SamlSection(),
+            new ScimSection(),
         ];
     }
 }

@@ -83,6 +83,19 @@ final class AccessLogKeepsNoValueTest extends TestCase
         yield 'a user code' => ['user_code'];
     }
 
+    /**
+     * spec/scim.md P-20, RFC 7644 §7.5.2
+     */
+    #[Test]
+    public function theFilterOfAQueryOfScimIsNotLogged(): void
+    {
+        // When
+        $logged = self::logged('/scim/v2/Users?filter=userName%20eq%20%22' . self::SECRET . '%22&startIndex=1&count=100');
+
+        // Then
+        static::assertSame('/scim/v2/Users?filter=REDACTED&startIndex=REDACTED&count=REDACTED', $logged);
+    }
+
     #[Test]
     public function aPathWithoutAValueIsLoggedAsItIs(): void
     {
