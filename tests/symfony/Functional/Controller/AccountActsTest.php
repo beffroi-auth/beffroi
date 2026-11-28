@@ -17,6 +17,8 @@ use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Event\GroupMembershipRemoved;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
@@ -141,6 +143,30 @@ final class AccountActsTest extends BrowserTestCase
         $row = $page->filter('tbody tr');
         static::assertSame(
             ['The directory Entra <ID>', 'directory', false],
+            [$row->filter('[data-author]')->text(), $row->filter('[data-author]')->attr('data-author'), str_contains($row->html(), SealedRows::IP_ADDRESS)],
+        );
+    }
+
+    /**
+     * Decision 0066, beffroi/saml S-56: the person reads the sign-in through the provider in place of where the act came
+     * from, true even when a change the tenant made is what took the membership away.
+     */
+    #[Test]
+    public function aMembershipASignInTookAwayIsOnThePageByTheProviderItCameThrough(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, GroupMembershipRemoved::NAME, author: new AnUpstreamProvider('https://sts.windows.net/acme/'));
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame(
+            ['A sign-in through https://sts.windows.net/acme/', 'upstream', false],
             [$row->filter('[data-author]')->text(), $row->filter('[data-author]')->attr('data-author'), str_contains($row->html(), SealedRows::IP_ADDRESS)],
         );
     }

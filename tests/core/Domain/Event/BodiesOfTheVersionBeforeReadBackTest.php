@@ -32,6 +32,8 @@ use Closure;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use function preg_replace;
+use function preg_replace_callback;
 use function unserialize;
 use Symfony\Component\Uid\Uuid;
 
@@ -71,6 +73,7 @@ final class BodiesOfTheVersionBeforeReadBackTest extends TestCase
         $ended->end(SessionEnd::User, $now);
         $passkey = Fixtures::passkey($user);
         $password = Fixtures::password($user);
+        $group = Uuid::fromString('0192f0a4-8e1b-7c3d-9a2b-4c5d6e7f8094');
         $events = [
             'a person created' => [
                 static fn (RequestContext $c, AuthorInterface $a): object => new PersonCreated($tenant, $user->subject, $now, $c, $a),
@@ -124,11 +127,27 @@ final class BodiesOfTheVersionBeforeReadBackTest extends TestCase
                 new TheHost(),
             ],
             'a member added' => [
-                static fn (RequestContext $c, AuthorInterface $a): object => new GroupMembershipAdded($tenant, $user->subject, 'auditors', $now, $c, $a),
+                static fn (RequestContext $c, AuthorInterface $a): object => new GroupMembershipAdded(
+                    $tenant,
+                    $user->subject,
+                    $group,
+                    'auditors',
+                    $now,
+                    $c,
+                    $a,
+                ),
                 new TheHost(),
             ],
             'a member taken out' => [
-                static fn (RequestContext $c, AuthorInterface $a): object => new GroupMembershipRemoved($tenant, $user->subject, 'auditors', $now, $c, $a),
+                static fn (RequestContext $c, AuthorInterface $a): object => new GroupMembershipRemoved(
+                    $tenant,
+                    $user->subject,
+                    $group,
+                    'auditors',
+                    $now,
+                    $c,
+                    $a,
+                ),
                 new TheHost(),
             ],
         ];
@@ -144,5 +163,73 @@ final class BodiesOfTheVersionBeforeReadBackTest extends TestCase
             $fromARequest,
             new AnAdministrator(new Subject('administrator-subject')),
         ];
+    }
+
+    /**
+     * @param Closure(): (GroupMembershipAdded|GroupMembershipRemoved) $event
+     */
+    #[Test]
+    #[DataProvider('provideMemberships')]
+    public function aMembershipTheVersionBeforeWroteReadsBackWithoutTheIdentifierOfItsGroup(Closure $event): void
+    {
+        // Given
+        $body = self::withoutTheIdentifierOfItsGroup(BodyOfTheVersionBefore::of($event()));
+
+        // When
+        $read = unserialize($body);
+
+        // Then
+        static::assertTrue(($read instanceof GroupMembershipAdded || $read instanceof GroupMembershipRemoved) && $read->groupId === null);
+    }
+
+    /**
+     * @return iterable<string, array{Closure(): (GroupMembershipAdded|GroupMembershipRemoved)}>
+     */
+    public static function provideMemberships(): iterable
+    {
+        $tenant = Fixtures::tenant();
+        $user = Fixtures::user();
+        $now = Fixtures::now();
+        $group = Uuid::fromString('0192f0a4-8e1b-7c3d-9a2b-4c5d6e7f8094');
+        $administrator = new AnAdministrator(new Subject('administrator-subject'));
+
+        yield 'a member added' => [
+            static fn (): GroupMembershipAdded => new GroupMembershipAdded(
+                $tenant,
+                $user->subject,
+                $group,
+                'auditors',
+                $now,
+                Fixtures::context(),
+                $administrator,
+            ),
+        ];
+        yield 'a member taken out' => [
+            static fn (): GroupMembershipRemoved => new GroupMembershipRemoved(
+                $tenant,
+                $user->subject,
+                $group,
+                'auditors',
+                $now,
+                Fixtures::context(),
+                $administrator,
+            ),
+        ];
+    }
+
+    /**
+     * What the version before wrote of a membership, which named its group by its name alone.
+     */
+    private static function withoutTheIdentifierOfItsGroup(string $body): string
+    {
+        $without = preg_replace('/s:7:"groupId";O:\d+:"[^"]+":\d+:\{[^}]*\}/', '', $body, 1, $removed);
+        static::assertSame(1, $removed, 'The body names the identifier of its group.');
+
+        return (string) preg_replace_callback(
+            '/^(O:\d+:"[^"]+":)(\d+)(:)/',
+            static fn (array $match): string => $match[1] . ((int) $match[2] - 1) . $match[3],
+            (string) $without,
+            1,
+        );
     }
 }

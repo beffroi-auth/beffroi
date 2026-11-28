@@ -35,8 +35,6 @@ use Beffroi\Core\Domain\Event\PersonCreated;
 use Beffroi\Core\Domain\Event\PersonProvisioned;
 use Beffroi\Core\Domain\Event\PersonTookTheirArchive;
 use Beffroi\Core\Domain\Event\TotpUsed;
-use Beffroi\Core\Domain\Event\UpstreamMembershipGranted;
-use Beffroi\Core\Domain\Event\UpstreamMembershipRemoved;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 
 final class ActsOfAnAccount
@@ -51,8 +49,6 @@ final class ActsOfAnAccount
         PersonEnabled::NAME,
         GroupMembershipAdded::NAME,
         GroupMembershipRemoved::NAME,
-        UpstreamMembershipGranted::NAME,
-        UpstreamMembershipRemoved::NAME,
         UserAuthenticated::NAME,
         AuthenticationFailed::NAME,
         PasswordUsed::NAME,

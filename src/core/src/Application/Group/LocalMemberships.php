@@ -95,7 +95,7 @@ final readonly class LocalMemberships
         $now = $this->clock->now();
         $membership = new GroupMembership($this->uuids->timeOrdered(), $group, $user, GroupSource::Local, $now);
         $this->memberships->save($membership);
-        $this->events->dispatch(new GroupMembershipAdded($group->tenant, $user->subject, $group->name, $now, $context, $author));
+        $this->events->dispatch(new GroupMembershipAdded($group->tenant, $user->subject, $group->id, $group->name, $now, $context, $author));
 
         return $membership;
     }
@@ -113,7 +113,7 @@ final readonly class LocalMemberships
         if (! $this->memberships->remove($membership)) {
             throw GroupMembershipException::notAMember($group->name);
         }
-        $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->name, $this->clock->now(), $context, $author));
+        $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->id, $group->name, $this->clock->now(), $context, $author));
     }
 
     private function membershipOf(Group $group, User $user): ?GroupMembership

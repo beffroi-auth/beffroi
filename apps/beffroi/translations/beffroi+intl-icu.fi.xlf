@@ -1355,7 +1355,7 @@
       </trans-unit>
       <trans-unit id="author.upstream.named" resname="author.upstream.named">
         <source>author.upstream.named</source>
-        <target>Identiteetintarjoaja {name}</target>
+        <target>Kirjautuminen palvelun {name} kautta</target>
       </trans-unit>
       <trans-unit id="author.unauthenticated" resname="author.unauthenticated">
         <source>author.unauthenticated</source>
@@ -1480,14 +1480,6 @@
       <trans-unit id="act.group_membership.removed" resname="act.group_membership.removed">
         <source>act.group_membership.removed</source>
         <target>Poistettu ryhmästä</target>
-      </trans-unit>
-      <trans-unit id="act.upstream_membership.granted" resname="act.upstream_membership.granted">
-        <source>act.upstream_membership.granted</source>
-        <target>Lisätty ryhmään kirjautumisen yhteydessä organisaatiosi kautta</target>
-      </trans-unit>
-      <trans-unit id="act.upstream_membership.removed" resname="act.upstream_membership.removed">
-        <source>act.upstream_membership.removed</source>
-        <target>Poistettu ryhmästä kirjautumisen yhteydessä organisaatiosi kautta</target>
       </trans-unit>
       <trans-unit id="act.consent.granted" resname="act.consent.granted">
         <source>act.consent.granted</source>

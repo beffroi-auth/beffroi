@@ -1176,19 +1176,11 @@ The answer comes back to {redirect_uri}.</target>
       </trans-unit>
       <trans-unit id="c5dfdf3bce" resname="act.group_membership.added">
         <source>act.group_membership.added</source>
-        <target>memberships given</target>
+        <target>memberships added</target>
       </trans-unit>
       <trans-unit id="aa74f756fa" resname="act.group_membership.removed">
         <source>act.group_membership.removed</source>
-        <target>memberships taken back</target>
-      </trans-unit>
-      <trans-unit id="9cc4e2a42e" resname="act.upstream_membership.granted">
-        <source>act.upstream_membership.granted</source>
-        <target>memberships added at a sign-in</target>
-      </trans-unit>
-      <trans-unit id="3dace2843e" resname="act.upstream_membership.removed">
-        <source>act.upstream_membership.removed</source>
-        <target>memberships taken out at a sign-in</target>
+        <target>memberships taken out</target>
       </trans-unit>
       <trans-unit id="ee56b59992" resname="act.enrolment_ticket.issued">
         <source>act.enrolment_ticket.issued</source>

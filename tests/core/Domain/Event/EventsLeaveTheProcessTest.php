@@ -14,6 +14,7 @@ use function dirname;
 use function glob;
 use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
 use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Session\AuthenticationMethod;
@@ -65,8 +66,6 @@ use Beffroi\Core\Domain\Event\TenantKeyRetired;
 use Beffroi\Core\Domain\Event\TenantKeyRotated;
 use Beffroi\Core\Domain\Event\TenantKeyStaged;
 use Beffroi\Core\Domain\Event\TotpUsed;
-use Beffroi\Core\Domain\Event\UpstreamMembershipGranted;
-use Beffroi\Core\Domain\Event\UpstreamMembershipRemoved;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Key\RetirementReason;
 use Beffroi\Core\Domain\Key\TenantKey;
@@ -147,23 +146,59 @@ final class EventsLeaveTheProcessTest extends TestCase
             $context,
             new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'a member the host added to a group' => [new GroupMembershipAdded($tenant, $user->subject, 'auditors', $now, $context, new TheHost())];
+        yield 'a member the host added to a group' => [new GroupMembershipAdded(
+            $tenant,
+            $user->subject,
+            Uuid::v7(),
+            'auditors',
+            $now,
+            $context,
+            new TheHost(),
+        )];
         yield 'a member an administrator added to a group' => [new GroupMembershipAdded(
             $tenant,
             $user->subject,
+            Uuid::v7(),
             'auditors',
             $now,
             $context,
             new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'a member the host took out of a group' => [new GroupMembershipRemoved($tenant, $user->subject, 'auditors', $now, $context, new TheHost())];
+        yield 'a member an upstream provider added to a group' => [new GroupMembershipAdded(
+            $tenant,
+            $user->subject,
+            Uuid::v7(),
+            'auditors',
+            $now,
+            $context,
+            new AnUpstreamProvider('https://idp.acme.example/saml'),
+        )];
+        yield 'a member the host took out of a group' => [new GroupMembershipRemoved(
+            $tenant,
+            $user->subject,
+            Uuid::v7(),
+            'auditors',
+            $now,
+            $context,
+            new TheHost(),
+        )];
         yield 'a member an administrator took out of a group' => [new GroupMembershipRemoved(
             $tenant,
             $user->subject,
+            Uuid::v7(),
             'auditors',
             $now,
             $context,
             new AnAdministrator(new Subject('administrator-subject')),
+        )];
+        yield 'a member an upstream provider took out of a group' => [new GroupMembershipRemoved(
+            $tenant,
+            $user->subject,
+            Uuid::v7(),
+            'auditors',
+            $now,
+            $context,
+            new AnUpstreamProvider('https://idp.acme.example/saml'),
         )];
         yield 'a person the host disabled' => [new PersonDisabled($tenant, $user->subject, $now, $context, new TheHost())];
         yield 'a person an administrator disabled' => [new PersonDisabled(

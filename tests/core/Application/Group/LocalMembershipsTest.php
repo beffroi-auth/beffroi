@@ -69,9 +69,9 @@ final class LocalMembershipsTest extends TestCase
 
         // Then
         static::assertEquals(
-            [[$this->user->subject->value, 'administrators', new TheHost()]],
+            [[$this->user->subject->value, $this->group->id, 'administrators', new TheHost()]],
             array_map(
-                static fn (GroupMembershipAdded $act): array => [$act->subject()->value, $act->group, $act->author()],
+                static fn (GroupMembershipAdded $act): array => [$act->subject()->value, $act->groupId, $act->group, $act->author()],
                 $this->events->of(GroupMembershipAdded::class),
             ),
         );
@@ -98,9 +98,9 @@ final class LocalMembershipsTest extends TestCase
 
         // Then
         static::assertEquals(
-            [[$this->user->subject->value, 'administrators', new TheHost()]],
+            [[$this->user->subject->value, $this->group->id, 'administrators', new TheHost()]],
             array_map(
-                static fn (GroupMembershipRemoved $act): array => [$act->subject()->value, $act->group, $act->author()],
+                static fn (GroupMembershipRemoved $act): array => [$act->subject()->value, $act->groupId, $act->group, $act->author()],
                 $this->events->of(GroupMembershipRemoved::class),
             ),
         );

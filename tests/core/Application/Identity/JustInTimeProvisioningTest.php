@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Tests\Application\Identity;
 
 use function array_map;
+use function str_repeat;
 use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
@@ -32,8 +33,9 @@ use Beffroi\Core\Bridge\Password\NativePasswordHasher;
 use Beffroi\Core\Bridge\Uid\FixedUuidGenerator;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
 use Beffroi\Core\Domain\Event\PersonProvisioned;
-use Beffroi\Core\Domain\Event\UpstreamMembershipGranted;
-use Beffroi\Core\Domain\Event\UpstreamMembershipRemoved;
+use Beffroi\Core\Domain\Event\GroupMembershipAdded;
+use Beffroi\Core\Domain\Event\GroupMembershipRemoved;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\EmailDomain;
 use Beffroi\Core\Domain\Identity\LinkedIdentity;
@@ -765,13 +767,13 @@ final class JustInTimeProvisioningTest extends TestCase
         $alice = $this->signInAsserting($members, ['staff'], context: $context);
 
         // Then
-        $announced = $this->events->of(UpstreamMembershipGranted::class);
+        $announced = $this->events->of(GroupMembershipAdded::class);
         static::assertCount(1, $announced);
         static::assertSame($this->tenant, $announced[0]->tenant);
         static::assertSame($alice->subject, $announced[0]->person);
         static::assertSame($members->groupsOf(['staff'])[0]->id, $announced[0]->groupId);
         static::assertSame('Staff', $announced[0]->group);
-        static::assertSame(self::PROVIDER, $announced[0]->provider);
+        static::assertEquals(new AnUpstreamProvider(self::PROVIDER), $announced[0]->author);
         static::assertEquals($this->clock->now(), $announced[0]->occurredAt);
         static::assertSame($context, $announced[0]->context);
     }
@@ -792,15 +794,44 @@ final class JustInTimeProvisioningTest extends TestCase
         $this->signInAsserting($members, [], context: $context);
 
         // Then
-        $announced = $this->events->of(UpstreamMembershipRemoved::class);
+        $announced = $this->events->of(GroupMembershipRemoved::class);
         static::assertCount(1, $announced);
         static::assertSame($this->tenant, $announced[0]->tenant);
         static::assertSame($alice->subject, $announced[0]->person);
         static::assertSame($members->groupsOf(['staff'])[0]->id, $announced[0]->groupId);
         static::assertSame('Staff', $announced[0]->group);
-        static::assertSame(self::PROVIDER, $announced[0]->provider);
+        static::assertEquals(new AnUpstreamProvider(self::PROVIDER), $announced[0]->author);
         static::assertEquals($this->clock->now(), $announced[0]->occurredAt);
         static::assertSame($context, $announced[0]->context);
+    }
+
+    /**
+     * beffroi/saml S-56
+     */
+    #[Test]
+    public function aProviderThatMapsGroupsUnderANameNoAuthorCanHoldIsRefusedBeforeAnythingIsWritten(): void
+    {
+        // Given
+        $provider = new UpstreamProvider('https://idp.acme.example/' . str_repeat('a', 240), [new EmailDomain('acme.example')]);
+
+        // When
+        try {
+            $this->provisioning->personNamedBy(
+                $this->tenant,
+                $provider,
+                self::SUBJECT,
+                new EmailAddress(self::ADDRESS),
+                [],
+                Fixtures::context(),
+                null,
+                $this->members(),
+                ['staff'],
+            );
+        } catch (InvalidArgumentException) {
+        }
+
+        // Then
+        static::assertSame(0, $this->writes->units);
     }
 
     /**
@@ -832,7 +863,7 @@ final class JustInTimeProvisioningTest extends TestCase
 
         // Then
         static::assertSame(
-            [PersonProvisioned::class, UpstreamMembershipGranted::class],
+            [PersonProvisioned::class, GroupMembershipAdded::class],
             array_map(static fn (object $event): string => $event::class, $this->events->events),
         );
     }
@@ -865,7 +896,7 @@ final class JustInTimeProvisioningTest extends TestCase
 
             public function dispatch(object $event): object
             {
-                if ($event instanceof UpstreamMembershipGranted || $event instanceof UpstreamMembershipRemoved) {
+                if ($event instanceof GroupMembershipAdded || $event instanceof GroupMembershipRemoved) {
                     $this->insideTheUnit[] = $this->writes->open;
                 }
 
@@ -921,7 +952,7 @@ final class JustInTimeProvisioningTest extends TestCase
         }
 
         // Then
-        static::assertSame([], [...$events->of(UpstreamMembershipGranted::class), ...$events->of(UpstreamMembershipRemoved::class)]);
+        static::assertSame([], [...$events->of(GroupMembershipAdded::class), ...$events->of(GroupMembershipRemoved::class)]);
     }
 
     /**
@@ -1087,7 +1118,7 @@ final class JustInTimeProvisioningTest extends TestCase
             // Then
             static::assertSame(
                 [UpstreamProvisioningRefusalReason::MembershipWrittenMeanwhile, null, []],
-                [$refusal->reason, $refusal->getPrevious(), $this->events->of(UpstreamMembershipGranted::class)],
+                [$refusal->reason, $refusal->getPrevious(), $this->events->of(GroupMembershipAdded::class)],
             );
         }
     }

@@ -12,22 +12,30 @@ use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use DateTimeImmutable;
+use Symfony\Component\Uid\Uuid;
 
 final readonly class GroupMembershipAdded implements ConcernsAPersonInterface
 {
     public const string NAME = 'group_membership.added';
 
     /**
-     * @param string $group the name of the group, which names an organisational unit and not a person
+     * Null in a body the version before queued, which named the group by its name alone.
+     */
+    public ?Uuid $groupId;
+
+    /**
+     * @param string $group the name of the group when it happened, which names an organisational unit and not a person; a rename leaves its identifier
      */
     public function __construct(
         public Tenant $tenant,
         public Subject $person,
+        Uuid $groupId,
         public string $group,
         public DateTimeImmutable $occurredAt,
         public RequestContext $context,
         public AuthorInterface $author,
     ) {
+        $this->groupId = $groupId;
     }
 
     public function name(): string
@@ -59,6 +67,7 @@ final readonly class GroupMembershipAdded implements ConcernsAPersonInterface
         $context = $read->object('context', RequestContext::class);
         $this->tenant = $read->object('tenant', Tenant::class);
         $this->person = $read->object('person', Subject::class);
+        $this->groupId = $read->nullableObject('groupId', Uuid::class);
         $this->group = $read->string('group');
         $this->occurredAt = $read->object('occurredAt', DateTimeImmutable::class);
         $this->context = $context;

@@ -1355,7 +1355,7 @@
       </trans-unit>
       <trans-unit id="author.upstream.named" resname="author.upstream.named">
         <source>author.upstream.named</source>
-        <target>Der Identitätsanbieter {name}</target>
+        <target>Eine Anmeldung über {name}</target>
       </trans-unit>
       <trans-unit id="author.unauthenticated" resname="author.unauthenticated">
         <source>author.unauthenticated</source>
@@ -1480,14 +1480,6 @@
       <trans-unit id="act.group_membership.removed" resname="act.group_membership.removed">
         <source>act.group_membership.removed</source>
         <target>Aus einer Gruppe entfernt</target>
-      </trans-unit>
-      <trans-unit id="act.upstream_membership.granted" resname="act.upstream_membership.granted">
-        <source>act.upstream_membership.granted</source>
-        <target>Bei einer Anmeldung über Ihre Organisation zu einer Gruppe hinzugefügt</target>
-      </trans-unit>
-      <trans-unit id="act.upstream_membership.removed" resname="act.upstream_membership.removed">
-        <source>act.upstream_membership.removed</source>
-        <target>Bei einer Anmeldung über Ihre Organisation aus einer Gruppe entfernt</target>
       </trans-unit>
       <trans-unit id="act.consent.granted" resname="act.consent.granted">
         <source>act.consent.granted</source>
