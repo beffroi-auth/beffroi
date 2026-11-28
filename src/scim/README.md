@@ -9,8 +9,8 @@ deployment declares, which push the persons and the groups of a tenant to
 packages; the HTTP request is the application's.
 
 [`spec/scim.md`](spec/scim.md) is the law of the package: the code conforms to it, or the document changes first.
-This file is its short version. A directory authenticates by a bearer token of its own, which expires, and sees and
-writes only the persons and the groups it created. The `User` and `Group` schemas and the `EnterpriseUser` extension
+This file is its short version. A directory authenticates by a bearer token of its own, which expires within a year,
+and sees and writes only the persons and the groups it created. The `User` and `Group` schemas and the `EnterpriseUser` extension
 are mapped, attribute by attribute, onto the identity model of the core, and what the model cannot hold is kept as
 the directory wrote it, sealed, in a record of that directory that no client reads. The whole filter language of
 RFC 7644 is served within bounds, equalities through an index; the pagination is by index, `count` a hundred at
@@ -19,7 +19,7 @@ the three values of RFC 7644, `password` hashed and never returned nor filtered 
 `POST`, nested groups and custom schemas are not served. The package is being built by spike 10
 ([beffroi-auth/beffroi#84](https://github.com/beffroi-auth/beffroi/issues/84)): it holds its specification so far.
 
-The package requires PHP 8.4 or later, the `intl` extension and `beffroi/core`.
+The package requires PHP 8.4 or later, the `intl` and `mbstring` extensions and `beffroi/core`.
 
 ## Development
 
