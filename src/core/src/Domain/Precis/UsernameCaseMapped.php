@@ -11,9 +11,7 @@ use IntlChar;
 use function in_array;
 use function is_string;
 use function mb_check_encoding;
-use function mb_str_split;
 use function mb_strlen;
-use function mb_ord;
 use Normalizer;
 use function sprintf;
 use Transliterator;
@@ -25,11 +23,6 @@ use Transliterator;
 final readonly class UsernameCaseMapped
 {
     /**
-     * RFC 8264 §7: the rules applied again until the output is stable, at most three times after the first.
-     */
-    private const int REAPPLICATIONS = 3;
-
-    /**
      * The length is bounded before any Unicode work, on what was written as on what it becomes.
      *
      * @throws UsernameRefusedException
@@ -40,16 +33,13 @@ final readonly class UsernameCaseMapped
             throw new UsernameRefusedException('A username is written in UTF-8.');
         }
         self::assertLength($username);
-        $enforced = self::applied($username);
-        for ($reapplied = 0; $reapplied < self::REAPPLICATIONS; ++$reapplied) {
-            $again = self::applied($enforced);
-            if ($again === $enforced) {
-                return $enforced;
-            }
-            $enforced = $again;
-        }
 
-        throw new UsernameRefusedException('A username whose form does not settle is refused (RFC 8264 §7).');
+        return (
+            Reapplication::settled(
+                $username,
+                self::applied(...),
+            ) ?? throw new UsernameRefusedException('A username whose form does not settle is refused (RFC 8264 §7).')
+        );
     }
 
     /**
@@ -59,16 +49,16 @@ final readonly class UsernameCaseMapped
      */
     private static function applied(string $username): string
     {
-        $prepared = self::widthMapped(self::codePoints($username));
+        $prepared = self::widthMapped(CodePoints::of($username));
         $refused = IdentifierClass::firstRefused($prepared);
         if ($refused !== null) {
             throw self::refusal($prepared[$refused]);
         }
-        $normalized = Normalizer::normalize(self::lowercased(self::string($prepared)), Normalizer::FORM_C);
+        $normalized = Normalizer::normalize(self::lowercased(CodePoints::text($prepared)), Normalizer::FORM_C);
         if (! is_string($normalized)) {
             throw new LogicException('The intl extension could not bring a username to Normalization Form C.');
         }
-        $codePoints = self::codePoints($normalized);
+        $codePoints = CodePoints::of($normalized);
         if (BidiRule::isRightToLeft($codePoints) && ! BidiRule::holds($codePoints)) {
             throw new UsernameRefusedException('A username written right to left follows the Bidi Rule (RFC 5893 §2).');
         }
@@ -92,7 +82,7 @@ final readonly class UsernameCaseMapped
             $decomposition = in_array($type, [IntlChar::DT_WIDE, IntlChar::DT_NARROW], true)
                 ? Normalizer::getRawDecomposition(IntlChar::chr($codePoint) ?? '', Normalizer::FORM_KC)
                 : null;
-            foreach (is_string($decomposition) ? self::codePoints($decomposition) : [$codePoint] as $kept) {
+            foreach (is_string($decomposition) ? CodePoints::of($decomposition) : [$codePoint] as $kept) {
                 $mapped[] = $kept;
             }
         }
@@ -142,31 +132,5 @@ final readonly class UsernameCaseMapped
                 $codePoint,
             ),
         });
-    }
-
-    /**
-     * @return list<int>
-     */
-    private static function codePoints(string $text): array
-    {
-        $codePoints = [];
-        foreach (mb_str_split($text) as $character) {
-            $codePoints[] = mb_ord($character);
-        }
-
-        return $codePoints;
-    }
-
-    /**
-     * @param list<int> $codePoints
-     */
-    private static function string(array $codePoints): string
-    {
-        $text = '';
-        foreach ($codePoints as $codePoint) {
-            $text .= IntlChar::chr($codePoint);
-        }
-
-        return $text;
     }
 }
