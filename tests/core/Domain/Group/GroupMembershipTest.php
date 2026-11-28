@@ -74,7 +74,7 @@ final class GroupMembershipTest extends TestCase
         $group = new Group(Uuid::v7(), Fixtures::tenant(), 'admins', GroupSource::Local, Fixtures::now());
 
         // When
-        $group->rename('administrators');
+        $group->rename('administrators', Fixtures::now());
 
         // Then
         static::assertSame('administrators', $group->name);
@@ -90,7 +90,7 @@ final class GroupMembershipTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         // When
-        $group->rename('');
+        $group->rename('', Fixtures::now());
     }
 
     #[Test]

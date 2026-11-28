@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Group;
 
+use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
 use Beffroi\Core\Application\Group\LocalMemberships;
 use Beffroi\Core\Bridge\InMemory\InMemoryGroupMembershipRepository;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -19,6 +20,8 @@ use Beffroi\Core\Domain\Identity\Subject;
 use function array_map;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use Closure;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -52,7 +55,13 @@ final class LocalMembershipsTest extends TestCase
         $this->memberships = new InMemoryGroupMembershipRepository();
         $this->clock = new MockClock('2026-11-04T12:00:00+00:00');
         $this->events = new RecordingEventDispatcher();
-        $this->local = new LocalMemberships($this->memberships, $this->memberships, new SymfonyUuidGenerator(), $this->clock, $this->events);
+        $this->local = new LocalMemberships(
+            Fixtures::membershipWrites(new InMemoryUserRepository(), $this->memberships),
+            $this->memberships,
+            new SymfonyUuidGenerator(),
+            $this->clock,
+            $this->events,
+        );
     }
 
     /**
@@ -213,5 +222,88 @@ final class LocalMembershipsTest extends TestCase
 
         // When
         $this->local->remove($this->group, $this->user, Fixtures::context());
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1 and §4.2
+     *
+     * @param Closure(LocalMemberships, Group, User): mixed $before
+     * @param Closure(LocalMemberships, Group, User): mixed $change
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function everyChangeOfTheMembersRaisesTheVersionOfTheGroupOnceAndDatesIt(Closure $before, Closure $change): void
+    {
+        // Given
+        $before($this->local, $this->group, $this->user);
+        $version = $this->group->version;
+        $this->clock->modify('+1 minute');
+
+        // When
+        $change($this->local, $this->group, $this->user);
+
+        // Then
+        static::assertSame(
+            [$version + 1, $this->clock->now()->getTimestamp()],
+            [$this->group->version, $this->group->updatedAt->getTimestamp()],
+        );
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1 and §4.1.2
+     *
+     * @param Closure(LocalMemberships, Group, User): mixed $before
+     * @param Closure(LocalMemberships, Group, User): mixed $change
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function everyChangeOfTheMembersRaisesTheVersionOfThePersonOnceAndDatesIt(Closure $before, Closure $change): void
+    {
+        // Given
+        $before($this->local, $this->group, $this->user);
+        $version = $this->user->version;
+        $this->clock->modify('+1 minute');
+
+        // When
+        $change($this->local, $this->group, $this->user);
+
+        // Then
+        static::assertSame(
+            [$version + 1, $this->clock->now()->getTimestamp()],
+            [$this->user->version, $this->user->updatedAt->getTimestamp()],
+        );
+    }
+
+    /**
+     * @return iterable<string, array{Closure(LocalMemberships, Group, User): mixed, Closure(LocalMemberships, Group, User): mixed}>
+     */
+    public static function provideChangesOfTheMembers(): iterable
+    {
+        $nothing = static fn (LocalMemberships $local, Group $group, User $user): null => null;
+        $added = static fn (LocalMemberships $local, Group $group, User $user): GroupMembership => $local->add($group, $user, Fixtures::context());
+
+        yield 'a member added' => [$nothing, $added];
+        yield 'a member an administrator added' => [
+            $nothing,
+            static fn (LocalMemberships $local, Group $group, User $user): GroupMembership => $local->addByAnAdministrator(
+                $group,
+                $user,
+                new Subject('administrator-subject'),
+                Fixtures::context(),
+            ),
+        ];
+        yield 'a member taken back' => [
+            $added,
+            static fn (LocalMemberships $local, Group $group, User $user) => $local->remove($group, $user, Fixtures::context()),
+        ];
+        yield 'a member an administrator took back' => [
+            $added,
+            static fn (LocalMemberships $local, Group $group, User $user) => $local->removeByAnAdministrator(
+                $group,
+                $user,
+                new Subject('administrator-subject'),
+                Fixtures::context(),
+            ),
+        ];
     }
 }

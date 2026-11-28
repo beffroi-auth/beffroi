@@ -89,7 +89,12 @@ final class OneDomainRuleTest extends TestCase
             $clock,
             new WritesAsTheyCome(),
             new SymfonyUuidGenerator(),
-            new UpstreamMemberships(new InMemoryGroupMembershipRepository(), new InMemoryGroupMembershipRepository(), new SymfonyUuidGenerator(), $clock),
+            new UpstreamMemberships(
+                new InMemoryGroupMembershipRepository(),
+                Fixtures::membershipWrites($users, new InMemoryGroupMembershipRepository()),
+                new SymfonyUuidGenerator(),
+                $clock,
+            ),
         );
     }
 

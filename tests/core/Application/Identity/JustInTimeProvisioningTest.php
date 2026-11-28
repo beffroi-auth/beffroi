@@ -100,18 +100,7 @@ final class JustInTimeProvisioningTest extends TestCase
         $this->events = new RecordingEventDispatcher();
         $this->clock = new MockClock('2026-10-22T09:00:00+00:00');
         $this->writes = new WritesAsTheyCome();
-        $credentials = new InMemoryCredentialRepository();
-        $this->provisioner = new UserProvisioner(
-            $this->users,
-            $credentials,
-            new ActivePassword(new ActiveCredentials($credentials)),
-            new NativePasswordHasher(),
-            new BreachedPasswordRefusal(BreachedPasswordsOfARecord::holding([])),
-            new EnrolmentRefusal(new FederatedDomains(new InMemoryUpstreamProviders())),
-            new SymfonyUuidGenerator(),
-            $this->clock,
-            new FixedClaims(),
-        );
+        $this->provisioner = $this->provisionerWriting($this->users);
         $this->linker = new IdentityLinker($this->identities, new SymfonyUuidGenerator(), $this->clock);
         $this->memberships = new InMemoryGroupMembershipRepository();
         $this->provisioning = $this->provisioningDrawing(new SymfonyUuidGenerator());
@@ -132,6 +121,27 @@ final class JustInTimeProvisioningTest extends TestCase
         static::assertEquals(new Profile(givenName: 'Alice', familyName: 'Liddell'), $alice->profile);
         static::assertEquals(UserSource::upstream(self::PROVIDER, ['email', 'given_name', 'family_name']), $alice->source);
         static::assertEquals($this->clock->now(), $alice->createdAt);
+    }
+
+    /**
+     * RFC 7643 §3.1
+     */
+    #[Test]
+    public function aFirstSignInCreatesThePersonWholeAtTheFirstVersionLastChangedWhenCreated(): void
+    {
+        // When
+        $alice = $this->provisioning->personNamedBy(
+            $this->tenant,
+            $this->provider,
+            self::SUBJECT,
+            new EmailAddress(self::ADDRESS),
+            ['given_name' => 'Alice'],
+            Fixtures::context(),
+            '+33 1 23 45 67 89',
+        );
+
+        // Then
+        static::assertSame([1, $alice->createdAt], [$alice->version, $alice->updatedAt]);
     }
 
     #[Test]
@@ -856,6 +866,7 @@ final class JustInTimeProvisioningTest extends TestCase
             }
         };
         $this->linker = new IdentityLinker($identities, new SymfonyUuidGenerator(), $this->clock);
+        $this->provisioner = $this->provisionerWriting($users);
         $provisioning = $this->provisioningDrawing(new SymfonyUuidGenerator(), $identities, users: $users);
 
         // When
@@ -917,6 +928,23 @@ final class JustInTimeProvisioningTest extends TestCase
         yield 'the person' => [false];
     }
 
+    private function provisionerWriting(UserRepositoryInterface $users): UserProvisioner
+    {
+        $credentials = new InMemoryCredentialRepository();
+
+        return new UserProvisioner(
+            $users,
+            $credentials,
+            new ActivePassword(new ActiveCredentials($credentials)),
+            new NativePasswordHasher(),
+            new BreachedPasswordRefusal(BreachedPasswordsOfARecord::holding([])),
+            new EnrolmentRefusal(new FederatedDomains(new InMemoryUpstreamProviders())),
+            new SymfonyUuidGenerator(),
+            $this->clock,
+            new FixedClaims(),
+        );
+    }
+
     private function provisioningDrawing(
         UuidGeneratorInterface $uuids,
         ?LinkedIdentityRepositoryInterface $identities = null,
@@ -932,7 +960,12 @@ final class JustInTimeProvisioningTest extends TestCase
             $this->clock,
             $this->writes,
             $uuids,
-            new UpstreamMemberships($this->memberships, $memberships ?? $this->memberships, new SymfonyUuidGenerator(), $this->clock),
+            new UpstreamMemberships(
+                $this->memberships,
+                Fixtures::membershipWrites($users ?? $this->users, $memberships ?? $this->memberships),
+                new SymfonyUuidGenerator(),
+                $this->clock,
+            ),
         );
     }
 

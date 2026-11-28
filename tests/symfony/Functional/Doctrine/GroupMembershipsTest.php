@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Doctrine;
 
+use Beffroi\Core\Application\Group\LocalMemberships;
+use Beffroi\Core\Application\Group\MembershipWrites;
 use Beffroi\Core\Application\Group\UpstreamMemberships;
+use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
 use Beffroi\Core\Domain\Group\Group;
 use Beffroi\Core\Domain\Group\GroupMapping;
 use Beffroi\Core\Domain\Group\GroupMembership;
@@ -14,9 +17,15 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\GroupsOfAPersonInterface;
 use Beffroi\Core\Port\MembersOfAGroupInterface;
+use Beffroi\Core\Tests\Fixture\Fixtures;
+use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use Closure;
+use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use function sprintf;
 use function array_map;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -170,6 +179,118 @@ final class GroupMembershipsTest extends DatabaseTestCase
 
         // Then
         static::assertSame(1, $count);
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1, §4.1.2 and §4.2
+     *
+     * @param list<string> $before   what the provider asserted at the sign-in before
+     * @param list<string> $asserted
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function aMemberASignInAddsOrTakesBackRaisesTheVersionsOfThePersonAndTheGroupInTheTable(array $before, array $asserted): void
+    {
+        // Given
+        $user = self::user();
+        $sales = self::group('sales');
+        $mapping = new GroupMapping(['sales-guid' => $sales]);
+        self::upstream(self::now())->replace($user, $before, $mapping);
+        $versions = [$user->version, $sales->version];
+
+        // When
+        self::upstream(self::now()->modify('+1 hour'))->replace($user, $asserted, $mapping);
+
+        // Then
+        static::assertEquals(
+            [[$versions[0] + 1, self::now()->modify('+1 hour')], [$versions[1] + 1, self::now()->modify('+1 hour')]],
+            self::versionsInTheTable($user, $sales),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{list<string>, list<string>}>
+     */
+    public static function provideChangesOfTheMembers(): iterable
+    {
+        yield 'joined' => [[], ['sales-guid']];
+        yield 'left' => [['sales-guid'], []];
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1, §4.1.2 and §4.2
+     *
+     * @param Closure(LocalMemberships, Group, User): mixed $before
+     * @param Closure(LocalMemberships, Group, User): mixed $change
+     */
+    #[Test]
+    #[DataProvider('provideChangesTheTenantMakes')]
+    public function aMemberTheTenantAddsOrTakesBackRaisesTheVersionsOfThePersonAndTheGroupInTheTable(Closure $before, Closure $change): void
+    {
+        // Given
+        $user = self::user();
+        $staff = self::group('staff');
+        $before(self::local(self::now()), $staff, $user);
+        $versions = [$user->version, $staff->version];
+
+        // When
+        $change(self::local(self::now()->modify('+1 hour')), $staff, $user);
+
+        // Then
+        static::assertEquals(
+            [[$versions[0] + 1, self::now()->modify('+1 hour')], [$versions[1] + 1, self::now()->modify('+1 hour')]],
+            self::versionsInTheTable($user, $staff),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{Closure(LocalMemberships, Group, User): mixed, Closure(LocalMemberships, Group, User): mixed}>
+     */
+    public static function provideChangesTheTenantMakes(): iterable
+    {
+        $nothing = static fn (LocalMemberships $local, Group $group, User $user): null => null;
+        $added = static fn (LocalMemberships $local, Group $group, User $user): GroupMembership => $local->add($group, $user, Fixtures::context());
+
+        yield 'added' => [$nothing, $added];
+        yield 'taken back' => [$added, static fn (LocalMemberships $local, Group $group, User $user) => $local->remove($group, $user, Fixtures::context())];
+    }
+
+    /**
+     * @return list<array{int, DateTimeImmutable}> of the person, then of the group
+     */
+    private static function versionsInTheTable(User $user, Group $group): array
+    {
+        self::reload();
+        $person = self::entityManager()->find(User::class, $user->id) ?? static::fail('The person was not stored.');
+        $found = self::entityManager()->find(Group::class, $group->id) ?? static::fail('The group was not stored.');
+
+        return [[$person->version, $person->updatedAt], [$found->version, $found->updatedAt]];
+    }
+
+    private static function local(DateTimeImmutable $now): LocalMemberships
+    {
+        return new LocalMemberships(
+            self::writes(),
+            self::service('test.beffroi.groups_of_a_person', GroupsOfAPersonInterface::class),
+            new SymfonyUuidGenerator(),
+            new MockClock($now),
+            new RecordingEventDispatcher(),
+        );
+    }
+
+    private static function writes(): MembershipWrites
+    {
+        return self::service('test.beffroi.membership_writes', MembershipWrites::class);
+    }
+
+    private static function upstream(DateTimeImmutable $now): UpstreamMemberships
+    {
+        return new UpstreamMemberships(
+            self::service('test.beffroi.groups_of_a_person', GroupsOfAPersonInterface::class),
+            self::writes(),
+            new SymfonyUuidGenerator(),
+            new MockClock($now),
+        );
     }
 
     private static function members(): MembersOfAGroupInterface

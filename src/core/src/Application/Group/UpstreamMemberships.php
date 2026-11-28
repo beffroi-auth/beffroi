@@ -9,7 +9,6 @@ use Beffroi\Core\Domain\Group\GroupMembership;
 use Beffroi\Core\Domain\Group\GroupSource;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Exception\InvalidArgumentException;
-use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\GroupsOfAPersonInterface;
 use Beffroi\Core\Port\UuidGeneratorInterface;
 use Psr\Clock\ClockInterface;
@@ -22,7 +21,7 @@ final readonly class UpstreamMemberships
 {
     public function __construct(
         private GroupsOfAPersonInterface $groups,
-        private GroupMembershipRepositoryInterface $memberships,
+        private MembershipWrites $writes,
         private UuidGeneratorInterface $uuids,
         private ClockInterface $clock,
     ) {
@@ -60,11 +59,6 @@ final readonly class UpstreamMemberships
             }
         }
 
-        foreach ($left as $membership) {
-            $this->memberships->remove($membership);
-        }
-        foreach ($joined as $membership) {
-            $this->memberships->save($membership);
-        }
+        $this->writes->onThePerson($user, $joined, $left, $now);
     }
 }

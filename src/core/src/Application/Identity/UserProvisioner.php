@@ -24,6 +24,7 @@ use Beffroi\Core\Port\CredentialRepositoryInterface;
 use Beffroi\Core\Port\UuidGeneratorInterface;
 use Beffroi\Core\Port\PasswordHasherInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
+use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
 use SensitiveParameter;
 use function trim;
@@ -44,7 +45,13 @@ final readonly class UserProvisioner
     }
 
     /**
+     * A person created whole, at the one instant a unit that creates them gives, is at the first version and was last
+     * changed when created (RFC 7643 §3.1).
+     *
+     * @param ?string $phoneNumber not verified
+     *
      * @throws UserAlreadyExistsException
+     * @throws InvalidArgumentException when the username or the phone number is not plain text
      */
     public function create(
         Tenant $tenant,
@@ -53,6 +60,9 @@ final readonly class UserProvisioner
         bool $emailVerified = false,
         ?Subject $subject = null,
         ?UserSource $source = null,
+        ?DateTimeImmutable $now = null,
+        ?Profile $profile = null,
+        ?string $phoneNumber = null,
     ): User {
         $username = trim($username);
         if ($this->users->findByUsername($tenant, $username) !== null) {
@@ -62,7 +72,18 @@ final readonly class UserProvisioner
         if ($this->users->findBySubject($tenant, $subject) !== null) {
             throw UserAlreadyExistsException::subject($subject->value);
         }
-        $user = User::create($this->uuids->timeOrdered(), $tenant, $subject, $username, $this->clock->now(), $email, $emailVerified, $source);
+        $user = User::create(
+            $this->uuids->timeOrdered(),
+            $tenant,
+            $subject,
+            $username,
+            $now ?? $this->clock->now(),
+            $email,
+            $emailVerified,
+            $source,
+            $profile,
+            $phoneNumber,
+        );
         $this->users->save($user);
 
         return $user;

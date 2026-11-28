@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Doctrine;
 
+use Beffroi\Core\Application\Group\MembershipWrites;
 use Beffroi\Core\Application\Group\UpstreamMemberships;
 use Beffroi\Core\Application\Identity\IdentityLinker;
 use Beffroi\Core\Application\Identity\JustInTimeProvisioning;
@@ -22,7 +23,6 @@ use Beffroi\Core\Domain\Identity\UpstreamProvider;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Port\AtomicWritesInterface;
-use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\GroupRepositoryInterface;
 use Beffroi\Core\Port\GroupsOfAPersonInterface;
 use Beffroi\Core\Port\LinkedIdentityRepositoryInterface;
@@ -216,7 +216,7 @@ final class JustInTimeProvisioningTest extends DatabaseTestCase
         };
         $memberships = new UpstreamMemberships(
             $notThereYet,
-            self::service('test.beffroi.group_memberships', GroupMembershipRepositoryInterface::class),
+            self::service('test.beffroi.membership_writes', MembershipWrites::class),
             new SymfonyUuidGenerator(),
             new MockClock(self::now()),
         );

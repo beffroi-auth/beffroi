@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Group;
 
+use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
 use Beffroi\Core\Application\Group\UpstreamMemberships;
 use Beffroi\Core\Bridge\InMemory\InMemoryGroupMembershipRepository;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -55,7 +56,12 @@ final class UpstreamMembershipsTest extends TestCase
         ]);
         $this->memberships = new InMemoryGroupMembershipRepository();
         $this->clock = new MockClock('2026-10-22T12:00:00+00:00');
-        $this->upstream = new UpstreamMemberships($this->memberships, $this->memberships, new SymfonyUuidGenerator(), $this->clock);
+        $this->upstream = new UpstreamMemberships(
+            $this->memberships,
+            Fixtures::membershipWrites(new InMemoryUserRepository(), $this->memberships),
+            new SymfonyUuidGenerator(),
+            $this->clock,
+        );
     }
 
     #[Test]
@@ -240,5 +246,82 @@ final class UpstreamMembershipsTest extends TestCase
         }
 
         return $sources;
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1 and §4.2
+     *
+     * @param list<string> $before   what the provider asserted at the sign-in before
+     * @param list<string> $asserted
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function aMemberASignInAddsOrTakesBackRaisesTheVersionOfTheGroupOnceAndDatesIt(array $before, array $asserted): void
+    {
+        // Given
+        $this->upstream->replace($this->user, $before, $this->mapping);
+        $version = $this->sales->version;
+        $this->clock->modify('+1 minute');
+
+        // When
+        $this->upstream->replace($this->user, $asserted, $this->mapping);
+
+        // Then
+        static::assertSame(
+            [$version + 1, $this->clock->now()->getTimestamp()],
+            [$this->sales->version, $this->sales->updatedAt->getTimestamp()],
+        );
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1 and §4.1.2
+     *
+     * @param list<string> $before   what the provider asserted at the sign-in before
+     * @param list<string> $asserted
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function aMemberASignInAddsOrTakesBackRaisesTheVersionOfThePersonOnceAndDatesIt(array $before, array $asserted): void
+    {
+        // Given
+        $this->upstream->replace($this->user, $before, $this->mapping);
+        $version = $this->user->version;
+        $this->clock->modify('+1 minute');
+
+        // When
+        $this->upstream->replace($this->user, $asserted, $this->mapping);
+
+        // Then
+        static::assertSame(
+            [$version + 1, $this->clock->now()->getTimestamp()],
+            [$this->user->version, $this->user->updatedAt->getTimestamp()],
+        );
+    }
+
+    /**
+     * @return iterable<string, array{list<string>, list<string>}>
+     */
+    public static function provideChangesOfTheMembers(): iterable
+    {
+        yield 'joined' => [[], ['sales-guid']];
+        yield 'left' => [['sales-guid'], []];
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1
+     */
+    #[Test]
+    public function aSignInThatChangesNoMembershipLeavesTheVersionsOfThePersonAndTheGroup(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['sales-guid'], $this->mapping);
+        $was = [$this->user->version, $this->user->updatedAt, $this->sales->version, $this->sales->updatedAt];
+        $this->clock->modify('+1 minute');
+
+        // When
+        $this->upstream->replace($this->user, ['sales-guid'], $this->mapping);
+
+        // Then
+        static::assertSame($was, [$this->user->version, $this->user->updatedAt, $this->sales->version, $this->sales->updatedAt]);
     }
 }
