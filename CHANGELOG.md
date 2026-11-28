@@ -50,7 +50,8 @@ All notable changes to this project are documented in this file, in reverse chro
 - `beffroi/core`: what a password may hold is derived from the Unicode version of the intl extension the process runs
   (RFC 8264 §13.4). A password set under a newer version can be refused by a process under an older one, during a
   rolling deployment, after a rollback, or at the console of a host whose PHP is not the image's: every process of a
-  deployment runs the same image.
+  deployment runs the same image. `beffroi:doctor` says so of a process whose Unicode is not the one the tenant was last
+  indexed under, the version `beffroi:user:reindex` records.
 
 ### Deprecated
 

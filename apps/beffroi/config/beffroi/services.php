@@ -44,6 +44,7 @@ use App\Administration\RateLimitedPersonsBudget;
 use App\Doctor\ClientsSignedWithHeldKeys;
 use App\Doctor\ChainHoldsTogether;
 use App\Doctor\NotificationsLanePatience;
+use App\Doctor\PasswordsUnderTheUnicodeOfTheBuild;
 use App\Doctor\UsernamesComparedByTheirForm;
 use Beffroi\Oidc\Application\Secret\SecretDrawer;
 use Beffroi\Oidc\Application\Secret\UserCodeDrawer;
@@ -1221,6 +1222,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(InstanceStatistics::class);
     $services->set(ClientsSignedWithHeldKeys::class)->arg('$sources', tagged_iterator('beffroi.oidc.client_source'))->tag('beffroi.doctor_check');
     $services->set(UsernamesComparedByTheirForm::class)->tag('beffroi.doctor_check');
+    $services->set(PasswordsUnderTheUnicodeOfTheBuild::class)->tag('beffroi.doctor_check');
     foreach ([JournalChain::class, ClaimHistoryChain::class, DisclosureChain::class] as $chain) {
         $services->set('beffroi.doctor.chain.' . $chain, ChainHoldsTogether::class)->arg('$chain', service($chain))->tag('beffroi.doctor_check');
     }
