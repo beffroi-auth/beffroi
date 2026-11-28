@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use App\Http\RequestContextFactory;
 use Beffroi\Core\Application\Identity\PersonCreation;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
@@ -54,6 +55,7 @@ final readonly class UserCreateCommand
             $user = $this->persons->create(
                 $tenant,
                 $username,
+                new TheHost(),
                 $this->contexts->fromConsole(self::NAME),
                 $email === null ? null : new EmailAddress($email),
                 $emailVerified,

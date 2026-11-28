@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Administration;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Identity\PersonDescription;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\User;
@@ -48,7 +49,7 @@ final readonly class AdministeredDescription
         $user = $this->persons->find($administrator->tenant, $person);
         if ($user !== null) {
             $this->delivered->spend($administrator, 1, $context);
-            if ($this->description->describeByAnAdministrator($user, $said, $administrator->user->subject, $context) === []) {
+            if ($this->description->describe($user, $said, new AnAdministrator($administrator->user->subject), $context) === []) {
                 $this->delivery->to($administrator, $user, $context);
             }
         }

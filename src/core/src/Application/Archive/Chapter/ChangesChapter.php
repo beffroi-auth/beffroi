@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Beffroi\Core\Application\Archive\Chapter;
 
 use Beffroi\Core\Domain\Archive\ArchivedFacts;
+use Beffroi\Core\Domain\Author\ToldByItsRoleInterface;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\ArchiveChapterInterface;
 use Beffroi\Core\Port\ChangesOfAPersonInterface;
 use function count;
 
 /**
- * A change an administrator of the tenant made says so, and neither who they are nor where they made it from (decision
+ * A change an author told by their role made says so, and neither who they are nor where they made it from (decision
  * 0038), as an act of theirs does.
  */
 final readonly class ChangesChapter implements ArchiveChapterInterface
@@ -40,8 +41,8 @@ final readonly class ChangesChapter implements ArchiveChapterInterface
                     'was' => $change->was,
                     'became' => $change->became,
                     'changed_at' => ArchivedFacts::moment($change->changedAt),
-                    'from' => $change->author === null ? ArchivedFacts::context($change->context) : null,
-                    'author' => $change->author === null ? null : ArchivedFacts::AN_ADMINISTRATOR,
+                    'from' => $change->author instanceof ToldByItsRoleInterface ? null : ArchivedFacts::context($change->context),
+                    'author' => ArchivedFacts::author($change->author),
                 ];
                 $after = $change->id;
             }

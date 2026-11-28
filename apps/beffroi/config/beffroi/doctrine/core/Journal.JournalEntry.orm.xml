@@ -20,8 +20,8 @@
         <field name="context" type="beffroi_encrypted_journal_request_context" column="context"/>
         <field name="subject" type="beffroi_subject" column="subject" length="255" nullable="true"/>
         <field name="client" type="string" column="client" length="255" nullable="true"/>
-        <!-- Who did the act to that person when it was somebody else, by the subject of their own account: the administrator who read them through the administration API (decision 0038). In the clear, as the subject is. -->
-        <field name="author" type="beffroi_subject" column="author" length="255" nullable="true"/>
+        <!-- Who did the act, by their kind and what names them among their kind: the person, an administrator by the subject of their account, a client by its identifier, a directory or an upstream provider by its name, an unauthenticated caller, or the host (decision 0066). In the clear, as the subject is. An act written before acts named their author holds its administrator by their bare subject, or NULL for the person or the host (JournalAuthorType). -->
+        <field name="author" type="beffroi_journal_author" column="author" nullable="true"/>
         <!-- Why a refusal refused and the method it refused, words this provider gives them (decision 0062). In the clear: they say nothing of a person. -->
         <field name="reason" type="string" column="reason" length="64" nullable="true"/>
         <field name="method" type="string" column="method" length="64" nullable="true"/>

@@ -8,6 +8,9 @@ use function array_map;
 use Beffroi\Core\Application\Authentication\OtherSessionsTermination;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Bridge\InMemory\InMemoryAuthenticationSessionRepository;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
@@ -143,34 +146,54 @@ final class OtherSessionsTerminationTest extends TestCase
         $elsewhere = $this->alsoSignedIn();
 
         // When
-        $ended = $this->termination->endEvery($this->alice, Fixtures::context($this->clock->now()));
+        $ended = $this->termination->endEvery($this->alice, SessionEnd::User, new ThePerson(), Fixtures::context($this->clock->now()));
 
         // Then
         static::assertSame([2, true, true], [$ended, $this->kept->hasEnded(), $elsewhere->hasEnded()]);
     }
 
     /**
-     * Decision 0038
+     * Decision 0066
      */
     #[Test]
-    public function everySessionAnAdministratorEndsNamesThem(): void
+    public function everySessionEndsAsItWasAskedAndNamesItsAuthor(): void
+    {
+        // Given
+        $this->alsoSignedIn();
+        $author = new AnAdministrator(new Subject('administrator-subject'));
+
+        // When
+        $this->termination->endEvery($this->alice, SessionEnd::Administrator, $author, Fixtures::context($this->clock->now()));
+
+        // Then
+        static::assertSame(
+            [
+                [SessionEnd::Administrator, $author],
+                [SessionEnd::Administrator, $author],
+            ],
+            array_map(
+                static fn (AuthenticationSessionEnded $ended): array => [$ended->session->endedBy, $ended->author()],
+                $this->events->of(AuthenticationSessionEnded::class),
+            ),
+        );
+    }
+
+    /**
+     * Decision 0066
+     */
+    #[Test]
+    public function theOtherSessionsThePersonEndsNameThem(): void
     {
         // Given
         $this->alsoSignedIn();
 
         // When
-        $this->termination->endEveryByAnAdministrator($this->alice, new Subject('administrator-subject'), Fixtures::context($this->clock->now()));
+        $this->termination->endEveryOther($this->kept, Fixtures::context($this->clock->now()));
 
         // Then
-        static::assertSame(
-            [
-                [SessionEnd::Administrator, 'administrator-subject'],
-                [SessionEnd::Administrator, 'administrator-subject'],
-            ],
-            array_map(
-                static fn (AuthenticationSessionEnded $ended): array => [$ended->session->endedBy, $ended->author()?->value],
-                $this->events->of(AuthenticationSessionEnded::class),
-            ),
+        static::assertEquals(
+            [new ThePerson()],
+            array_map(static fn (AuthenticationSessionEnded $ended): AuthorInterface => $ended->author(), $this->events->of(AuthenticationSessionEnded::class)),
         );
     }
 

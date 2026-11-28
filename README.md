@@ -7,6 +7,7 @@ An identity provider for the Symfony ecosystem: OAuth 2.0 and OpenID Connect, an
 | `beffroi/core` | `src/core` | Identity core: tenants, users and where they come from, credentials, linked identities, groups, authentication sessions, keys. Pure PHP. |
 | `beffroi/oidc` | `src/oidc` | OAuth 2.0 / OpenID Connect module: clients, authorization requests, grants, tokens, discovery, JWKS, UserInfo, logout. Pure PHP. |
 | `beffroi/saml` | `src/saml` | SAML 2.0 module: the identity provider and the service provider of a tenant, their metadata, Single Logout on the session of the core. Pure PHP. |
+| `beffroi/scim` | `src/scim` | SCIM 2.0 module: the persons and the groups the directories of a tenant push, mapped onto the identity model of the core. Pure PHP. |
 | `beffroi/saml2-model` | `src/saml2-model` | The SAML 2.0 model: the `samlp:`, `saml:` and `md:` objects of Web Browser SSO and Single Logout, read strictly and validated in code. No HTTP. |
 | `beffroi/saml2-bindings` | `src/saml2-bindings` | The HTTP-Redirect and HTTP-POST bindings of SAML 2.0, strings and arrays in and out. No HTTP object. |
 | `beffroi/xml-security` | `src/xml-security` | XML security in three namespaces: `Core`, a safe DOM; `Dsig`, XML Signature; `Enc`, XML Encryption. |

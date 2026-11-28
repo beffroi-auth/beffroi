@@ -6,6 +6,11 @@ namespace Beffroi\Core\Tests\Application\Authentication;
 
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Bridge\InMemory\InMemoryAuthenticationSessionRepository;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
@@ -14,6 +19,7 @@ use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -54,7 +60,7 @@ final class SessionTerminatorTest extends TestCase
     public function itEndsTheSessionNow(): void
     {
         // When
-        $this->terminator->end($this->ended, SessionEnd::User, $this->context);
+        $this->terminator->end($this->ended, SessionEnd::User, new ThePerson(), $this->context);
 
         // Then
         static::assertTrue($this->ended->hasEnded());
@@ -69,7 +75,7 @@ final class SessionTerminatorTest extends TestCase
         $savesBefore = $this->sessions->saves;
 
         // When
-        $this->terminator->end($this->ended, SessionEnd::User, $this->context);
+        $this->terminator->end($this->ended, SessionEnd::User, new ThePerson(), $this->context);
 
         // Then
         static::assertSame($savesBefore + 1, $this->sessions->saves);
@@ -80,7 +86,7 @@ final class SessionTerminatorTest extends TestCase
     public function itAnnouncesTheEndWithTheContextOfTheRequest(): void
     {
         // When
-        $this->terminator->end($this->ended, SessionEnd::User, $this->context);
+        $this->terminator->end($this->ended, SessionEnd::User, new ThePerson(), $this->context);
 
         // Then
         static::assertCount(1, $this->events->events);
@@ -103,31 +109,45 @@ final class SessionTerminatorTest extends TestCase
         $this->terminator->endByAnAdministrator($this->ended, $administrator, $this->context);
 
         // Then
-        static::assertSame(
-            [SessionEnd::Administrator, $administrator],
+        static::assertEquals(
+            [SessionEnd::Administrator, new AnAdministrator($administrator)],
             [$this->ended->endedBy, $this->events->of(AuthenticationSessionEnded::class)[0]->author()],
         );
     }
 
+    /**
+     * Decision 0066
+     */
     #[Test]
-    public function theEndThePersonMadeNamesNoAuthor(): void
+    #[DataProvider('provideAuthors')]
+    public function theEndNamesItsAuthorInItsAct(AuthorInterface $author): void
     {
         // When
-        $this->terminator->end($this->ended, SessionEnd::User, $this->context);
+        $this->terminator->end($this->ended, SessionEnd::User, $author, $this->context);
 
         // Then
-        static::assertNull($this->events->of(AuthenticationSessionEnded::class)[0]->author());
+        static::assertSame($author, $this->events->of(AuthenticationSessionEnded::class)[0]->author());
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface}>
+     */
+    public static function provideAuthors(): iterable
+    {
+        yield 'the person' => [new ThePerson()];
+        yield 'the host' => [new TheHost()];
+        yield 'a directory' => [new ADirectory('Entra ID')];
     }
 
     #[Test]
     public function endingAnEndedSessionAgainChangesNothing(): void
     {
         // Given
-        $this->terminator->end($this->ended, SessionEnd::User, $this->context);
+        $this->terminator->end($this->ended, SessionEnd::User, new ThePerson(), $this->context);
         $savesBefore = $this->sessions->saves;
 
         // When
-        $this->terminator->end($this->ended, SessionEnd::Administrator, $this->context);
+        $this->terminator->end($this->ended, SessionEnd::Administrator, new TheHost(), $this->context);
 
         // Then
         static::assertSame(SessionEnd::User, $this->ended->endedBy);

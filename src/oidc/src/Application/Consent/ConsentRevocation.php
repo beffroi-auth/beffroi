@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Consent;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use function array_map;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -36,9 +38,12 @@ final readonly class ConsentRevocation
     ) {
     }
 
-    public function revoke(Consent $consent, RequestContext $context): void
+    /**
+     * The act names its author: the person, or the host (decision 0066).
+     */
+    public function revoke(Consent $consent, AuthorInterface $author, RequestContext $context): void
     {
-        $this->revokeOnce($consent, $context, null);
+        $this->revokeOnce($consent, $context, $author);
     }
 
     /**
@@ -46,10 +51,10 @@ final readonly class ConsentRevocation
      */
     public function revokeByAnAdministrator(Consent $consent, Subject $administrator, RequestContext $context): void
     {
-        $this->revokeOnce($consent, $context, $administrator);
+        $this->revokeOnce($consent, $context, new AnAdministrator($administrator));
     }
 
-    private function revokeOnce(Consent $consent, RequestContext $context, ?Subject $administrator): void
+    private function revokeOnce(Consent $consent, RequestContext $context, AuthorInterface $author): void
     {
         $now = $this->clock->now();
         $consent->revoke($now);
@@ -67,7 +72,7 @@ final readonly class ConsentRevocation
             RevokedTokenHashes::of($refreshTokens),
             RevokedTokenHashes::of($accessTokens),
             $context,
-            $administrator,
+            $author,
         ));
     }
 }

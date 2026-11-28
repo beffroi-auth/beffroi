@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Identity;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\PersonDescribedThemselves;
 use Beffroi\Core\Domain\Identity\ClaimChange;
 use Beffroi\Core\Domain\Identity\MailEncryptionKey;
@@ -55,7 +56,7 @@ final readonly class MailEncryptionChoice
         $this->writes->atomically(function () use ($user, $was, $became, $now, $context): void {
             $this->users->save($user);
             if ($was !== $became) {
-                $this->history->record(new ClaimChange(Uuid::v7(), $user, self::CHANGED, $was, $became, $now, $context));
+                $this->history->record(new ClaimChange(Uuid::v7(), $user, self::CHANGED, $was, $became, $now, $context, new ThePerson()));
             }
         });
         $this->events->dispatch(new PersonDescribedThemselves($user, self::CHANGED, $became === null, $now, $context));

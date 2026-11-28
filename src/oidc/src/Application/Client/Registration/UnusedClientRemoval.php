@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Client\Registration;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use function count;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -46,7 +47,7 @@ final readonly class UnusedClientRemoval
                 break;
             }
             foreach ($source->unusedIn($tenant, $retention, $left) as $record) {
-                $this->removal->remove($record, $context);
+                $this->removal->remove($record, new TheHost(), $context);
                 $removed[] = $record->clientId;
             }
         }

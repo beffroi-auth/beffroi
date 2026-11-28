@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Beffroi\Core\Application\Confirmation;
 
 use Beffroi\Core\Application\Identity\Member\Said;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Confirmation\AddressConfirmation;
 use Beffroi\Core\Domain\Confirmation\ConfirmableAddressInterface;
 use Beffroi\Core\Domain\Event\AddressConfirmationSent;
@@ -123,7 +124,9 @@ final readonly class AddressEstablishment
             $this->users->save($user);
             $this->confirmations->save($confirmation);
             if (! $was) {
-                $this->history->record(new ClaimChange(Uuid::v7(), $user, $verification, Said::written(false), Said::written(true), $now, $context));
+                $this->history->record(
+                    new ClaimChange(Uuid::v7(), $user, $verification, Said::written(false), Said::written(true), $now, $context, new ThePerson()),
+                );
             }
         });
         $this->events->dispatch(new AddressEstablished($user, $this->kind->claim(), $now, $context));

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -13,7 +15,7 @@ use DateTimeImmutable;
  * A key the tenant signs its mail with, set by an administrator in place of the one of its format, which signs nothing
  * from then on: an act of the tenant and of no person.
  */
-final readonly class MailSigningKeySet implements NamesItsAuthorInterface
+final readonly class MailSigningKeySet implements DomainEventInterface
 {
     public const string NAME = 'tenant.mail_signing_key_set';
 
@@ -35,8 +37,8 @@ final readonly class MailSigningKeySet implements NamesItsAuthorInterface
         return self::NAME;
     }
 
-    public function author(): Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return new AnAdministrator($this->administrator);
     }
 }

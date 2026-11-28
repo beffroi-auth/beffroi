@@ -7,6 +7,7 @@ namespace App\Http;
 use Beffroi\Core\Domain\Identity\ClaimChangeQuestion;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\CanPageChangesOfAPersonInterface;
+use Beffroi\Core\Port\KindsOfAuthorInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 final readonly class ClaimChangesPage
@@ -15,12 +16,9 @@ final readonly class ClaimChangesPage
 
     public const string AUTHOR = 'by';
 
-    public const string BY_THE_PERSON = 'you';
-
-    public const string BY_AN_ADMINISTRATOR = 'administrator';
-
     public function __construct(
         private CanPageChangesOfAPersonInterface $changes,
+        private KindsOfAuthorInterface $kinds,
         private AskedPage $page,
         private AskedPeriod $period,
         private AskedWord $word,
@@ -34,15 +32,16 @@ final readonly class ClaimChangesPage
         $question = new ClaimChangeQuestion(
             period: $this->period->asked($user),
             claim: $this->word->among(self::CLAIM, $claims),
-            byAnAdministrator: $this->word->either(self::AUTHOR, self::BY_AN_ADMINISTRATOR, self::BY_THE_PERSON),
+            by: $this->word->among(self::AUTHOR, $this->kinds->kinds()),
         );
 
         return $this->pages->render('account/changes.html.twig', [
             'user' => $user,
             'changes' => $this->changes->pageOfChanges($user, $question, $this->page->asked()),
             'question' => $question,
-            'narrowed' => $question->period !== null || $question->claim !== null || $question->byAnAdministrator !== null,
+            'narrowed' => $question->period !== null || $question->claim !== null || $question->by !== null,
             'claims' => $claims,
+            'kinds' => $this->kinds->kinds(),
         ]);
     }
 }

@@ -146,7 +146,17 @@ final readonly class SealedBodySerializer implements SerializerInterface
         } catch (InvalidJweException $exception) {
             return MessageDecodingFailedException::wrap($encodedEnvelope, $exception->getMessage(), 0, $exception)->with(...$stamps);
         }
-        $message = self::read($opened);
+        try {
+            $message = self::read($opened);
+        } catch (Throwable $failure) {
+            // unserialize() runs the code of the classes it builds, which a body an older version of a class wrote can stop.
+            return MessageDecodingFailedException::wrap(
+                $encodedEnvelope,
+                sprintf('The body of the message does not read back: %s', $failure->getMessage()),
+                0,
+                $failure,
+            )->with(...$stamps);
+        }
         if ($message === null) {
             return MessageDecodingFailedException::wrap(
                 $encodedEnvelope,

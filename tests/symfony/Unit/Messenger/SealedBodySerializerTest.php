@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Unit\Messenger;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Identity\Subject;
+use Beffroi\Core\Tests\Fixture\BodyOfTheVersionBefore;
+use Error;
+use function str_starts_with;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Tests\Domain\Event\EventsLeaveTheProcessTest;
 use function array_keys;
 use function array_map;
@@ -108,6 +116,7 @@ final class SealedBodySerializerTest extends TestCase
             Uuid::v7(),
             Fixtures::user()->subject,
             Fixtures::context(),
+            new ThePerson(),
         )];
         yield 'a logout token still to issue' => [new IssueLogoutToken(
             Fixtures::tenant(),
@@ -115,6 +124,7 @@ final class SealedBodySerializerTest extends TestCase
             Uuid::v7(),
             Fixtures::user()->subject,
             Fixtures::context(),
+            new ADirectory('Entra ID'),
         )];
         yield 'a change told to a person' => [new TellUserOfCredentialChange(
             new CredentialChange(Fixtures::user(), CredentialEnrolled::NAME, Fixtures::now(), 'passkey'),
@@ -306,6 +316,105 @@ final class SealedBodySerializerTest extends TestCase
 
         // Then
         static::assertStringContainsString('opens as', self::failureOf($decoded)->getMessage());
+    }
+
+    /**
+     * Decision 0066: a logout token queued when the provider was upgraded is told in the name of whoever ended the
+     * session, as the version before named them.
+     */
+    #[Test]
+    #[DataProvider('provideLogoutTokensOfTheVersionBefore')]
+    public function aLogoutTokenTheVersionBeforeQueuedReadsBackNamingItsAuthor(object $message): void
+    {
+        // Given
+        $encoded = $this->encodedWithBody($message, BodyOfTheVersionBefore::of($message));
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertEquals($message, $decoded->getMessage());
+    }
+
+    /**
+     * @return iterable<string, array{object}>
+     */
+    public static function provideLogoutTokensOfTheVersionBefore(): iterable
+    {
+        $tenant = Fixtures::tenant();
+        $session = Uuid::fromString('0192f0a4-8e1b-7c3d-9a2b-4c5d6e7f8091');
+        $subject = Fixtures::user()->subject;
+        $administrator = new AnAdministrator(new Subject('administrator-subject'));
+        yield 'one to issue, an administrator having ended the session' => [new IssueLogoutToken(
+            $tenant,
+            'oidc-demo',
+            $session,
+            $subject,
+            Fixtures::context(),
+            $administrator,
+        )];
+        yield 'one to issue, the person having ended it' => [new IssueLogoutToken(
+            $tenant,
+            'oidc-demo',
+            $session,
+            $subject,
+            Fixtures::context(),
+            new ThePerson(),
+        )];
+        yield 'one to issue, the console having ended it' => [new IssueLogoutToken(
+            $tenant,
+            'oidc-demo',
+            $session,
+            $subject,
+            Fixtures::context(ipAddress: null),
+            new TheHost(),
+        )];
+        yield 'one to send, an administrator having ended the session' => [
+            new SendLogoutToken(
+                $tenant,
+                'oidc-demo',
+                'https://demo.localhost/backchannel-logout',
+                'eyJ.the.token',
+                $session,
+                $subject,
+                Fixtures::context(),
+                $administrator,
+            ),
+        ];
+        yield 'one to send, the person having ended it' => [
+            new SendLogoutToken(
+                $tenant,
+                'oidc-demo',
+                'https://demo.localhost/backchannel-logout',
+                'eyJ.the.token',
+                $session,
+                $subject,
+                Fixtures::context(),
+                new ThePerson(),
+            ),
+        ];
+    }
+
+    #[Test]
+    public function aBodyItsClassCannotBuildGoesToTheFailuresInPlaceOfStoppingTheWorker(): void
+    {
+        // Given
+        $message = new SomethingHappened('a page was rendered');
+        $body = str_replace(':1:{s:4:"what";', ':2:{s:13:"administrator";N;s:4:"what";', serialize($message));
+        $encoded = $this->encodedWithBody($message, $body);
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        $failure = self::failureOf($decoded);
+        static::assertSame(
+            [true, Error::class],
+            [
+                str_starts_with($failure->getMessage(), 'The body of the message does not read back: '),
+                $failure->getPrevious() === null ? null : $failure->getPrevious()::class,
+            ],
+        );
     }
 
     #[Test]
@@ -565,6 +674,25 @@ final class SealedBodySerializerTest extends TestCase
 
         // Then
         static::assertCount(5, explode('.', $encoded['body']));
+    }
+
+    /**
+     * @return array{body: string, headers: array<string, string>}
+     */
+    private function encodedWithBody(object $message, string $body): array
+    {
+        $headers = [];
+        foreach ($this->serializer->encode(new Envelope($message))['headers'] ?? [] as $name => $value) {
+            $headers[(string) $name] = (string) $value;
+        }
+
+        return [
+            'body' => new JwtLibraryMessageBodySealer(new SealedKeyProvider($this->keys, Keys::opened()), Algorithms::messageSealing())->seal(
+                $this->tenant,
+                $body,
+            ),
+            'headers' => $headers,
+        ];
     }
 
     private function serializerOf(Tenant $tenant, SealedKeyProvider $keys): SealedBodySerializer

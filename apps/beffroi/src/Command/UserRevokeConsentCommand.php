@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use App\Http\RequestContextFactory;
 use Beffroi\Oidc\Application\Consent\ConsentRevocation;
 use Beffroi\Oidc\Port\ClientRepositoryInterface;
@@ -59,7 +60,7 @@ final readonly class UserRevokeConsentCommand
 
             return Command::SUCCESS;
         }
-        $this->revocation->revoke($consent, $this->contexts->fromConsole(self::NAME));
+        $this->revocation->revoke($consent, new TheHost(), $this->contexts->fromConsole(self::NAME));
         $io->success(sprintf(
             '"%s" has taken back what "%s" was granted, and what it was issued under it; the next authorization request asks again.',
             $username,

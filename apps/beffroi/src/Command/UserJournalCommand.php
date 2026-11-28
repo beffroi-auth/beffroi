@@ -14,6 +14,7 @@ use Beffroi\Core\Domain\Listing\Pagination;
 use Beffroi\Core\Domain\Listing\Period;
 use Beffroi\Core\Port\CanPageActsOfAPersonInterface;
 use function count;
+use function implode;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
@@ -124,13 +125,13 @@ final readonly class UserJournalCommand
             $io->text(sprintf('The journal holds no act of "%s" over that stretch of time.', PrintedText::of($user->username)));
         } else {
             $io->table(
-                ['Act', 'Occurred (UTC)', 'Application', 'From', 'Administrator'],
+                ['Act', 'Occurred (UTC)', 'Application', 'From', 'Author'],
                 array_map(static fn (JournalEntry $entry): array => [
                     $entry->act,
                     $entry->occurredAt->format('Y-m-d H:i:s'),
                     PrintedText::of($entry->client ?? ''),
                     $entry->context->ipAddress ?? 'address not recorded',
-                    PrintedText::of($entry->author->value ?? ''),
+                    PrintedText::of($entry->author === null ? '' : implode(' ', $entry->author->toDocument())),
                 ], $acts),
             );
             $io->text(sprintf('%d act(s), most recent first.', count($acts)));

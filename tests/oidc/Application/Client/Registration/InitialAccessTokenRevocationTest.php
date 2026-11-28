@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Tests\Application\Client\Registration;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Oidc\Bridge\Configuration\ConfigurationAdministrationResource;
 use Beffroi\Oidc\Tests\Fixture\Administrations;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -67,7 +69,7 @@ final class InitialAccessTokenRevocationTest extends TestCase
     }
 
     #[Test]
-    public function revokingItIsAnActOfTheTenantThatNamesNobodyWhenTheOperatorDidIt(): void
+    public function revokingItIsAnActOfTheTenantThatNamesTheHostWhenItsConsoleDidIt(): void
     {
         // Given
         $issued = $this->issue();
@@ -76,8 +78,8 @@ final class InitialAccessTokenRevocationTest extends TestCase
         $this->revocation()->revoke($this->tenant, $issued->token->id, $this->context);
 
         // Then
-        static::assertSame(
-            [[$issued->token->id->toRfc4122(), null]],
+        static::assertEquals(
+            [[$issued->token->id->toRfc4122(), new TheHost()]],
             array_map(
                 static fn (InitialAccessTokenRevoked $act): array => [$act->tokenId->toRfc4122(), $act->author()],
                 $this->events->of(InitialAccessTokenRevoked::class),
@@ -98,7 +100,7 @@ final class InitialAccessTokenRevocationTest extends TestCase
         $this->revocation()->revokeByAnAdministrator($this->tenant, $issued->token->id, new Subject('administrator-subject'), $this->context);
 
         // Then
-        static::assertSame('administrator-subject', $this->events->of(InitialAccessTokenRevoked::class)[0]->author()?->value);
+        static::assertEquals(new AnAdministrator(new Subject('administrator-subject')), $this->events->of(InitialAccessTokenRevoked::class)[0]->author());
     }
 
     #[Test]

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Beffroi\Core\Domain\Author\TheHost;
 use App\Http\RequestContextFactory;
 use Beffroi\Core\Application\Identity\PersonEnabling;
 use function sprintf;
@@ -42,7 +43,7 @@ final readonly class UserEnableCommand
             return Command::FAILURE;
         }
 
-        if (! $this->enabling->enable($user, $this->contexts->fromConsole(self::NAME))) {
+        if (! $this->enabling->enable($user, new TheHost(), $this->contexts->fromConsole(self::NAME))) {
             $io->note(sprintf('The user "%s" was enabled already: nothing changed.', PrintedText::inBlock($user->username)));
 
             return Command::SUCCESS;

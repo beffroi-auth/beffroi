@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Administration;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Identity\PersonDisabling;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -44,7 +45,7 @@ final readonly class AdministeredDisabling
             throw new OwnAccountRefusedException('An administrator does not disable the account they act with.');
         }
         $this->delivered->spend($administrator, 1, $context);
-        if ($this->disabling->disableByAnAdministrator($user, $administrator->user->subject, $context) === null) {
+        if ($this->disabling->disable($user, new AnAdministrator($administrator->user->subject), $context) === null) {
             $this->delivery->to($administrator, $user, $context);
         }
 

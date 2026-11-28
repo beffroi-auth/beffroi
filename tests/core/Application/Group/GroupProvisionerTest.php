@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Group;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Tests\Fixture\TextsThatAreNotPlain;
 use Beffroi\Core\Exception\GroupAlreadyExistsException;
 use Beffroi\Core\Application\Group\GroupProvisioner;
@@ -113,15 +115,15 @@ final class GroupProvisionerTest extends TestCase
     }
 
     #[Test]
-    public function theCreationByTheOperatorIsAnActOfTheTenantThatNamesNobody(): void
+    public function theCreationByTheHostIsAnActOfTheTenantThatNamesIt(): void
     {
         // When
         $this->provisioner->create($this->tenant, 'auditors', Fixtures::context());
 
         // Then
-        static::assertSame(
-            [['auditors', null]],
-            array_map(static fn (GroupCreated $act): array => [$act->group, $act->author()?->value], $this->events->of(GroupCreated::class)),
+        static::assertEquals(
+            [['auditors', new TheHost()]],
+            array_map(static fn (GroupCreated $act): array => [$act->group, $act->author()], $this->events->of(GroupCreated::class)),
         );
     }
 
@@ -135,7 +137,7 @@ final class GroupProvisionerTest extends TestCase
         $this->provisioner->createByAnAdministrator($this->tenant, 'auditors', new Subject('administrator-subject'), Fixtures::context());
 
         // Then
-        static::assertSame('administrator-subject', $this->events->of(GroupCreated::class)[0]->author()?->value);
+        static::assertEquals(new AnAdministrator(new Subject('administrator-subject')), $this->events->of(GroupCreated::class)[0]->author());
     }
 
     #[Test]

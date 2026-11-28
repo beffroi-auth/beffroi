@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use function array_find;
 use App\Http\Account\ReachedOnTheSessionAloneInterface;
 use App\Http\AccountAccess;
@@ -58,7 +59,7 @@ final readonly class ConsentRevocationController implements ReachedOnTheSessionA
         if ($consent === null) {
             throw new NotFoundHttpException('No such consent.');
         }
-        $this->revocation->revoke($consent, $this->contexts->fromRequest($request));
+        $this->revocation->revoke($consent, new ThePerson(), $this->contexts->fromRequest($request));
 
         return $this->pages->afterTheForm(AccountConsentsController::ROUTE);
     }

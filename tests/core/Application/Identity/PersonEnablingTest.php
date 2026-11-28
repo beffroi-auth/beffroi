@@ -7,18 +7,23 @@ namespace Beffroi\Core\Tests\Application\Identity;
 use function array_map;
 use Beffroi\Core\Application\Identity\PersonEnabling;
 use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Event\PersonEnabled;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 
 /**
- * Decision 0038
+ * Decisions 0038 and 0066
  */
 final class PersonEnablingTest extends TestCase
 {
@@ -40,7 +45,7 @@ final class PersonEnablingTest extends TestCase
     public function anEnabledPersonMaySignInAgain(): void
     {
         // When
-        $this->enabling()->enable($this->alice, Fixtures::context());
+        $this->enabling()->enable($this->alice, new TheHost(), Fixtures::context());
 
         // Then
         static::assertSame([true, null], [$this->alice->isEnabled(), $this->alice->disabledAt]);
@@ -56,30 +61,34 @@ final class PersonEnablingTest extends TestCase
         $users->expects(static::once())->method('save')->with($this->alice);
 
         // When
-        $this->enabling($users)->enable($this->alice, Fixtures::context());
+        $this->enabling($users)->enable($this->alice, new TheHost(), Fixtures::context());
     }
 
+    /**
+     * Decision 0066
+     */
     #[Test]
-    public function theEnablingByTheOperatorIsAnActThatNamesNobody(): void
+    #[DataProvider('provideAuthors')]
+    public function theEnablingIsAnActThatNamesItsAuthor(AuthorInterface $author): void
     {
         // When
-        $this->enabling()->enable($this->alice, Fixtures::context());
+        $this->enabling()->enable($this->alice, $author, Fixtures::context());
 
         // Then
-        static::assertSame([['alice-subject', null]], array_map(
-            static fn (PersonEnabled $act): array => [$act->subject()->value, $act->author()?->value],
+        static::assertSame([['alice-subject', $author]], array_map(
+            static fn (PersonEnabled $act): array => [$act->subject()->value, $act->author()],
             $this->events->of(PersonEnabled::class),
         ));
     }
 
-    #[Test]
-    public function theEnablingByAnAdministratorIsAnActThatNamesThem(): void
+    /**
+     * @return iterable<string, array{AuthorInterface}>
+     */
+    public static function provideAuthors(): iterable
     {
-        // When
-        $this->enabling()->enableByAnAdministrator($this->alice, new Subject('administrator-subject'), Fixtures::context());
-
-        // Then
-        static::assertSame('administrator-subject', $this->events->of(PersonEnabled::class)[0]->author()?->value);
+        yield 'the host' => [new TheHost()];
+        yield 'an administrator' => [new AnAdministrator(new Subject('administrator-subject'))];
+        yield 'a directory' => [new ADirectory('Entra ID')];
     }
 
     #[Test]
@@ -89,7 +98,7 @@ final class PersonEnablingTest extends TestCase
         $bob = Fixtures::user($this->alice->tenant, 'bob', 'bob-subject');
 
         // When
-        $enabled = $this->enabling()->enable($bob, Fixtures::context());
+        $enabled = $this->enabling()->enable($bob, new TheHost(), Fixtures::context());
 
         // Then
         static::assertSame([false, []], [$enabled, $this->events->events]);

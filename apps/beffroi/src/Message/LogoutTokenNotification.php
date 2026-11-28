@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Message;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
@@ -28,7 +29,7 @@ interface LogoutTokenNotification extends Notification, GivenUpAsAnAct
     public RequestContext $context { get; }
 
     /**
-     * The administrator of the tenant who ended the session, by the subject of their account.
+     * Who ended the session, whom the logout token names as the author of its act.
      */
-    public ?Subject $administrator { get; }
+    public AuthorInterface $author { get; }
 }

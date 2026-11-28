@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Application\Identity;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Event\PersonEnabled;
-use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Port\UserRepositoryInterface;
@@ -26,24 +26,11 @@ final readonly class PersonEnabling
     }
 
     /**
-     * @return bool whether the person was disabled until now
-     */
-    public function enable(User $user, RequestContext $context): bool
-    {
-        return $this->enableOnce($user, $context, null);
-    }
-
-    /**
-     * The act names the administrator (decision 0038).
+     * The act names the author (decision 0066).
      *
      * @return bool whether the person was disabled until now
      */
-    public function enableByAnAdministrator(User $user, Subject $administrator, RequestContext $context): bool
-    {
-        return $this->enableOnce($user, $context, $administrator);
-    }
-
-    private function enableOnce(User $user, RequestContext $context, ?Subject $administrator): bool
+    public function enable(User $user, AuthorInterface $author, RequestContext $context): bool
     {
         if ($user->isEnabled()) {
             return false;
@@ -51,7 +38,7 @@ final readonly class PersonEnabling
         $now = $this->clock->now();
         $user->enable($now);
         $this->users->save($user);
-        $this->events->dispatch(new PersonEnabled($user->tenant, $user->subject, $now, $context, $administrator));
+        $this->events->dispatch(new PersonEnabled($user->tenant, $user->subject, $now, $context, $author));
 
         return true;
     }

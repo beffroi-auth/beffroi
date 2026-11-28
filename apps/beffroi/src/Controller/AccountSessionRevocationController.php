@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use App\Http\Account\ReachedOnTheSessionAloneInterface;
 use App\Http\AccountAccess;
 use App\Http\BrowserSession;
@@ -60,7 +61,7 @@ final readonly class AccountSessionRevocationController implements ReachedOnTheS
         if (! $ended instanceof AuthenticationSession || ! $ended->user->id->equals($session->user->id) || $ended->hasEnded()) {
             throw new NotFoundHttpException('No such session.');
         }
-        $this->terminator->end($ended, SessionEnd::User, $this->contexts->fromRequest($request));
+        $this->terminator->end($ended, SessionEnd::User, new ThePerson(), $this->contexts->fromRequest($request));
         if (! $ended->id->equals($session->id)) {
             return $this->pages->afterTheForm(AccountSessionsController::ROUTE);
         }

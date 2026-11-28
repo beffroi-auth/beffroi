@@ -7,6 +7,8 @@ namespace Beffroi\Core\Application\Ticket;
 use Beffroi\Core\Application\Authentication\OtherSessionsTermination;
 use Beffroi\Core\Application\Credential\ActivePassword;
 use Beffroi\Core\Application\Identity\UserProvisioner;
+use Beffroi\Core\Domain\Session\SessionEnd;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Credential\PasswordChangeRefusal;
 use Beffroi\Core\Domain\Credential\PlainPassword;
@@ -77,6 +79,6 @@ final readonly class PasswordTicketRedemption
             $this->events->dispatch($act);
             $this->notifier->tell(new CredentialChange($ticket->user, $act->name(), $now, $credential->kind()));
         });
-        $this->sessions->endEvery($ticket->user, $context);
+        $this->sessions->endEvery($ticket->user, SessionEnd::User, new ThePerson(), $context);
     }
 }

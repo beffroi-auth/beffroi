@@ -87,6 +87,7 @@ use DoctrineMigrations\Version20261124090000;
 use DoctrineMigrations\Version20261124100000;
 use DoctrineMigrations\Version20261124100500;
 use DoctrineMigrations\Version20261124110000;
+use DoctrineMigrations\Version20261128141800;
 use DoctrineMigrations\Version20261128200000;
 use function implode;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -180,6 +181,7 @@ final class MigrationTest extends DatabaseTestCase
         Version20261124100000::class,
         Version20261124100500::class,
         Version20261124110000::class,
+        Version20261128141800::class,
         Version20261128200000::class,
     ];
 
@@ -500,6 +502,16 @@ final class MigrationTest extends DatabaseTestCase
                 if (preg_match('/^ALTER INDEX (\S+) RENAME TO (\S+)$/', $statement, $matches) === 1) {
                     $statements = array_map(
                         static fn (string $earlier): string => self::renamed($earlier, $matches[1], $matches[2]),
+                        $statements,
+                    );
+
+                    continue;
+                }
+                if (preg_match('/^ALTER TABLE (\S+) ALTER (\S+) TYPE (\S+)$/', $statement, $matches) === 1) {
+                    $statements = array_map(
+                        static fn (string $earlier): string => str_starts_with($earlier, 'CREATE TABLE ' . $matches[1] . ' (')
+                            ? (string) preg_replace('/\b' . preg_quote($matches[2], '/') . ' [A-Z]+(\(\d+\))?/', $matches[2] . ' ' . $matches[3], $earlier, 1)
+                            : $earlier,
                         $statements,
                     );
 

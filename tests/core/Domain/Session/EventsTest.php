@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Domain\Session;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Session\SessionEnd;
@@ -42,7 +43,7 @@ final class EventsTest extends TestCase
         $session->end(SessionEnd::RelyingParty, $later);
 
         // When
-        $event = new AuthenticationSessionEnded($session, $later, $context);
+        $event = new AuthenticationSessionEnded($session, $later, $context, new ThePerson());
 
         // Then
         static::assertSame(SessionEnd::RelyingParty, $event->endedBy);
@@ -60,6 +61,6 @@ final class EventsTest extends TestCase
         $this->expectException(LogicException::class);
 
         // When
-        new AuthenticationSessionEnded($session, Fixtures::now(), Fixtures::context());
+        new AuthenticationSessionEnded($session, Fixtures::now(), Fixtures::context(), new ThePerson());
     }
 }

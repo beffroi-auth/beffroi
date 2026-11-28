@@ -528,10 +528,10 @@ final class TypesTest extends TestCase
     }
 
     #[Test]
-    public function theProviderDeclaresThirtyNineTypes(): void
+    public function theProviderDeclaresFortyOneTypes(): void
     {
         // When / Then
-        static::assertCount(39, BeffroiExtension::DBAL_TYPES);
+        static::assertCount(41, BeffroiExtension::DBAL_TYPES);
     }
 
     /**

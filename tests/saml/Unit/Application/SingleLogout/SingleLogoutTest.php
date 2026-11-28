@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Saml\Tests\Unit\Application\SingleLogout;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Bridge\InMemory\InMemoryAuthenticationSessionRepository;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
@@ -86,7 +87,7 @@ final class SingleLogoutTest extends TestCase
 
         // Then
         static::assertEquals(
-            [new AuthenticationSessionEnded($this->session, Fixtures::now(), Fixtures::context())],
+            [new AuthenticationSessionEnded($this->session, Fixtures::now(), Fixtures::context(), new ThePerson())],
             $this->events->of(AuthenticationSessionEnded::class),
         );
     }
