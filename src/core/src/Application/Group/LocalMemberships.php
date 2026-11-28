@@ -106,7 +106,10 @@ final readonly class LocalMemberships
         if ($membership->source->isManaged()) {
             throw GroupMembershipException::givenByADirectory($group->name);
         }
-        $this->memberships->remove($membership);
+        // Another removal deleted the row after the read above, and announced it.
+        if (! $this->memberships->remove($membership)) {
+            throw GroupMembershipException::notAMember($group->name);
+        }
         $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->name, $this->clock->now(), $context, $administrator));
     }
 
