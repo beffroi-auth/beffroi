@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>See parool sisaldab lubamatut märki. Eemaldage see.</target>
+        <target>See parool sisaldab nähtamatut märki või mitmest sümbolist koosnevat emojit. Valige mõni muu.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

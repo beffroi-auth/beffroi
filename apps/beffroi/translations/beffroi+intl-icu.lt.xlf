@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Šiame slaptažodyje yra neleistinas simbolis. Pašalinkite jį.</target>
+        <target>Šiame slaptažodyje yra nematomas simbolis arba iš kelių simbolių sudarytas jaustukas. Pasirinkite kitą.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

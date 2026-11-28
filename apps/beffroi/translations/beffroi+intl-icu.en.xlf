@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>This password contains a character that is not allowed. Remove it.</target>
+        <target>This password contains an invisible character or an emoji made of several symbols. Choose another one.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

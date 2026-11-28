@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Ky fjalëkalim përmban një shenjë të palejuar. Hiqeni.</target>
+        <target>Ky fjalëkalim përmban një shenjë të padukshme ose një emoji të përbërë nga disa simbole. Zgjidhni një tjetër.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

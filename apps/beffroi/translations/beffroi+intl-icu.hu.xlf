@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Ez a jelszó nem engedélyezett karaktert tartalmaz. Távolítsa el.</target>
+        <target>Ez a jelszó láthatatlan karaktert vagy több szimbólumból álló emojit tartalmaz. Válasszon másikat.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

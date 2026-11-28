@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Toto heslo obsahuje nepovolený znak. Odstraňte ho.</target>
+        <target>Toto heslo obsahuje neviditelný znak nebo emoji složené z více symbolů. Zvolte jiné.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

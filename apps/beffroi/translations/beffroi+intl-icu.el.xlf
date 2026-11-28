@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Αυτός ο κωδικός πρόσβασης περιέχει μη επιτρεπτό χαρακτήρα. Αφαιρέστε τον.</target>
+        <target>Αυτός ο κωδικός πρόσβασης περιέχει έναν αόρατο χαρακτήρα ή ένα emoji από πολλά σύμβολα. Επιλέξτε άλλον.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

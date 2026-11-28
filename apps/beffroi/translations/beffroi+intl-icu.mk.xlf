@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Оваа лозинка содржи недозволен знак. Отстранете го.</target>
+        <target>Оваа лозинка содржи невидлив знак или емоџи составен од повеќе симболи. Изберете друга.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

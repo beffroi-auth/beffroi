@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Adgangskoden indeholder et tegn, der ikke er tilladt. Fjern det.</target>
+        <target>Adgangskoden indeholder et usynligt tegn eller en emoji, der består af flere symboler. Vælg en anden.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

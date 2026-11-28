@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Ova lozinka sadrži nedopušten znak. Uklonite ga.</target>
+        <target>Ova lozinka sadrži nevidljiv znak ili emoji sastavljen od više simbola. Odaberite drugu.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

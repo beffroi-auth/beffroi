@@ -23,6 +23,27 @@ All notable changes to this project are documented in this file, in reverse chro
   in lowercase NFC is not found at the login. The command names each person whose username the profile refuses, who
   signs in under it as written meanwhile, and the persons whose usernames it compares as one, whose blind indexes it
   leaves as they were; it exits with a failure until an administrator has renamed them and it has run again.
+- `beffroi/core`: a password is prepared and enforced by the OpaqueString profile of PRECIS (RFC 8265 §4.2), which RFC
+  7644 §5 requires of a `password`, before it is hashed and before it is verified, at the console, on the page of the
+  account, through a password ticket and at the sign-in: a no-break space or an ideographic space is a space, and a
+  letter written with a combining accent is the composed one; case and width are kept. A password holding a control
+  character, an ignorable code point (the variation selector U+FE0F that follows many emoji, the zero width joiner
+  inside an emoji made of several), a code point Unicode does not assign or one of private use is refused, with
+  `password.error.disallowed_character`. The breach lookup receives the enforced form.
+- `beffroi/core`, **who is locked out**: a person whose password holds what the profile refuses no longer signs in with
+  it, and cannot ask for a password ticket herself. Each refused sign-in is an act `authentication.failed` of her
+  journal with the reason `disallowed_character` (`bin/console beffroi:user:journal <username>`, `GET
+  /users/{id}/journal` of the administration API); an administrator gives her a password ticket
+  (`bin/console beffroi:user:password-ticket <username>`, `POST /users/{id}/password-ticket`).
+- `beffroi/beffroi`: a migration adds `beffroi_password_credential.hashed_as_typed`, true for every hash written before
+  the profile. While a tenant holds one, every sign-in of the tenant verifies the enforced form and the bytes as typed
+  when they differ, whatever the account, and the sign-in of such a person replaces her hash by one of the enforced
+  form, ASCII included; once none is left, one form is verified. Meanwhile the time of a refused sign-in says only that
+  the tenant still holds such a hash.
+- `beffroi/core`: what a password may hold is derived from the Unicode version of the intl extension the process runs
+  (RFC 8264 §13.4). A password set under a newer version can be refused by a process under an older one, during a
+  rolling deployment, after a rollback, or at the console of a host whose PHP is not the image's: every process of a
+  deployment runs the same image.
 
 ### Deprecated
 

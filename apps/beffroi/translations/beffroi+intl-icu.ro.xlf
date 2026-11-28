@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Această parolă conține un caracter nepermis. Eliminați-l.</target>
+        <target>Această parolă conține un caracter invizibil sau un emoji alcătuit din mai multe simboluri. Alegeți alta.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

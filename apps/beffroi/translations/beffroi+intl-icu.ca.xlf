@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Aquesta contrasenya conté un caràcter no permès. Elimini'l.</target>
+        <target>Aquesta contrasenya conté un caràcter invisible o un emoji format per diversos símbols. Triï'n una altra.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>

@@ -1907,7 +1907,7 @@
       </trans-unit>
       <trans-unit id="password.error.disallowed_character" resname="password.error.disallowed_character">
         <source>password.error.disallowed_character</source>
-        <target>Bu şifre izin verilmeyen bir karakter içeriyor. Kaldırın.</target>
+        <target>Bu şifre görünmez bir karakter veya birkaç simgeden oluşan bir emoji içeriyor. Başka bir şifre seçin.</target>
       </trans-unit>
       <trans-unit id="password.error.not_confirmed" resname="password.error.not_confirmed">
         <source>password.error.not_confirmed</source>
