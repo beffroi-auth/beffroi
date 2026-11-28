@@ -29,6 +29,10 @@ All notable changes to this project are documented in this file, in reverse chro
   kind of the author. The archive of a person and the journal of the administration API name the author by an object,
   `{"kind": "administrator"}` in the archive, the whole document in the API and in `beffroi:user:journal --format=json`,
   where both gave a string: the TUI 0.2.0 or later reads it, and an older TUI refuses the journal of a person.
+- `beffroi/beffroi`: the page of the acts and the archive of a person leave out the user agent of a request without an
+  address, the console's or the schedule's, which names the command and the shell of the operator: an act written
+  before acts named their author says nothing of the operator either. Once a kind of author is chosen, the page says
+  that an act naming no author is listed only when none is.
 - `beffroi/beffroi`, **upgrading**: stop the processes that dispatch messages, the planes of the provider, of the
   protocol and of the administration, then let the worker drain the four lanes, `async_priority_high`,
   `async_priority_medium`, `async_priority_low` and `async_notifications`, the logout tokens whose issue it retries

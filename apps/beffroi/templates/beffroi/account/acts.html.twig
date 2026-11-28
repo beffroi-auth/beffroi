@@ -39,6 +39,10 @@
             {{ include('@Beffroi/account/filter_period.html.twig', {legend: 'acts.when', from: 'from', to: 'to', period: question.period}) }}
         {% endblock %}
     {% endembed %}
+    {# An act written before acts named their author names none, and no kind is read from that absence. #}
+    {% if question.by is not null %}
+        <p data-unattributed>{{ 'acts.filter.unattributed'|trans }}</p>
+    {% endif %}
     <div data-table>
         <table data-acts="{{ acts|length }}">
             <thead>

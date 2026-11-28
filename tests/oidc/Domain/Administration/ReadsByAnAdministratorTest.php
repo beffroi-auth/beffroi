@@ -8,6 +8,8 @@ use function array_diff;
 use function array_keys;
 use function array_values;
 use function basename;
+use function array_fill_keys;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Oidc\Domain\Administration\ReadsByAnAdministrator;
 use Beffroi\Oidc\Domain\Consent\ConsentActs;
@@ -24,9 +26,12 @@ use Beffroi\Oidc\Domain\Event\LogoutTokenGivenUp;
 use Beffroi\Oidc\Domain\Event\LogoutTokenIssued;
 use Beffroi\Oidc\Domain\Event\TokenRevoked;
 use Beffroi\Oidc\Domain\Event\TokensIssued;
+use Beffroi\Oidc\Tests\Domain\Event\EventsLeaveTheProcessTest;
 use function class_exists;
 use function dirname;
 use function glob;
+use function in_array;
+use function ksort;
 use function is_a;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -77,16 +82,52 @@ final class ReadsByAnAdministratorTest extends TestCase
     }
 
     /**
-     * Decision 0022
+     * Decisions 0022 and 0066
      */
     #[Test]
     public function everyReadThePageListsNamesTheAdministratorWhoMadeIt(): void
     {
         // When
-        $named = self::actsOfAPerson();
+        $authors = [];
+        foreach (EventsLeaveTheProcessTest::events() as [$event]) {
+            if (in_array($event->name(), ReadsByAnAdministrator::NAMES, true)) {
+                $authors[$event->name()] = $event->author()::class;
+            }
+        }
 
         // Then
-        static::assertSame([], array_values(array_diff(ReadsByAnAdministrator::NAMES, $named)));
+        $expected = array_fill_keys(ReadsByAnAdministrator::NAMES, AnAdministrator::class);
+        ksort($expected);
+        ksort($authors);
+        static::assertSame($expected, $authors);
+    }
+
+    /**
+     * Decisions 0022 and 0038: what an administrator did to a person is on the page of their acts, and none of it is
+     * named off the page. A read an administrator made of themselves is their own.
+     */
+    #[Test]
+    public function noActAnAdministratorDidToAPersonIsNamedOffTheirPage(): void
+    {
+        // Given
+        $onThePage = [...ReadsByAnAdministrator::NAMES, ...ConsentActs::NAMES];
+
+        // When
+        $offThePage = [];
+        foreach (EventsLeaveTheProcessTest::events() as [$event]) {
+            $author = $event->author();
+            if (
+                $event instanceof ConcernsAPersonInterface
+                && $author instanceof AnAdministrator
+                && $event->subject()?->equals($author->subject) !== true
+                && ! in_array($event->name(), $onThePage, true)
+            ) {
+                $offThePage[] = $event->name();
+            }
+        }
+
+        // Then
+        static::assertSame([], $offThePage);
     }
 
     /**

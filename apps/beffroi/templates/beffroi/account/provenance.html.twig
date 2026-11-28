@@ -8,11 +8,14 @@
    user agent recognises (Domain\Session\Device), and the whole of what the browser sent stays in the
    document, where somebody looking for exactly that can read it.
 
+   A request without an address is the provider's own, its console or its schedule: its user agent names the
+   command and the shell of the operator, which the person is not told (decision 0066).
+
    "provenance" is a RequestContext: the caller passes the one its row carries. #}
 {% trans_default_domain 'beffroi' %}
 {% set place = provenance.location|beffroi_place %}
 <span data-place="{{ place is not null ? 'known' : 'unknown' }}">{{ place ?? 'provenance.unknown_place'|trans }}</span>
 {{ provenance.ipAddress ?? 'provenance.unknown_address'|trans }}
-{% if provenance.userAgent is not null %}
+{% if provenance.userAgent is not null and provenance.ipAddress is not null %}
     <span data-user-agent title="{{ provenance.userAgent }}">{{ provenance|beffroi_device }}</span>
 {% endif %}
