@@ -35,6 +35,7 @@ use Beffroi\Oidc\Domain\Event\PersonReadByAnAdministrator;
 use Beffroi\Oidc\Domain\Event\SessionsReadByAnAdministrator;
 use Beffroi\Oidc\Domain\Event\TokensIssued;
 use DateTimeImmutable;
+use Beffroi\Core\Domain\Session\RequestContext;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use function sort;
@@ -50,6 +51,8 @@ use Symfony\Component\Uid\Uuid;
  */
 final class AccountActsTest extends BrowserTestCase
 {
+    private const string CONSOLE = 'beffroi-console/beffroi:user:credential:revoke (operator@host.example)';
+
     /**
      * Architecture §5.7
      */
@@ -200,6 +203,59 @@ final class AccountActsTest extends BrowserTestCase
         yield 'the person' => [new ThePerson()];
         yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller()];
         yield 'nobody, written before acts named their author' => [null];
+    }
+
+    /**
+     * Decision 0066: an act the console wrote before acts named their author names nobody, and the page says nothing
+     * of the command and the shell of the operator its request names.
+     */
+    #[Test]
+    public function anActOfTheConsoleWrittenBeforeAuthorsHadKindsSaysNothingOfTheOperator(): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, CredentialRevoked::NAME, context: new RequestContext(self::currentSecond(), null, self::CONSOLE));
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage();
+
+        // Then
+        $row = $page->filter('tbody tr');
+        static::assertSame([0, false], [$row->filter('[data-user-agent]')->count(), str_contains($row->html(), 'operator@host.example')]);
+    }
+
+    /**
+     * Decision 0066: no kind is read from the absence of an author, so the page says where an act that names none is
+     * listed once a kind is chosen.
+     *
+     * @param array<string, string> $narrowed
+     */
+    #[Test]
+    #[DataProvider('provideChoicesOfAKind')]
+    public function thePageSaysWhereTheActsThatNameNoAuthorAreListed(array $narrowed, int $said): void
+    {
+        // Given
+        $alice = self::user('alice');
+        self::record($alice, CredentialRevoked::NAME, author: new ThePerson());
+        self::reload();
+        $this->signIn($alice);
+
+        // When
+        $page = $this->actsPage(narrowed: $narrowed);
+
+        // Then
+        static::assertCount($said, $page->filter('[data-unattributed]'));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>, int}>
+     */
+    public static function provideChoicesOfAKind(): iterable
+    {
+        yield 'a kind chosen' => [[ActsPage::AUTHOR => 'person'], 1];
+        yield 'every kind' => [[], 0];
     }
 
     #[Test]
@@ -550,6 +606,7 @@ final class AccountActsTest extends BrowserTestCase
         ?string $client = null,
         ?DateTimeImmutable $occurredAt = null,
         ?AuthorInterface $author = null,
+        ?RequestContext $context = null,
     ): void {
         self::service('test.beffroi.journal', JournalInterface::class)
             ->record(new JournalEntry(
@@ -557,7 +614,7 @@ final class AccountActsTest extends BrowserTestCase
                 $user->tenant,
                 $act,
                 $occurredAt ?? self::currentSecond(),
-                self::context(),
+                $context ?? self::context(),
                 $user->subject,
                 $client,
                 $author,

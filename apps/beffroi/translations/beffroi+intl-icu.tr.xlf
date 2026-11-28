@@ -1381,6 +1381,10 @@
         <source>acts.filter.from_anywhere</source>
         <target>Tümü</target>
       </trans-unit>
+      <trans-unit id="acts.filter.unattributed" resname="acts.filter.unattributed">
+        <source>acts.filter.unattributed</source>
+        <target>Kimin yaptığını belirtmeyen eski etkinlikler yalnızca bir kaynak seçilmediğinde listelenir.</target>
+      </trans-unit>
       <trans-unit id="account.acts.state" resname="account.acts.state">
         <source>account.acts.state</source>
         <target>{count, plural, =0 {reddedilen deneme yok} one {# reddedilen deneme} other {# reddedilen deneme}}</target>

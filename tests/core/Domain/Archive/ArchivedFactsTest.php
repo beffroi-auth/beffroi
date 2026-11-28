@@ -18,6 +18,7 @@ use Beffroi\Core\Domain\Journal\JournalEntry;
 use Beffroi\Core\Domain\Session\Device;
 use Beffroi\Core\Domain\Session\DeviceType;
 use Beffroi\Core\Domain\Session\GeoLocation;
+use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,6 +27,8 @@ use Symfony\Component\Uid\Uuid;
 
 final class ArchivedFactsTest extends TestCase
 {
+    private const string CONSOLE = 'beffroi-console/beffroi:user:credential:revoke (operator@host.example)';
+
     /**
      * Decisions 0038 and 0066, RGPD article 15(4): an administrator, or the host acting at the order of its operator,
      * neither by who they are nor by where they were.
@@ -95,6 +98,26 @@ final class ArchivedFactsTest extends TestCase
         yield 'an upstream provider, by its name' => [new AnUpstreamProvider('Acme SSO'), ['kind' => 'upstream', 'name' => 'Acme SSO']];
         yield 'an unauthenticated caller' => [new AnUnauthenticatedCaller(), ['kind' => 'unauthenticated']];
         yield 'nobody, written before acts named the kind of their author' => [null, null];
+    }
+
+    /**
+     * Decision 0066: a request without an address is the provider's own, and the archive of the person says nothing of
+     * the command and the shell of the operator its user agent names, which the operator reads whole.
+     */
+    #[Test]
+    public function anActOfTheConsoleWrittenBeforeAuthorsHadKindsIsArchivedWithoutTheOperator(): void
+    {
+        // Given
+        $act = self::act(null, new RequestContext(Fixtures::now(), null, self::CONSOLE));
+
+        // When
+        $told = ArchivedFacts::act($act)['from'];
+        $written = ArchivedFacts::actAsWritten($act)['from'];
+
+        // Then
+        static::assertIsArray($told);
+        static::assertIsArray($written);
+        static::assertSame([null, null, self::CONSOLE], [$told['user_agent'], $told['device'], $written['user_agent']]);
     }
 
     #[Test]
@@ -186,14 +209,14 @@ final class ArchivedFactsTest extends TestCase
         static::assertNull($facts['device']);
     }
 
-    private static function act(?AuthorInterface $author): JournalEntry
+    private static function act(?AuthorInterface $author, ?RequestContext $context = null): JournalEntry
     {
         return new JournalEntry(
             Uuid::v7(),
             Fixtures::tenant(),
             'administration.person_read',
             Fixtures::now(),
-            Fixtures::context(),
+            $context ?? Fixtures::context(),
             new Subject('alice-subject'),
             'tui-of-mallory',
             $author,

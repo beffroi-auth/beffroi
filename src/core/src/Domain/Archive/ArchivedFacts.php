@@ -21,14 +21,15 @@ final readonly class ArchivedFacts
 
     /**
      * An act as the archive of the person it concerns holds it: one an author told by their role did says so, and nothing
-     * else of them, neither who they are, nor the client they acted through, nor where they were.
+     * else of them, neither who they are, nor the client they acted through, nor where they were; any other says where
+     * it came from as the person is told it.
      *
      * @return array<string, mixed>
      */
     public static function act(JournalEntry $act): array
     {
         if (! $act->author instanceof ToldByItsRoleInterface) {
-            return self::actAsWritten($act);
+            return [...self::actAsWritten($act), 'from' => self::toldFrom($act->context)];
         }
 
         return [
@@ -74,6 +75,17 @@ final readonly class ArchivedFacts
     public static function octets(?string $octets): ?string
     {
         return $octets === null ? null : Base64Url::encode($octets);
+    }
+
+    /**
+     * Where an act came from, as the person it concerns is told: a request without an address is the provider's own,
+     * its console or its schedule, whose user agent names the command and the shell of the operator (decision 0066).
+     *
+     * @return array<string, mixed>
+     */
+    public static function toldFrom(RequestContext $context): array
+    {
+        return $context->ipAddress === null ? [...self::context($context), 'user_agent' => null, 'device' => null] : self::context($context);
     }
 
     /**
