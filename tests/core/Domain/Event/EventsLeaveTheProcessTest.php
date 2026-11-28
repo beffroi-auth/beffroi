@@ -12,6 +12,10 @@ use function class_exists;
 use DateTimeImmutable;
 use function dirname;
 use function glob;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Session\AuthenticationMethod;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
@@ -106,8 +110,15 @@ final class EventsLeaveTheProcessTest extends TestCase
         $ended->end(SessionEnd::RelyingParty, $now);
 
         yield 'a user authenticated' => [new UserAuthenticated($session)];
-        yield 'a session ended' => [new AuthenticationSessionEnded($ended, $now, $context)];
-        yield 'a session an administrator ended' => [new AuthenticationSessionEnded($ended, $now, $context, new Subject('administrator-subject'))];
+        yield 'a session the person ended' => [new AuthenticationSessionEnded($ended, $now, $context, new ThePerson())];
+        yield 'a session the host ended' => [new AuthenticationSessionEnded($ended, $now, $context, new TheHost())];
+        yield 'a session an administrator ended' => [new AuthenticationSessionEnded(
+            $ended,
+            $now,
+            $context,
+            new AnAdministrator(new Subject('administrator-subject')),
+        )];
+        yield 'a session a directory ended' => [new AuthenticationSessionEnded($ended, $now, $context, new ADirectory('Entra ID'))];
         yield 'an authentication that failed' => [new AuthenticationFailed(
             $now,
             $tenant,
@@ -117,32 +128,59 @@ final class EventsLeaveTheProcessTest extends TestCase
             'alice',
             $user,
         )];
-        yield 'a person the operator created' => [new PersonCreated($tenant, $user->subject, $now, $context)];
-        yield 'a person an administrator created' => [new PersonCreated($tenant, $user->subject, $now, $context, new Subject('administrator-subject'))];
-        yield 'a group the operator created' => [new GroupCreated($tenant, 'auditors', $now, $context)];
-        yield 'a group an administrator created' => [new GroupCreated($tenant, 'auditors', $now, $context, new Subject('administrator-subject'))];
-        yield 'a member added to a group' => [new GroupMembershipAdded($tenant, $user->subject, 'auditors', $now, $context)];
+        yield 'a person the host created' => [new PersonCreated($tenant, $user->subject, $now, $context, new TheHost())];
+        yield 'a person an administrator created' => [new PersonCreated(
+            $tenant,
+            $user->subject,
+            $now,
+            $context,
+            new AnAdministrator(new Subject('administrator-subject')),
+        )];
+        yield 'a person a directory created' => [new PersonCreated($tenant, $user->subject, $now, $context, new ADirectory('Entra ID'))];
+        yield 'a group the host created' => [new GroupCreated($tenant, 'auditors', $now, $context, new TheHost())];
+        yield 'a group an administrator created' => [new GroupCreated(
+            $tenant,
+            'auditors',
+            $now,
+            $context,
+            new AnAdministrator(new Subject('administrator-subject')),
+        )];
+        yield 'a member the host added to a group' => [new GroupMembershipAdded($tenant, $user->subject, 'auditors', $now, $context, new TheHost())];
         yield 'a member an administrator added to a group' => [new GroupMembershipAdded(
             $tenant,
             $user->subject,
             'auditors',
             $now,
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'a member taken out of a group' => [new GroupMembershipRemoved($tenant, $user->subject, 'auditors', $now, $context)];
+        yield 'a member the host took out of a group' => [new GroupMembershipRemoved($tenant, $user->subject, 'auditors', $now, $context, new TheHost())];
         yield 'a member an administrator took out of a group' => [new GroupMembershipRemoved(
             $tenant,
             $user->subject,
             'auditors',
             $now,
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'a person the operator disabled' => [new PersonDisabled($tenant, $user->subject, $now, $context)];
-        yield 'a person an administrator disabled' => [new PersonDisabled($tenant, $user->subject, $now, $context, new Subject('administrator-subject'))];
-        yield 'a person the operator enabled' => [new PersonEnabled($tenant, $user->subject, $now, $context)];
-        yield 'a person an administrator enabled' => [new PersonEnabled($tenant, $user->subject, $now, $context, new Subject('administrator-subject'))];
+        yield 'a person the host disabled' => [new PersonDisabled($tenant, $user->subject, $now, $context, new TheHost())];
+        yield 'a person an administrator disabled' => [new PersonDisabled(
+            $tenant,
+            $user->subject,
+            $now,
+            $context,
+            new AnAdministrator(new Subject('administrator-subject')),
+        )];
+        yield 'a person a directory disabled' => [new PersonDisabled($tenant, $user->subject, $now, $context, new ADirectory('Entra ID'))];
+        yield 'a person the host enabled' => [new PersonEnabled($tenant, $user->subject, $now, $context, new TheHost())];
+        yield 'a person an administrator enabled' => [new PersonEnabled(
+            $tenant,
+            $user->subject,
+            $now,
+            $context,
+            new AnAdministrator(new Subject('administrator-subject')),
+        )];
+        yield 'a person a directory enabled' => [new PersonEnabled($tenant, $user->subject, $now, $context, new ADirectory('Entra ID'))];
         yield 'a person an upstream provider created' => [new PersonProvisioned($now, $tenant, $user->subject, 'https://idp.acme.example/saml', $context)];
         yield 'a person who said something of themselves' => [new PersonDescribedThemselves($user, 'nickname', false, $now, $context)];
         yield 'a person who took something back' => [new PersonDescribedThemselves($user, 'nickname', true, $now, $context)];
@@ -164,8 +202,9 @@ final class EventsLeaveTheProcessTest extends TestCase
             ['username', 'email_verified'],
             $now,
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
+        yield 'a person a directory described' => [new PersonDescribed($tenant, $user->subject, ['family_name'], $now, $context, new ADirectory('Entra ID'))];
         yield 'a person who chose their notification channels' => [new NotificationChannelsChosen(
             $tenant,
             $user->subject,
@@ -177,41 +216,49 @@ final class EventsLeaveTheProcessTest extends TestCase
         yield 'a person who took their archive' => [new PersonTookTheirArchive($now, $tenant, Uuid::v7(), $user->subject, $context)];
         yield 'a person who dropped their archive' => [new PersonDroppedTheirArchive($now, $tenant, Uuid::v7(), $user->subject, $context)];
         yield 'a credential enrolled' => [new CredentialEnrolled($passkey, $now, $context)];
-        yield 'a credential revoked' => [new CredentialRevoked($passkey, $now, $context)];
-        yield 'a credential an administrator revoked' => [new CredentialRevoked($passkey, $now, $context, new Subject('administrator-subject'))];
+        yield 'a credential the person revoked' => [new CredentialRevoked($passkey, $now, $context, new ThePerson())];
+        yield 'a credential an administrator revoked' => [new CredentialRevoked(
+            $passkey,
+            $now,
+            $context,
+            new AnAdministrator(new Subject('administrator-subject')),
+        )];
         yield 'a credential forgotten' => [new CredentialForgotten($password, $now, $context)];
-        yield 'an enrolment ticket issued' => [new EnrolmentTicketIssued(
+        yield 'an enrolment ticket the host issued' => [new EnrolmentTicketIssued(
             new EnrolmentTicket(Uuid::v7(), $user, $password->hash, $now, $now->modify('+72 hours')),
             $now,
             $context,
+            new TheHost(),
         )];
         yield 'an enrolment ticket an administrator issued' => [new EnrolmentTicketIssued(
             new EnrolmentTicket(Uuid::v7(), $user, $password->hash, $now, $now->modify('+72 hours')),
             $now,
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'a password ticket issued' => [new PasswordTicketIssued(
+        yield 'a password ticket the host issued' => [new PasswordTicketIssued(
             new PasswordTicket(Uuid::v7(), $user, $password->hash, $now, $now->modify('+72 hours')),
             $now,
             $context,
+            new TheHost(),
         )];
         yield 'a password ticket an administrator issued' => [new PasswordTicketIssued(
             new PasswordTicket(Uuid::v7(), $user, $password->hash, $now, $now->modify('+72 hours')),
             $now,
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
-        yield 'a one-time password ticket issued' => [new TotpTicketIssued(
+        yield 'a one-time password ticket the host issued' => [new TotpTicketIssued(
             new TotpTicket(Uuid::v7(), $user, $password->hash, $now, $now->modify('+72 hours')),
             $now,
             $context,
+            new TheHost(),
         )];
         yield 'a one-time password ticket an administrator issued' => [new TotpTicketIssued(
             new TotpTicket(Uuid::v7(), $user, $password->hash, $now, $now->modify('+72 hours')),
             $now,
             $context,
-            new Subject('administrator-subject'),
+            new AnAdministrator(new Subject('administrator-subject')),
         )];
         yield 'a credential renamed' => [new CredentialRenamed($passkey, 'The key it was', $now, $context)];
         yield 'a passkey used' => [new PasskeyUsed($passkey, $now, $context)];

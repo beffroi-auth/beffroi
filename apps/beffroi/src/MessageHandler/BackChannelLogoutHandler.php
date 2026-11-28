@@ -21,6 +21,6 @@ final readonly class BackChannelLogoutHandler
 
     public function __invoke(AuthenticationSessionEnded $event): void
     {
-        $this->logout->sessionEnded($event->session, $event->context, $event->administrator);
+        $this->logout->sessionEnded($event->session, $event->context, $event->author);
     }
 }

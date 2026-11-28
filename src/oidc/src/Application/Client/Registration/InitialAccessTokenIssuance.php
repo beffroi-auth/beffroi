@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Client\Registration;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Oidc\Domain\Event\InitialAccessTokenIssued;
@@ -65,7 +68,7 @@ final readonly class InitialAccessTokenIssuance
         ?GrantedMembers $granted = null,
         bool $administration = false,
     ): IssuedInitialAccessToken {
-        return $this->issueOnce($tenant, $name, $registrationsAllowed, $days, $context, null, $granted, $administration);
+        return $this->issueOnce($tenant, $name, $registrationsAllowed, $days, $context, new TheHost(), $granted, $administration);
     }
 
     /**
@@ -87,7 +90,7 @@ final readonly class InitialAccessTokenIssuance
         ?GrantedMembers $granted = null,
         bool $administration = false,
     ): IssuedInitialAccessToken {
-        return $this->issueOnce($tenant, $name, $registrationsAllowed, $days, $context, $administrator, $granted, $administration);
+        return $this->issueOnce($tenant, $name, $registrationsAllowed, $days, $context, new AnAdministrator($administrator), $granted, $administration);
     }
 
     /**
@@ -99,7 +102,7 @@ final readonly class InitialAccessTokenIssuance
         int $registrationsAllowed,
         int $days,
         RequestContext $context,
-        ?Subject $administrator,
+        AuthorInterface $author,
         ?GrantedMembers $granted,
         bool $administration,
     ): IssuedInitialAccessToken {
@@ -129,7 +132,7 @@ final readonly class InitialAccessTokenIssuance
             $administration,
         );
         $this->tokens->save($token);
-        $this->events->dispatch(new InitialAccessTokenIssued($issuedAt, $tenant, $token->id, $context, $administrator));
+        $this->events->dispatch(new InitialAccessTokenIssued($issuedAt, $tenant, $token->id, $context, $author));
 
         return new IssuedInitialAccessToken($token, $value);
     }

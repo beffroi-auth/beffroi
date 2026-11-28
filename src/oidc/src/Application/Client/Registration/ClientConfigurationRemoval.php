@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Client\Registration;
 
+use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Oidc\Exception\UnauthorizedClientConfigurationException;
@@ -30,6 +31,7 @@ final readonly class ClientConfigurationRemoval
         ?string $authorizationHeader,
         RequestContext $context,
     ): void {
-        $this->removal->remove($this->access->granted($tenant, $clientId, $authorizationHeader), $context);
+        $record = $this->access->granted($tenant, $clientId, $authorizationHeader);
+        $this->removal->remove($record, new AClient($record->clientId), $context);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Application\Client\Registration;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Oidc\Domain\Client\ClientRecord;
@@ -24,9 +26,13 @@ final readonly class RegisteredClientRemoval
     ) {
     }
 
-    public function remove(ClientRecord $record, RequestContext $context): void
+    /**
+     * The act names its author: the client itself (RFC 7592 §2.3), or the host by its retention or its console (decision
+     * 0066).
+     */
+    public function remove(ClientRecord $record, AuthorInterface $author, RequestContext $context): void
     {
-        $this->removeOnce($record, $context, null);
+        $this->removeOnce($record, $context, $author);
     }
 
     /**
@@ -34,12 +40,12 @@ final readonly class RegisteredClientRemoval
      */
     public function removeByAnAdministrator(ClientRecord $record, Subject $administrator, RequestContext $context): void
     {
-        $this->removeOnce($record, $context, $administrator);
+        $this->removeOnce($record, $context, new AnAdministrator($administrator));
     }
 
-    private function removeOnce(ClientRecord $record, RequestContext $context, ?Subject $administrator): void
+    private function removeOnce(ClientRecord $record, RequestContext $context, AuthorInterface $author): void
     {
         $this->clients->remove($record);
-        $this->events->dispatch(new RegisteredClientDeleted($context->receivedAt, $record->tenant, $record->clientId, $context, $administrator));
+        $this->events->dispatch(new RegisteredClientDeleted($context->receivedAt, $record->tenant, $record->clientId, $context, $author));
     }
 }

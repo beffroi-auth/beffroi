@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Tenant;
 
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Tenant\TenantContactAdoption;
 use Beffroi\Core\Bridge\InMemory\InMemoryTenantRepository;
 use Beffroi\Core\Domain\Event\TenantContactChanged;
@@ -81,7 +82,7 @@ final class TenantContactAdoptionTest extends TestCase
         // Then
         $acts = $this->events->of(TenantContactChanged::class);
         static::assertCount(1, $acts);
-        static::assertSame([$this->tenant, $this->administrator, $context], [$acts[0]->tenant, $acts[0]->author(), $acts[0]->context]);
+        static::assertEquals([$this->tenant, new AnAdministrator($this->administrator), $context], [$acts[0]->tenant, $acts[0]->author(), $acts[0]->context]);
         static::assertEquals($this->clock->now(), $acts[0]->occurredAt);
     }
 

@@ -14,6 +14,7 @@ use Beffroi\Core\Domain\Credential\PasswordAlgorithmInterface;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Event\PasswordRehashed;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
@@ -861,10 +862,11 @@ final class LoginTest extends BrowserTestCase
         $ended = self::service('test.beffroi.sessions', AuthenticationSessionRepositoryInterface::class)
             ->find($alice->id) ?? static::fail('The session of alice is gone.');
         static::assertTrue($ended->hasEnded());
-        static::assertSame(SessionEnd::User, $ended->endedBy);
+        static::assertSame(SessionEnd::Security, $ended->endedBy);
         $endings = self::events(AuthenticationSessionEnded::class);
         static::assertCount(1, $endings);
         static::assertTrue($endings[0]->session->id->equals($alice->id));
+        static::assertEquals(new TheHost(), $endings[0]->author());
     }
 
     /**

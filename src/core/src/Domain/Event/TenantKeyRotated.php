@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Key\TenantKey;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -27,5 +29,10 @@ final readonly class TenantKeyRotated implements DomainEventInterface
     public function name(): string
     {
         return self::NAME;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new TheHost();
     }
 }

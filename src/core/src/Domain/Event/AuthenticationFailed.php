@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\AuthenticationMethod;
@@ -44,5 +46,10 @@ final readonly class AuthenticationFailed implements ConcernsAPersonInterface, S
     public function refusedMethod(): ?string
     {
         return $this->method?->value;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new AnUnauthenticatedCaller();
     }
 }

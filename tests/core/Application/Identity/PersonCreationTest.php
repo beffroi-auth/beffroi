@@ -17,6 +17,10 @@ use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
 use Beffroi\Core\Bridge\InMemory\InMemoryUserRepository;
 use Beffroi\Core\Bridge\Password\NativePasswordHasher;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
+use Beffroi\Core\Domain\Author\ADirectory;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Event\PersonCreated;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -25,6 +29,7 @@ use Beffroi\Core\Tests\Fixture\BreachedPasswordsOfARecord;
 use Beffroi\Core\Tests\Fixture\FixedClaims;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -71,6 +76,7 @@ final class PersonCreationTest extends TestCase
         $user = $this->creation->create(
             $this->tenant,
             'alice',
+            new TheHost(),
             Fixtures::context($this->clock->now()),
             new EmailAddress('alice@example.com'),
             true,
@@ -83,50 +89,42 @@ final class PersonCreationTest extends TestCase
     }
 
     /**
-     * Decision 0022.
+     * Decisions 0022 and 0066.
      */
     #[Test]
-    public function theCreationIsAnActOfTheirAccountThatNamesNoAuthorWhenTheOperatorDidIt(): void
+    #[DataProvider('provideAuthors')]
+    public function theCreationIsAnActOfTheirAccountThatNamesItsAuthor(AuthorInterface $author): void
     {
         // When
-        $user = $this->creation->create($this->tenant, 'alice', Fixtures::context($this->clock->now()));
+        $user = $this->creation->create($this->tenant, 'alice', $author, Fixtures::context($this->clock->now()));
 
         // Then
         $acts = $this->events->of(PersonCreated::class);
         static::assertCount(1, $acts);
         static::assertSame($user->subject, $acts[0]->subject());
         static::assertEquals($this->clock->now(), $acts[0]->occurredAt);
-        static::assertNull($acts[0]->author());
+        static::assertSame($author, $acts[0]->author());
     }
 
     /**
-     * Decision 0038.
+     * @return iterable<string, array{AuthorInterface}>
      */
-    #[Test]
-    public function theActOfAPersonAnAdministratorCreatedNamesThem(): void
+    public static function provideAuthors(): iterable
     {
-        // Given
-        $administrator = new Subject('administrator-subject');
-
-        // When
-        $user = $this->creation->createByAnAdministrator($this->tenant, 'alice', $administrator, Fixtures::context($this->clock->now()));
-
-        // Then
-        $acts = $this->events->of(PersonCreated::class);
-        static::assertCount(1, $acts);
-        static::assertSame($user->subject, $acts[0]->subject());
-        static::assertSame($administrator, $acts[0]->author());
+        yield 'the host' => [new TheHost()];
+        yield 'an administrator' => [new AnAdministrator(new Subject('administrator-subject'))];
+        yield 'a directory' => [new ADirectory('Entra ID')];
     }
 
     #[Test]
     public function aUsernameTakenAlreadyCreatesNobodyAndWritesNoAct(): void
     {
         // Given
-        $this->creation->create($this->tenant, 'alice', Fixtures::context($this->clock->now()));
+        $this->creation->create($this->tenant, 'alice', new TheHost(), Fixtures::context($this->clock->now()));
 
         // When
         try {
-            $this->creation->createByAnAdministrator($this->tenant, 'alice', new Subject('administrator-subject'), Fixtures::context($this->clock->now()));
+            $this->creation->create($this->tenant, 'alice', new AnAdministrator(new Subject('administrator-subject')), Fixtures::context($this->clock->now()));
             static::fail('A username taken already is refused.');
         } catch (UserAlreadyExistsException) {
         }

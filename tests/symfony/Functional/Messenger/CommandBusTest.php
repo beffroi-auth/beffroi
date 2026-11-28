@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Messenger;
 
 use App\Message\SendLogoutToken;
 use App\Tests\Symfony\Functional\Doctrine\DatabaseTestCase;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\Subject;
 use Closure;
 use const E_DEPRECATED;
@@ -39,6 +40,7 @@ final class CommandBusTest extends DatabaseTestCase
             Uuid::fromString('0192f0a4-8e1b-7c3d-9a2b-4c5d6e7f8091'),
             new Subject('alice-subject'),
             self::context(),
+            new ThePerson(),
         );
 
         // When

@@ -1329,9 +1329,41 @@
         <source>acts.from</source>
         <target>Fra</target>
       </trans-unit>
-      <trans-unit id="acts.by_an_administrator" resname="acts.by_an_administrator">
-        <source>acts.by_an_administrator</source>
+      <trans-unit id="author.person" resname="author.person">
+        <source>author.person</source>
+        <target>Dig</target>
+      </trans-unit>
+      <trans-unit id="author.administrator" resname="author.administrator">
+        <source>author.administrator</source>
         <target>En administrator i din organisation</target>
+      </trans-unit>
+      <trans-unit id="author.directory.named" resname="author.directory.named">
+        <source>author.directory.named</source>
+        <target>Kataloget {name}</target>
+      </trans-unit>
+      <trans-unit id="author.client" resname="author.client">
+        <source>author.client</source>
+        <target>En applikation</target>
+      </trans-unit>
+      <trans-unit id="author.directory" resname="author.directory">
+        <source>author.directory</source>
+        <target>Et katalog</target>
+      </trans-unit>
+      <trans-unit id="author.upstream" resname="author.upstream">
+        <source>author.upstream</source>
+        <target>En identitetsudbyder</target>
+      </trans-unit>
+      <trans-unit id="author.upstream.named" resname="author.upstream.named">
+        <source>author.upstream.named</source>
+        <target>Identitetsudbyderen {name}</target>
+      </trans-unit>
+      <trans-unit id="author.unauthenticated" resname="author.unauthenticated">
+        <source>author.unauthenticated</source>
+        <target>En, der ikke var logget ind</target>
+      </trans-unit>
+      <trans-unit id="author.host" resname="author.host">
+        <source>author.host</source>
+        <target>Denne tjeneste</target>
       </trans-unit>
       <trans-unit id="acts.none" resname="acts.none">
         <source>acts.none</source>
@@ -1348,10 +1380,6 @@
       <trans-unit id="acts.filter.from_anywhere" resname="acts.filter.from_anywhere">
         <source>acts.filter.from_anywhere</source>
         <target>Alle</target>
-      </trans-unit>
-      <trans-unit id="acts.filter.from_a_request" resname="acts.filter.from_a_request">
-        <source>acts.filter.from_a_request</source>
-        <target>En browser eller en app</target>
       </trans-unit>
       <trans-unit id="account.acts.state" resname="account.acts.state">
         <source>account.acts.state</source>
@@ -1712,10 +1740,6 @@
       <trans-unit id="changes.title" resname="changes.title">
         <source>changes.title</source>
         <target>Ændringshistorik</target>
-      </trans-unit>
-      <trans-unit id="changes.by_you" resname="changes.by_you">
-        <source>changes.by_you</source>
-        <target>Dig</target>
       </trans-unit>
       <trans-unit id="changes.none_matching" resname="changes.none_matching">
         <source>changes.none_matching</source>

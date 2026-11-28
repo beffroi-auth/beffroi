@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Unit\Messenger;
 
 use App\Messenger\EventBusDispatcher;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Core\Tests\Fixture\Fixtures;
@@ -38,7 +39,7 @@ final class EventBusDispatcherTest extends TestCase
         };
         $session = Fixtures::session();
         $session->end(SessionEnd::User, Fixtures::now());
-        $event = new AuthenticationSessionEnded($session, Fixtures::now(), Fixtures::context());
+        $event = new AuthenticationSessionEnded($session, Fixtures::now(), Fixtures::context(), new ThePerson());
 
         // When
         $returned = new EventBusDispatcher($bus)->dispatch($event);

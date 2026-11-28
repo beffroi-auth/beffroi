@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Group;
 
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Group\LocalMemberships;
 use Beffroi\Core\Bridge\InMemory\InMemoryGroupMembershipRepository;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -59,16 +61,16 @@ final class LocalMembershipsTest extends TestCase
      * Decision 0038: a membership can make an administrator, so the person reads that it changed.
      */
     #[Test]
-    public function aMembershipAddedFromTheConsoleIsAnActOfThePersonThatNamesNobody(): void
+    public function aMembershipAddedFromTheConsoleIsAnActOfThePersonThatNamesTheHost(): void
     {
         // When
         $this->local->add($this->group, $this->user, Fixtures::context());
 
         // Then
-        static::assertSame(
-            [[$this->user->subject->value, 'administrators', null]],
+        static::assertEquals(
+            [[$this->user->subject->value, 'administrators', new TheHost()]],
             array_map(
-                static fn (GroupMembershipAdded $act): array => [$act->subject()->value, $act->group, $act->author()?->value],
+                static fn (GroupMembershipAdded $act): array => [$act->subject()->value, $act->group, $act->author()],
                 $this->events->of(GroupMembershipAdded::class),
             ),
         );
@@ -81,7 +83,7 @@ final class LocalMembershipsTest extends TestCase
         $this->local->addByAnAdministrator($this->group, $this->user, new Subject('administrator-subject'), Fixtures::context());
 
         // Then
-        static::assertSame('administrator-subject', $this->events->of(GroupMembershipAdded::class)[0]->author()?->value);
+        static::assertEquals(new AnAdministrator(new Subject('administrator-subject')), $this->events->of(GroupMembershipAdded::class)[0]->author());
     }
 
     #[Test]
@@ -94,10 +96,10 @@ final class LocalMembershipsTest extends TestCase
         $this->local->remove($this->group, $this->user, Fixtures::context());
 
         // Then
-        static::assertSame(
-            [[$this->user->subject->value, 'administrators', null]],
+        static::assertEquals(
+            [[$this->user->subject->value, 'administrators', new TheHost()]],
             array_map(
-                static fn (GroupMembershipRemoved $act): array => [$act->subject()->value, $act->group, $act->author()?->value],
+                static fn (GroupMembershipRemoved $act): array => [$act->subject()->value, $act->group, $act->author()],
                 $this->events->of(GroupMembershipRemoved::class),
             ),
         );
@@ -113,7 +115,7 @@ final class LocalMembershipsTest extends TestCase
         $this->local->removeByAnAdministrator($this->group, $this->user, new Subject('administrator-subject'), Fixtures::context());
 
         // Then
-        static::assertSame('administrator-subject', $this->events->of(GroupMembershipRemoved::class)[0]->author()?->value);
+        static::assertEquals(new AnAdministrator(new Subject('administrator-subject')), $this->events->of(GroupMembershipRemoved::class)[0]->author());
     }
 
     #[Test]

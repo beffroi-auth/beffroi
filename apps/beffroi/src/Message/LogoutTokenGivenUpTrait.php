@@ -24,7 +24,7 @@ trait LogoutTokenGivenUpTrait
             $this->subject,
             $this->sessionId,
             $reason,
-            $this->administrator,
+            $this->author,
         );
     }
 }

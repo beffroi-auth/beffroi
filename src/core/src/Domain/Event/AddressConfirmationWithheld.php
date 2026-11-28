@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Domain\Event;
 
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -37,5 +39,10 @@ final readonly class AddressConfirmationWithheld implements ConcernsAPersonInter
     public function subject(): Subject
     {
         return $this->user->subject;
+    }
+
+    public function author(): AuthorInterface
+    {
+        return new ThePerson();
     }
 }

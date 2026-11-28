@@ -39,7 +39,7 @@ parameters:
 	treatPhpDocTypesAsCertain: false
 	# doctrine/dbal marks the constructor of Schema "@internal" in favour of Schema::editor(), yet an empty
 	# Schema built by that constructor is what Doctrine Migrations hands a migration (EmptySchemaProvider),
-	# and so what a test that runs one has to build. Scoped to the two tests that run a migration; here rather
+	# and so what a test that runs one has to build. Scoped to the three tests that run a migration; here rather
 	# than in the baseline, which says what is ignored and never why, and which castor prepare-pr
 	# regenerates.
 	ignoreErrors:
@@ -49,6 +49,9 @@ parameters:
 		-
 			identifier: method.internal
 			path: %currentWorkingDirectory%/tests/symfony/Functional/Doctrine/SealingMigrationTest.php
+		-
+			identifier: method.internal
+			path: %currentWorkingDirectory%/tests/symfony/Functional/Doctrine/AuthorMigrationTest.php
 
 includes:
 	- %currentWorkingDirectory%/.ci-tools/phpstan-baseline.neon

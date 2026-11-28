@@ -97,7 +97,7 @@ final class AdministeredGroupsTest extends TestCase
                 ['member-2-subject', 'administrator-subject'],
             ],
             array_map(
-                static fn (MembershipReadByAnAdministrator $read): array => [$read->subject()->value, $read->author()->value],
+                static fn (MembershipReadByAnAdministrator $read): array => [$read->subject()->value, $read->administrator->value],
                 $this->events->of(MembershipReadByAnAdministrator::class),
             ),
         );

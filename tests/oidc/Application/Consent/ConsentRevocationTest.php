@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Beffroi\Oidc\Tests\Application\Consent;
 
 use function array_map;
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
@@ -32,6 +36,7 @@ use Beffroi\Oidc\Domain\Secret\DrawnSecret;
 use Beffroi\Oidc\Domain\Token\RefreshToken;
 use Beffroi\Oidc\Tests\Fixture\Clients;
 use Beffroi\Oidc\Tests\Fixture\Tokens;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -102,7 +107,7 @@ final class ConsentRevocationTest extends TestCase
         $consent = $this->consent();
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertFalse($consent->isActive());
@@ -118,7 +123,7 @@ final class ConsentRevocationTest extends TestCase
         $code = $this->code('the-code', $this->client);
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertTrue($code->isRevoked());
@@ -133,7 +138,7 @@ final class ConsentRevocationTest extends TestCase
         $elsewhere = $this->code('the-other-code', $this->other);
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertFalse($elsewhere->isRevoked());
@@ -149,7 +154,7 @@ final class ConsentRevocationTest extends TestCase
         $this->codes->save($elsewhere);
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertFalse($elsewhere->isRevoked());
@@ -164,7 +169,7 @@ final class ConsentRevocationTest extends TestCase
         $elsewhere = $this->refreshToken('the-other-refresh-token', $this->other);
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertTrue($token->isRevoked());
@@ -180,7 +185,7 @@ final class ConsentRevocationTest extends TestCase
         $this->accessTokens->save(Tokens::storedAccessToken('the-other-access-token', $this->other, $this->session, $this->clock->now()));
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertNull($this->accessTokens->find('the-access-token'));
@@ -198,23 +203,36 @@ final class ConsentRevocationTest extends TestCase
         $this->accessTokens->save(Tokens::storedClientAccessToken('the-token-of-the-client', $this->client, $this->clock->now()));
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertNotNull($this->accessTokens->find('the-token-of-the-client'));
     }
 
+    /**
+     * Decision 0066
+     */
     #[Test]
-    public function aConsentThePersonTookBackNamesNoAuthor(): void
+    #[DataProvider('provideAuthors')]
+    public function aConsentTakenBackNamesItsAuthor(AuthorInterface $author): void
     {
         // Given
         $consent = $this->consent();
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, $author, $this->context);
 
         // Then
-        static::assertNull($this->events->of(ConsentRevoked::class)[0]->author());
+        static::assertSame([true, $author], [$consent->revokedAt !== null, $this->events->of(ConsentRevoked::class)[0]->author()]);
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface}>
+     */
+    public static function provideAuthors(): iterable
+    {
+        yield 'the person' => [new ThePerson()];
+        yield 'the host' => [new TheHost()];
     }
 
     /**
@@ -230,9 +248,9 @@ final class ConsentRevocationTest extends TestCase
         $this->revocation->revokeByAnAdministrator($consent, new Subject('administrator-subject'), $this->context);
 
         // Then
-        static::assertSame(
-            [true, 'administrator-subject'],
-            [$consent->revokedAt !== null, $this->events->of(ConsentRevoked::class)[0]->author()?->value],
+        static::assertEquals(
+            [true, new AnAdministrator(new Subject('administrator-subject'))],
+            [$consent->revokedAt !== null, $this->events->of(ConsentRevoked::class)[0]->author()],
         );
     }
 
@@ -246,7 +264,7 @@ final class ConsentRevocationTest extends TestCase
         $this->accessTokens->save(Tokens::storedAccessToken('the-access-token', $this->client, $this->session, $this->clock->now()));
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         $event = $this->events->of(ConsentRevoked::class)[0] ?? static::fail('The revocation said nothing.');
@@ -273,7 +291,7 @@ final class ConsentRevocationTest extends TestCase
         $code->revoke($this->clock->now()->modify('-1 hour'));
 
         // When
-        $this->revocation->revoke($consent, $this->context);
+        $this->revocation->revoke($consent, new ThePerson(), $this->context);
 
         // Then
         static::assertEquals($this->clock->now()->modify('-1 hour'), $code->revokedAt);

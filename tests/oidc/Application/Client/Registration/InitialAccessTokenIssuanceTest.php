@@ -6,6 +6,8 @@ namespace Beffroi\Oidc\Tests\Application\Client\Registration;
 
 use function array_key_first;
 use function array_map;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Oidc\Bridge\Configuration\ConfigurationAdministrationResource;
 use Beffroi\Oidc\Tests\Fixture\Administrations;
 use Beffroi\Core\Domain\Identity\Subject;
@@ -56,14 +58,14 @@ final class InitialAccessTokenIssuanceTest extends TestCase
     }
 
     #[Test]
-    public function issuingIsAnActOfTheTenantThatNamesNobodyWhenTheOperatorDidIt(): void
+    public function issuingIsAnActOfTheTenantThatNamesTheHostWhenItsConsoleDidIt(): void
     {
         // When
         $issued = $this->issuance->issue(Fixtures::tenant(), 'The team that integrates', 1, 30, Fixtures::context());
 
         // Then
-        static::assertSame(
-            [[$issued->token->id->toRfc4122(), null]],
+        static::assertEquals(
+            [[$issued->token->id->toRfc4122(), new TheHost()]],
             array_map(
                 static fn (InitialAccessTokenIssued $act): array => [$act->tokenId->toRfc4122(), $act->author()],
                 $this->events->of(InitialAccessTokenIssued::class),
@@ -89,7 +91,7 @@ final class InitialAccessTokenIssuanceTest extends TestCase
         );
 
         // Then
-        static::assertSame('administrator-subject', $this->events->of(InitialAccessTokenIssued::class)[0]->author()?->value);
+        static::assertEquals(new AnAdministrator(new Subject('administrator-subject')), $this->events->of(InitialAccessTokenIssued::class)[0]->author());
     }
 
     #[Test]

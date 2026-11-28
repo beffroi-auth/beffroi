@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Beffroi\Saml\Application\SingleLogout;
 
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
 use Beffroi\Core\Domain\Session\RequestContext;
@@ -124,7 +125,7 @@ final readonly class SingleLogout
         $status = $this->status($tenant, $identityProvider, $request, $named);
         if ($status === SignOutStatus::Success && $named !== []) {
             foreach ($named as $session) {
-                $this->terminator->end($session, SessionEnd::RelyingParty, $context);
+                $this->terminator->end($session, SessionEnd::RelyingParty, new ThePerson(), $context);
             }
             $started = $this->chains->begin($tenant, $named, $request->requester(), null);
             if ($started instanceof LogoutChainStarted) {

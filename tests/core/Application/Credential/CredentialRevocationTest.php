@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Credential;
 
+use Beffroi\Core\Domain\Author\ThePerson;
+use Beffroi\Core\Domain\Author\TheHost;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Application\Credential\CredentialRevocation;
 use Beffroi\Core\Bridge\InMemory\InMemoryCredentialRepository;
 use Beffroi\Core\Domain\Credential\PasskeyCredential;
@@ -12,6 +16,7 @@ use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\RecordingCredentialChangeNotifier;
 use Beffroi\Core\Tests\Fixture\RecordingEventDispatcher;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -50,7 +55,7 @@ final class CredentialRevocationTest extends TestCase
         $context = Fixtures::context($this->clock->now());
 
         // When
-        $this->revocation->revoke($passkey, $context);
+        $this->revocation->revoke($passkey, new ThePerson(), $context);
 
         // Then
         static::assertEquals($this->clock->now(), $passkey->revokedAt);
@@ -73,7 +78,7 @@ final class CredentialRevocationTest extends TestCase
         $this->credentials->save($passkey);
 
         // When
-        $this->revocation->revoke($passkey, Fixtures::context($this->clock->now()));
+        $this->revocation->revoke($passkey, new ThePerson(), Fixtures::context($this->clock->now()));
 
         // Then
         static::assertSame([[CredentialRevoked::NAME, 'passkey']], $this->notifier->acts());
@@ -113,21 +118,34 @@ final class CredentialRevocationTest extends TestCase
         $this->revocation->revokeByAnAdministrator($passkey, $administrator, Fixtures::context());
 
         // Then
-        static::assertSame([true, $administrator], [$passkey->isRevoked(), $this->events->of(CredentialRevoked::class)[0]->author()]);
+        static::assertEquals([true, new AnAdministrator($administrator)], [$passkey->isRevoked(), $this->events->of(CredentialRevoked::class)[0]->author()]);
     }
 
+    /**
+     * Decision 0066
+     */
     #[Test]
-    public function theRevocationThePersonMadeNamesNoAuthor(): void
+    #[DataProvider('provideAuthors')]
+    public function theRevocationNamesItsAuthorInItsAct(AuthorInterface $author): void
     {
         // Given
         $passkey = Fixtures::passkey();
         $this->credentials->save($passkey);
 
         // When
-        $this->revocation->revoke($passkey, Fixtures::context());
+        $this->revocation->revoke($passkey, $author, Fixtures::context());
 
         // Then
-        static::assertNull($this->events->of(CredentialRevoked::class)[0]->author());
+        static::assertSame($author, $this->events->of(CredentialRevoked::class)[0]->author());
+    }
+
+    /**
+     * @return iterable<string, array{AuthorInterface}>
+     */
+    public static function provideAuthors(): iterable
+    {
+        yield 'the person' => [new ThePerson()];
+        yield 'the host' => [new TheHost()];
     }
 
     #[Test]
@@ -140,7 +158,7 @@ final class CredentialRevocationTest extends TestCase
         $this->credentials->save($passkey);
 
         // When
-        $this->revocation->revoke($passkey, Fixtures::context());
+        $this->revocation->revoke($passkey, new ThePerson(), Fixtures::context());
 
         // Then
         static::assertSame($first, $passkey->revokedAt);
@@ -156,7 +174,7 @@ final class CredentialRevocationTest extends TestCase
         $this->credentials->save($passkey);
 
         // When
-        $this->revocation->revoke($passkey, Fixtures::context());
+        $this->revocation->revoke($passkey, new ThePerson(), Fixtures::context());
 
         // Then
         static::assertSame([], $this->notifier->told);

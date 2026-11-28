@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Tests\Application\Revocation;
 
+use function array_map;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\AClient;
 use Beffroi\Oidc\Tests\Fixture\Secrets;
 use Beffroi\Oidc\Application\Token\OpaqueAccessTokenIssuer;
 use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
@@ -115,6 +118,25 @@ final class RevocationHandlerTest extends TestCase
         $this->events = new RecordingEventDispatcher();
         $this->rows = new UnopenedRows();
         $this->handler = $this->handler($clients, $hasher, $this->accessTokens);
+    }
+
+    /**
+     * RFC 7009 §2.1, decision 0066
+     */
+    #[Test]
+    public function theRevocationNamesTheClientThatAskedForItAsItsAuthor(): void
+    {
+        // Given
+        $token = $this->accessToken($this->client);
+
+        // When
+        $this->handler->handle($this->tenant, self::basic('oidc-demo'), ['token' => $token], $this->context);
+
+        // Then
+        static::assertEquals([new AClient($this->client->registration->clientId)], array_map(
+            static fn (TokenRevoked $revoked): AuthorInterface => $revoked->author(),
+            $this->events->of(TokenRevoked::class),
+        ));
     }
 
     /**
