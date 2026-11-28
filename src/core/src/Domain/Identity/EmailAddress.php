@@ -7,8 +7,10 @@ namespace Beffroi\Core\Domain\Identity;
 use const FILTER_FLAG_EMAIL_UNICODE;
 use const FILTER_VALIDATE_EMAIL;
 use function filter_var;
+use function is_string;
 use function mb_strtolower;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Normalizer;
 use function sprintf;
 use Stringable;
 use function strrpos;
@@ -51,7 +53,7 @@ final readonly class EmailAddress implements Stringable
     }
 
     /**
-     * The local part too ignores case, as the blind index of an address does; RFC 5321 §2.4 leaves it to the
+     * The local part too is folded, as the blind index of an address folds it; RFC 5321 §2.4 leaves it to the
      * receiving server.
      */
     public function isTheSameMailboxAs(self $other): bool
@@ -59,9 +61,19 @@ final readonly class EmailAddress implements Stringable
         return $this->localPart() === $other->localPart() && $this->domain() === $other->domain();
     }
 
+    /**
+     * RFC 6532 §3.1: brought to Normalization Form C, then lowercased.
+     */
+    public static function foldedLocalPart(string $localPart): string
+    {
+        $normalized = Normalizer::normalize($localPart, Normalizer::FORM_C);
+
+        return mb_strtolower(is_string($normalized) ? $normalized : $localPart);
+    }
+
     private function localPart(): string
     {
-        return mb_strtolower(substr($this->value, 0, (int) strrpos($this->value, '@')));
+        return self::foldedLocalPart(substr($this->value, 0, (int) strrpos($this->value, '@')));
     }
 
     public function __toString(): string

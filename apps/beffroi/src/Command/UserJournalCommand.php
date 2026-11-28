@@ -57,7 +57,7 @@ final readonly class UserJournalCommand
      */
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'The username of the user.')]
+        #[Argument(description: 'The username of the user, or their identifier.')]
         string $username,
         #[Option(description: 'The first day to read, as YYYY-MM-DD on UTC, that day included; the whole of what the journal holds when not given.')]
         ?string $from = null,

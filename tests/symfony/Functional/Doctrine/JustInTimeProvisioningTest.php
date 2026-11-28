@@ -248,6 +248,32 @@ final class JustInTimeProvisioningTest extends DatabaseTestCase
         }
     }
 
+    /**
+     * RFC 8265 §3.3.4, RFC 7644 §5: the name a pair the reindex set aside shares, which an upstream provider would take.
+     */
+    #[Test]
+    public function aFirstSignInUnderTheUsernameAPairTheReindexSetAsideSharesIsRefused(): void
+    {
+        // Given
+        self::personOf01('carol@acme.example', 'carol');
+        self::personOf01('Carol@acme.example', 'other-carol');
+        self::reindex();
+
+        // Then
+        $this->expectException(UpstreamProvisioningRefusedException::class);
+
+        // When
+        self::provisioning(self::linkedIdentities(), self::users())
+            ->personNamedBy(
+                self::tenant(),
+                self::provider(),
+                'a7f3c2e1-carol',
+                new EmailAddress('carol@acme.example'),
+                [],
+                self::context(),
+            );
+    }
+
     private static function provisioning(
         LinkedIdentityRepositoryInterface $identities,
         UserRepositoryInterface $users,

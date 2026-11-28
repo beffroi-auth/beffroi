@@ -7,6 +7,7 @@ namespace Beffroi\Core\Application\Identity\Member;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
 use DateTimeImmutable;
 
 /**
@@ -35,6 +36,7 @@ interface MemberInterface
      *
      * @throws InvalidArgumentException  when the value is not one the member holds
      * @throws UserAlreadyExistsException when another person of the tenant has the username said
+     * @throws UsernameRefusedException   when the username said is one RFC 8265 §3.3 refuses
      */
     public function say(User $user, mixed $value, DateTimeImmutable $now): void;
 }

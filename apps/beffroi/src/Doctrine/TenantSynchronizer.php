@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Doctrine;
 
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use App\Tenant\TenantFactory;
 use Beffroi\Core\Domain\Tenant\Tenant;
 
@@ -12,6 +13,7 @@ final readonly class TenantSynchronizer
     public function __construct(
         private TenantFactory $factory,
         private EntityManagers $managers,
+        private BlindIndexDerivations $derivations,
     ) {
     }
 
@@ -26,6 +28,8 @@ final readonly class TenantSynchronizer
         if ($tenant === null) {
             $manager->persist($configured);
             $manager->flush();
+            // A tenant created now holds no person, so that none of its tags was derived under another derivation.
+            $this->derivations->record($configured, 0, 0);
 
             return $configured;
         }

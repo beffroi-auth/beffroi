@@ -12,12 +12,13 @@ use Beffroi\Core\Domain\PersonalData\FieldClassificationInterface;
 use Beffroi\Core\Domain\PersonalData\NoPersonalDatum;
 use Beffroi\Core\Domain\PersonalData\Reason;
 use Beffroi\Core\Domain\PersonalData\Sealed;
+use Beffroi\Core\Domain\Precis\UsernameCaseMapped;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
 use Beffroi\Core\Exception\MailEncryptionRefusedException;
+use Beffroi\Core\Exception\UsernameRefusedException;
 use function sprintf;
-use function mb_strlen;
 use Symfony\Component\Uid\Uuid;
 use function trim;
 
@@ -63,6 +64,9 @@ final class User implements ClassifiedFieldsInterface
         $this->notificationChannels = ChosenChannels::none();
     }
 
+    /**
+     * @throws UsernameRefusedException
+     */
     public static function create(
         Uuid $id,
         Tenant $tenant,
@@ -90,6 +94,9 @@ final class User implements ClassifiedFieldsInterface
         );
     }
 
+    /**
+     * @throws UsernameRefusedException
+     */
     public function rename(string $username, DateTimeImmutable $now): void
     {
         $this->username = self::normalizeUsername($username);
@@ -245,15 +252,15 @@ final class User implements ClassifiedFieldsInterface
         }
     }
 
+    /**
+     * Kept as written: what compares is its enforced form, which the blind index of the storage holds.
+     *
+     * @throws UsernameRefusedException
+     */
     private static function normalizeUsername(string $username): string
     {
         $username = trim($username);
-        if ($username === '' || mb_strlen($username) > PlainText::MAX_LENGTH) {
-            throw new InvalidArgumentException('A username is 1 to 255 characters long.');
-        }
-        if (! PlainText::holds($username, PlainText::MAX_LENGTH)) {
-            throw new InvalidArgumentException('A username is plain text, with no control, format or line separator character.');
-        }
+        UsernameCaseMapped::enforce($username);
 
         return $username;
     }

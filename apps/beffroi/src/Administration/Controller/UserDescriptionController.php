@@ -11,6 +11,8 @@ use function array_is_list;
 use Beffroi\Core\Application\Identity\Member\UsernameMember;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Oidc\Application\Administration\AdministeredDescription;
 use Beffroi\Oidc\Domain\Administration\ActingAdministrator;
 use function explode;
@@ -66,10 +68,12 @@ final readonly class UserDescriptionController
             $user = Uuid::isValid($id)
                 ? $this->descriptions->describe($administrator, Uuid::fromString($id), $said, $this->contexts->fromRequest($request))
                 : null;
-        } catch (InvalidArgumentException $exception) {
+        } catch (InvalidArgumentException|UsernameRefusedException $exception) {
             return AdministrationAnswer::refusal(Response::HTTP_BAD_REQUEST, 'invalid_request', $exception->getMessage());
         } catch (UserAlreadyExistsException) {
             return AdministrationAnswer::refusal(Response::HTTP_CONFLICT, 'conflict', 'The tenant has a person of this username already.');
+        } catch (UsernameUniquenessPendingException $exception) {
+            return AdministrationAnswer::refusal(Response::HTTP_SERVICE_UNAVAILABLE, 'temporarily_unavailable', $exception->getMessage());
         }
         if ($user === null) {
             return AdministrationAnswer::refusal(Response::HTTP_NOT_FOUND, 'not_found', 'The tenant has no person of this identifier.');

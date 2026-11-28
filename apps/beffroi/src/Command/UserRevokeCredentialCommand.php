@@ -36,7 +36,7 @@ final readonly class UserRevokeCredentialCommand
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'The username of the user.')]
+        #[Argument(description: 'The username of the user, or their identifier.')]
         string $username,
         #[Argument(description: 'The identifier of the credential, as "beffroi:user:show" lists it.')]
         string $id,

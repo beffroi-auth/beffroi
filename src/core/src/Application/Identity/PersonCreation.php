@@ -12,6 +12,8 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -31,7 +33,9 @@ final readonly class PersonCreation
      * @param Subject|null $subject the subject an import brings, drawn when none is given
      *
      * @throws UserAlreadyExistsException
-     * @throws InvalidArgumentException   when the username is empty or longer than 255 characters
+     * @throws UsernameRefusedException
+     * @throws UsernameUniquenessPendingException
+     * @throws InvalidArgumentException   when an absent address is said verified
      */
     public function create(
         Tenant $tenant,

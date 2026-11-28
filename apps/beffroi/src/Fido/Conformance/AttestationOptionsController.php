@@ -8,6 +8,7 @@ use App\Doctrine\TenantProvider;
 use Beffroi\Core\Application\Passkey\PasskeyEnrolment;
 use Beffroi\Core\Bridge\Webauthn\WebauthnCeremonies;
 use InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -42,7 +43,7 @@ final readonly class AttestationOptionsController
             $body = ServerRequest::fromRequest($request);
             $user = $this->users->findOrCreate($this->tenants->provide(), $body->string('username'), $body->string('displayName'));
             $options = self::options($this->enrolment->begin($user), $body);
-        } catch (InvalidArgumentException|InvalidDataException $exception) {
+        } catch (InvalidArgumentException|InvalidDataException|UsernameUniquenessPendingException $exception) {
             return ServerResponse::failed($exception->getMessage());
         }
         $this->store->storeCreation($user->id, $options);

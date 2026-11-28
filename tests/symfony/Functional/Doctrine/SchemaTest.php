@@ -67,6 +67,7 @@ final class SchemaTest extends DatabaseTestCase
         'beffroi_saml_logout_chain',
         // No mapping describes this table: the schema listener of the ORM bridge adds it for the data keys.
         'beffroi_data_key',
+        'beffroi_blind_index_derivation',
     ];
 
     /**

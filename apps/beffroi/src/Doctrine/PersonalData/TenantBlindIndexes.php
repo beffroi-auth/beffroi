@@ -20,7 +20,7 @@ use Throwable;
 final class TenantBlindIndexes
 {
     /**
-     * @var array<string, array<string, BlindIndexInterface>> by tenant slug, then by tag property
+     * @var array<string, array<string, BlindIndexInterface>> by tenant slug, then by the name of the column
      */
     private array $indexes = [];
 
@@ -42,7 +42,7 @@ final class TenantBlindIndexes
     {
         $slug = $this->slug($column);
 
-        return $this->indexes[$slug][$column->tag] ??= $this->build($slug, $column);
+        return $this->indexes[$slug][$column->name] ??= $this->build($slug, $column);
     }
 
     /**

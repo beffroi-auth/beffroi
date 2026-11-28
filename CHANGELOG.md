@@ -40,6 +40,34 @@ All notable changes to this project are documented in this file, in reverse chro
   rows. **The upgrade goes one way** once an act is written: the image of the version before reads the author of every
   act written since as the subject of an administrator, and only a backup of the database taken before the migration
   goes back.
+- `beffroi/core`: a username is prepared, enforced and compared by the UsernameCaseMapped profile of PRECIS (RFC 8265
+  §3.3), which RFC 7644 §5 requires of a `userName`: `Alice`, `ALICE` and `alice`, a name in fullwidth letters and an
+  `é` written with a combining accent are each one person. Letters and digits of every script and printable ASCII
+  pass; a space, a symbol or a punctuation mark outside ASCII, an emoji, a code point with a compatibility equivalent
+  and a username written right to left that breaks the Bidi Rule (RFC 5893 §2) are refused, by `UsernameRefusedException`,
+  at the console, at the administration API (`400 invalid_request`) and at the first sign-in through an upstream
+  provider alike, a later sign-in under such an address keeping the username of the person. The username is kept as
+  it was written. The local part of an address is brought to Normalization Form C (RFC 6532 §3.1) before it is
+  lowercased.
+- `beffroi/beffroi`: the blind index of a username is its enforced form, and a lookup tries the username as written
+  first, so that a person written by 0.1 is found under their username as written until the tags are derived again.
+  The image derives them at its first start, after the migrations (`beffroi:user:reindex --when-due`), and again
+  whenever what a tag derives changes, the version of Unicode of its intl included; a deployment that does not run the
+  entrypoint of the image runs `bin/console beffroi:user:reindex` once after the upgrade. Until then no person is
+  created or renamed: the console says why, the administration API answers `503 temporarily_unavailable`, and a first
+  sign-in through an upstream provider is refused. The command names each person whose username the profile refuses,
+  who signs in under it as written until an administrator renames them and at the latest until 1.0.0 (beffroi#1464),
+  and the persons whose usernames it compares as one, whom no lookup finds and whose shared username nobody takes until
+  they are renamed; it then exits with the status 3.
+  `beffroi:user:rename` renames a person, an act of the host with its line of history, and every console command that
+  names a person takes their identifier as well as their username. `beffroi:doctor` says what the last reindex left.
+- `beffroi/beffroi`, **upgrading**: no process of 0.1 serves beside this release, which the upgrading note on the
+  author of an act asks by stopping the planes before deploying: a process of 0.1 that writes a person once the image
+  has derived the blind indexes again writes the tag of the username as written, which that spelling alone finds. The
+  first start of this release derives every tag before the server answers its first request or its healthcheck
+  (`beffroi:user:reindex --when-due`), in a time that grows with the persons of the tenant; the healthcheck of the image
+  allows a start of 60 seconds (`HEALTHCHECK --start-period=60s`), and an orchestrator that replaces an unhealthy
+  container, Swarm for one, is given a longer start period for the first start of a large tenant.
 
 ### Deprecated
 

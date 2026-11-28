@@ -15,9 +15,12 @@ use Beffroi\Core\Domain\Identity\Profile;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\UpstreamProvider;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Precis\UsernameCaseMapped;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Core\Port\AtomicWritesInterface;
 use Beffroi\Core\Port\LinkedIdentityRepositoryInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
@@ -93,7 +96,8 @@ final readonly class JustInTimeProvisioning
         if (! ($user->email?->isTheSameMailboxAs($email) ?? false)) {
             $this->assertNobodyHolds($tenant, $email, $user);
         }
-        $renamed = $user->username !== $email->value;
+        // An address that is no username is written, and the person keeps the username they hold.
+        $renamed = $user->username !== $email->value && self::isAUsername($email);
         if ($renamed) {
             $this->assertNobodyIsNamed($tenant, $email, $user);
         }
@@ -127,6 +131,8 @@ final readonly class JustInTimeProvisioning
         } catch (UserAlreadyExistsException) {
             // Another sign-in gave the address as a username between the check and the unit.
             throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::AddressHeld);
+        } catch (UsernameUniquenessPendingException) {
+            throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::UsernameUniquenessPending);
         } catch (MembershipAlreadyHeldException) {
             throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::MembershipWrittenMeanwhile);
         }
@@ -157,6 +163,9 @@ final readonly class JustInTimeProvisioning
         $profile = $source->rewrite(Profile::empty(), $claims);
         $this->assertAnswersFor($provider, $email);
         $this->assertNobodyHolds($tenant, $email);
+        if (! self::isAUsername($email)) {
+            throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::UsernameRefused);
+        }
         $this->assertNobodyIsNamed($tenant, $email);
         $person = new Subject($this->uuids->opaque()->toRfc4122());
         if ($this->users->findBySubject($tenant, $person) !== null) {
@@ -191,6 +200,8 @@ final readonly class JustInTimeProvisioning
         } catch (IdentityAlreadyLinkedException|UserAlreadyExistsException) {
             // Not chained to the caught exception: its message names the person, which this refusal must not tell.
             throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::IdentityLinkedMeanwhile);
+        } catch (UsernameUniquenessPendingException) {
+            throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::UsernameUniquenessPending);
         }
         $this->events->dispatch(new PersonProvisioned($now, $tenant, $user->subject, $provider->name, $context));
 
@@ -239,6 +250,20 @@ final readonly class JustInTimeProvisioning
                 throw new UpstreamProvisioningRefusedException(UpstreamProvisioningRefusalReason::AddressHeld);
             }
         }
+    }
+
+    /**
+     * RFC 8265 §3.3: the address names the person.
+     */
+    private static function isAUsername(EmailAddress $email): bool
+    {
+        try {
+            UsernameCaseMapped::enforce($email->value);
+        } catch (UsernameRefusedException) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

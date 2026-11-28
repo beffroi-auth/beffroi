@@ -418,6 +418,7 @@ final class DataKeysTest extends ConsoleTestCase
     {
         $other = new Tenant(Uuid::v7(), 'other', new Issuer('https://other.test'), 'Other', self::now());
         self::entityManager()->persist($other);
+        self::derivations()->record($other, 0, 0);
         self::entityManager()->flush();
 
         return $other;

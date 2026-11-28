@@ -11,6 +11,8 @@ use App\Http\RequestContextFactory;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Oidc\Application\Administration\AdministeredPersonCreation;
 use Beffroi\Oidc\Domain\Administration\ActingAdministrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -56,10 +58,12 @@ final readonly class UserCreationController
                 $email === null ? null : new EmailAddress($email),
                 $asked->nullableBool('email_verified') ?? false,
             );
-        } catch (InvalidArgumentException $exception) {
+        } catch (InvalidArgumentException|UsernameRefusedException $exception) {
             return AdministrationAnswer::refusal(Response::HTTP_BAD_REQUEST, 'invalid_request', $exception->getMessage());
         } catch (UserAlreadyExistsException) {
             return AdministrationAnswer::refusal(Response::HTTP_CONFLICT, 'conflict', 'The tenant has a person of this username already.');
+        } catch (UsernameUniquenessPendingException $exception) {
+            return AdministrationAnswer::refusal(Response::HTTP_SERVICE_UNAVAILABLE, 'temporarily_unavailable', $exception->getMessage());
         }
 
         return AdministrationAnswer::of($this->documents->of($user, [], []), Response::HTTP_CREATED);

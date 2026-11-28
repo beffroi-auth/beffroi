@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Symfony\Functional\Command;
 
+use App\Command\UserReindexCommand;
 use function array_map;
 use function explode;
 use App\Tests\Symfony\Functional\MessageHandler\RecordingEventHandler;
@@ -511,6 +512,84 @@ final class ProvisioningTest extends ConsoleTestCase
         static::assertStringContainsString('A user named "carol" already exists', $tester->getDisplay());
     }
 
+    /**
+     * RFC 8265 §3.3.4, RFC 7643 §4.1.1
+     */
+    #[Test]
+    public function aUsernameComparingEqualToATakenOneIsNotTakenTwice(): void
+    {
+        // Given
+        self::console('beffroi:user:create', [
+            'username' => 'carol',
+        ]);
+
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => 'CAROL',
+        ]);
+
+        // Then
+        static::assertSame(Command::FAILURE, $tester->getStatusCode());
+        static::assertStringContainsString('A user named "CAROL" already exists', $tester->getDisplay());
+    }
+
+    /**
+     * RFC 8265 §3.3, RFC 8264 §4.2.3
+     */
+    #[Test]
+    public function aUsernameTheProfileRefusesIsRefused(): void
+    {
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => "carol\u{1F642}",
+        ]);
+
+        // Then
+        static::assertSame(Command::INVALID, $tester->getStatusCode());
+        static::assertStringContainsString('U+1F642 is none of them', self::flattened($tester));
+    }
+
+    /**
+     * RFC 8265 §3.3.4: a person of 0.1 named "Bob" is found under that name as written only until the reindex, which a
+     * second "bob" would collide with.
+     */
+    #[Test]
+    public function noPersonIsCreatedWhileTheUsernamesOfTheTenantAreNotAllComparedByTheirForm(): void
+    {
+        // Given
+        self::personOf01('Bob', 'bob');
+
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => 'bob',
+        ]);
+
+        // Then
+        static::assertSame(Command::FAILURE, $tester->getStatusCode());
+        static::assertStringContainsString('No person is created or renamed in the tenant', self::flattened($tester));
+    }
+
+    /**
+     * RFC 8265 §3.3.4, RFC 7644 §5: the name a pair the reindex set aside shares leads to nobody, and nobody takes it.
+     */
+    #[Test]
+    public function theUsernameAPairTheReindexSetAsideSharesIsNotTaken(): void
+    {
+        // Given
+        self::personOf01('alice', 'alice');
+        self::personOf01('Alice', 'other-alice');
+        self::console(UserReindexCommand::NAME);
+
+        // When
+        $tester = self::console('beffroi:user:create', [
+            'username' => 'ALICE',
+        ]);
+
+        // Then
+        static::assertSame(Command::FAILURE, $tester->getStatusCode());
+        static::assertStringContainsString('A user named "ALICE" already exists', self::flattened($tester));
+    }
+
     #[Test]
     public function aSubjectIsNotTakenTwice(): void
     {
@@ -684,6 +763,24 @@ final class ProvisioningTest extends ConsoleTestCase
         static::assertSame('Alice Liddell', self::displayed($tester, 'Name'));
         static::assertSame('+44 1865 000000 (unverified)', self::displayed($tester, 'Phone number'));
         static::assertStringNotContainsString('is described', $tester->getDisplay(true));
+    }
+
+    /**
+     * RFC 8265 §3.3.4: a person no username finds, whom beffroi:user:reindex set aside, is named by their identifier.
+     */
+    #[Test]
+    public function aUserIsShownByTheirIdentifier(): void
+    {
+        // Given
+        $alice = self::user('alice', 'alice-subject');
+
+        // When
+        $tester = self::console('beffroi:user:show', [
+            'username' => $alice->id->toRfc4122(),
+        ]);
+
+        // Then
+        static::assertSame('alice-subject', self::displayed($tester, 'Subject'));
     }
 
     #[Test]

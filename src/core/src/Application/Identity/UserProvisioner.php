@@ -18,6 +18,8 @@ use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\CredentialEnrolmentFailedException;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Core\Exception\PasswordRefusedException;
 use Beffroi\Core\Port\ClaimsInterface;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
@@ -45,6 +47,8 @@ final readonly class UserProvisioner
 
     /**
      * @throws UserAlreadyExistsException
+     * @throws UsernameRefusedException
+     * @throws UsernameUniquenessPendingException
      */
     public function create(
         Tenant $tenant,

@@ -10,6 +10,8 @@ use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Oidc\Domain\Administration\ActingAdministrator;
 use Beffroi\Oidc\Exception\PersonsBudgetSpentException;
 use Symfony\Component\Uid\Uuid;
@@ -35,6 +37,9 @@ final readonly class AdministeredDescription
      *
      * @throws InvalidArgumentException  when a member is not one an administrator says, a value is not one it holds, or the source of the person holds it
      * @throws UserAlreadyExistsException when another person of the tenant has the username said
+     * @throws UsernameRefusedException   when the username said is one RFC 8265 §3.3 refuses
+     * @throws UsernameUniquenessPendingException when a username is said before the usernames of the tenant are all
+     *                                             compared by their enforced form
      * @throws PersonsBudgetSpentException when the budget of the administrator has no person left
      *
      * @return User|null the person as they now are, null when the tenant has no person of that identifier

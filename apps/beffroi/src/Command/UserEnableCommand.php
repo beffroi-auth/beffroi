@@ -31,7 +31,7 @@ final readonly class UserEnableCommand
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'The username of the person, as "beffroi:user:show" names them.')]
+        #[Argument(description: 'The username of the person, as "beffroi:user:show" names them, or their identifier.')]
         string $username,
     ): int {
         $tenant = $this->tenant->orTold($io);

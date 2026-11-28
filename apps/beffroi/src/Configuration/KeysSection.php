@@ -13,6 +13,8 @@ use App\Doctrine\PersonalData\EncryptedColumnTypes;
 use App\Command\DataKeysRewrapCommand;
 use App\Http\RequestContextFactory;
 use App\Messenger\EventBusDispatcher;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
+use App\Doctrine\PersonalData\BlindIndexDerivationSchemaListener;
 use App\Doctrine\PersonalData\TenantBlindIndexes;
 use App\Doctrine\PersonalData\TenantDataKeyDestruction;
 use App\Doctrine\PersonalData\TenantDataKeys;
@@ -170,6 +172,10 @@ final readonly class KeysSection extends ConfigurationSection
             service('beffroi.data_keys.index'),
             service(TenantProvider::class),
             TenantDataKeyStores::TABLE,
+        ]);
+        $services->set(BlindIndexDerivations::class)->args([service(Connection::class), service('clock')]);
+        $services->set(BlindIndexDerivationSchemaListener::class)->args([service(BlindIndexDerivations::class)])->tag('doctrine.event_listener', [
+            'event' => 'postGenerateSchema',
         ]);
         $services->set(TenantDataKeys::class)->args([service('beffroi.data_keys')]);
         $services->set(DataKeysOfTheTenant::class)->args([

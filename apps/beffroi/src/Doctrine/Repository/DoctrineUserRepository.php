@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace App\Doctrine\Repository;
 
 use App\Doctrine\EntityManagers;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use App\Doctrine\PersonalData\BlindIndexedColumns;
+use App\Doctrine\PersonalData\FoldedEmailAddress;
+use App\Doctrine\PersonalData\LowercasedEmailAddress;
 use App\Doctrine\PersonalData\TenantBlindIndexes;
 use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Precis\UsernameCaseMapped;
 use Beffroi\Core\Domain\Tenant\Tenant;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Core\Port\CanCountUsersInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use function array_values;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use function sprintf;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
@@ -27,6 +33,7 @@ final readonly class DoctrineUserRepository extends DoctrineRepository implement
     public function __construct(
         EntityManagers $managers,
         private TenantBlindIndexes $indexes,
+        private BlindIndexDerivations $derivations,
     ) {
         parent::__construct($managers, User::class);
     }
@@ -46,23 +53,42 @@ final readonly class DoctrineUserRepository extends DoctrineRepository implement
         ]);
     }
 
+    /**
+     * The tag of the username as written matches a row a reindex left as 0.1 wrote it, and otherwise only a row whose
+     * enforced form it is, which the tag of its enforced form matches too.
+     */
     public function findByUsername(Tenant $tenant, string $username): ?User
     {
         $column = BlindIndexedColumns::of(User::class, 'username');
+        $compared = $this->indexes->of($column)->of($username);
+        $asWritten = UsernameCaseMapped::comparisonForm($username) === $username
+            ? $compared
+            : $this->indexes->of(BlindIndexedColumns::usernameAsWritten())->of($username);
+        $found = null;
+        foreach ($this->repository()->findBy(['tenant' => $tenant, $column->tag => [$asWritten, $compared]]) as $user) {
+            if ($user->usernameIndex === $asWritten) {
+                return $user;
+            }
+            $found = $user;
+        }
 
-        return $this->repository()->findOneBy([
-            'tenant' => $tenant,
-            $column->tag => $this->indexes->of($column)->of($username),
-        ]);
+        return $found;
     }
 
+    /**
+     * Under the fold of the column, and under the one 0.1 wrote, which differs for a local part not in NFC alone.
+     */
     public function findAllByEmail(Tenant $tenant, EmailAddress $email): array
     {
         $column = BlindIndexedColumns::of(User::class, 'email');
+        $tags = [$this->indexes->of($column)->of($email->value)];
+        if (new LowercasedEmailAddress()->project($email->value) !== new FoldedEmailAddress()->project($email->value)) {
+            $tags[] = $this->indexes->of(BlindIndexedColumns::emailAsFoldedBefore())->of($email->value);
+        }
 
         return array_values($this->repository()->findBy([
             'tenant' => $tenant,
-            $column->tag => $this->indexes->of($column)->of($email->value),
+            $column->tag => $tags,
         ]));
     }
 
@@ -81,12 +107,52 @@ final readonly class DoctrineUserRepository extends DoctrineRepository implement
             ->getSingleScalarResult();
     }
 
+    /**
+     * @throws UserAlreadyExistsException
+     * @throws UsernameUniquenessPendingException
+     */
     public function save(User $user): void
     {
+        if ($this->namesAnew($user)) {
+            $this->assertTheUsernameIsFree($user);
+        }
         try {
             $this->store($user);
         } catch (UniqueConstraintViolationException $exception) {
             throw UserAlreadyExistsException::writtenMeanwhile($exception);
         }
+    }
+
+    /**
+     * The name a pair beffroi:user:reindex set aside shares is reserved: no lookup finds them, and nobody else takes it.
+     *
+     * @throws UsernameUniquenessPendingException
+     * @throws UserAlreadyExistsException
+     */
+    private function assertTheUsernameIsFree(User $user): void
+    {
+        $recorded = $this->derivations->recorded($user->tenant);
+        if ($recorded?->isCurrent() !== true) {
+            throw new UsernameUniquenessPendingException(sprintf(
+                'No person is created or renamed in the tenant "%s" until its usernames are all compared by their enforced form: run "beffroi:user:reindex".',
+                $user->tenant->slug,
+            ));
+        }
+        if ($recorded->reserves($this->indexes->of(BlindIndexedColumns::of(User::class, 'username'))->of($user->username))) {
+            throw UserAlreadyExistsException::username($user->username);
+        }
+    }
+
+    /**
+     * A person not stored yet, or whose username differs from the one their row holds.
+     */
+    private function namesAnew(User $user): bool
+    {
+        $manager = $this->manager();
+        if (! $manager->contains($user)) {
+            return true;
+        }
+
+        return ($manager->getUnitOfWork()->getOriginalEntityData($user)['username'] ?? null) !== $user->username;
     }
 }

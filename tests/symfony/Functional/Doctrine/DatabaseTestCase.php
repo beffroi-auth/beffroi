@@ -13,6 +13,11 @@ use Doctrine\ORM\Tools\SchemaTool;
 use Doctrine\Persistence\ManagerRegistry;
 use App\Doctrine\TenantProvider;
 use App\Doctrine\EntityManagers;
+use App\Command\UserReindexCommand;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
+use App\Doctrine\PersonalData\BlindIndexedColumns;
+use App\Doctrine\PersonalData\EncryptedColumnTypes;
+use App\Doctrine\PersonalData\TenantBlindIndexes;
 use App\Doctrine\TenantSynchronizer;
 use App\Tests\Symfony\Functional\Doctrine\PersonalData\SealedRows;
 use Beffroi\Core\Application\Tenant\TenantHardening;
@@ -30,8 +35,11 @@ use Beffroi\Oidc\Domain\Client\Client;
 use Beffroi\Oidc\Port\ClientRepositoryInterface;
 use function is_string;
 use function sprintf;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Uid\Uuid;
 
@@ -140,6 +148,52 @@ abstract class DatabaseTestCase extends WebTestCase
     protected static function managers(): EntityManagers
     {
         return new EntityManagers(self::registry());
+    }
+
+    /**
+     * A person of 0.1: their username as it was kept, the tag the Verbatim projection derived of it under the name of
+     * the column, and no derivation recorded for the tenant.
+     */
+    protected static function personOf01(string $username, string $name): User
+    {
+        self::derivations()->record(self::tenant(), 0, 0);
+        $user = self::user($name, $name . '-subject');
+        $asWritten = self::service(TenantBlindIndexes::class, TenantBlindIndexes::class)->of(BlindIndexedColumns::usernameAsWritten());
+        $connection = self::entityManager()->getConnection();
+        $connection->update(
+            'beffroi_user',
+            [
+                'username' => $username,
+                'username_index' => $asWritten->of($username),
+            ],
+            [
+                'id' => $user->id,
+            ],
+            [
+                'username' => EncryptedColumnTypes::name('user', 'string'),
+                'id' => UuidType::NAME,
+            ],
+        );
+        $connection->executeStatement('DELETE FROM ' . BlindIndexDerivations::TABLE);
+        self::reload();
+
+        return $user;
+    }
+
+    /**
+     * beffroi:user:reindex, as the command runs it.
+     */
+    protected static function reindex(): void
+    {
+        $application = new Application(self::$kernel ?? static::fail('The kernel is not booted.'));
+        $application->setAutoExit(false);
+        new CommandTester($application->find(UserReindexCommand::NAME))->execute([]);
+        self::reload();
+    }
+
+    protected static function derivations(): BlindIndexDerivations
+    {
+        return self::service(BlindIndexDerivations::class, BlindIndexDerivations::class);
     }
 
     protected static function tenant(): Tenant

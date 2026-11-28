@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Administration;
 
 use App\Administration\Controller\UserDescriptionController;
 use function array_map;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Event\PersonDescribed;
@@ -175,6 +176,72 @@ final class AdministrationApiDescriptionTest extends AdministrationTestCase
         // Then
         static::assertSame(
             [Response::HTTP_CONFLICT, 'conflict', 'bob'],
+            [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
+        );
+    }
+
+    /**
+     * RFC 8265 §3.3, RFC 8264 §4.2.3
+     */
+    #[Test]
+    public function aUsernameTheProfileRefusesIsRefusedAndChangesNothing(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $response = $this->patch($bob, $token, '{"username": "bob smith"}');
+
+        // Then
+        static::assertSame(
+            [Response::HTTP_BAD_REQUEST, 'invalid_request', 'bob'],
+            [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
+        );
+    }
+
+    /**
+     * RFC 8265 §3.3.4, RFC 7644 §5
+     */
+    #[Test]
+    public function aRenameIntoTheUsernameAPairTheReindexSetAsideSharesIsAConflict(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        self::personOf01('carol', 'carol');
+        self::personOf01('Carol', 'other-carol');
+        self::reindex();
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $response = $this->patch($bob, $token, '{"username": "carol"}');
+
+        // Then
+        static::assertSame(
+            [Response::HTTP_CONFLICT, 'conflict', 'bob'],
+            [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
+        );
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function noPersonIsRenamedWhileTheUsernamesOfTheTenantAreNotAllComparedByTheirForm(): void
+    {
+        // Given
+        $bob = self::user('bob', 'bob-subject');
+        $token = $this->administratorToken(self::user('alice'));
+        self::entityManager()
+            ->getConnection()
+            ->executeStatement('DELETE FROM ' . BlindIndexDerivations::TABLE);
+
+        // When
+        $response = $this->patch($bob, $token, '{"username": "bob.martin"}');
+
+        // Then
+        static::assertSame(
+            [Response::HTTP_SERVICE_UNAVAILABLE, 'temporarily_unavailable', 'bob'],
             [$response->getStatusCode(), self::members($response, ['error'])[0], self::personAgain($bob)->username],
         );
     }

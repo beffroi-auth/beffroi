@@ -7,6 +7,7 @@ namespace Beffroi\Core\Bridge\InMemory;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Precis\UsernameCaseMapped;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Port\UserRepositoryInterface;
 use Symfony\Component\Uid\Uuid;
@@ -36,13 +37,21 @@ final class InMemoryUserRepository implements UserRepositoryInterface
 
     public function findByUsername(Tenant $tenant, string $username): ?User
     {
+        $compared = UsernameCaseMapped::comparisonForm($username);
+        $found = null;
         foreach ($this->users as $user) {
-            if ($user->belongsTo($tenant) && $user->username === $username) {
+            if (! $user->belongsTo($tenant)) {
+                continue;
+            }
+            if ($user->username === $username) {
                 return $user;
+            }
+            if ($found === null && UsernameCaseMapped::comparisonForm($user->username) === $compared) {
+                $found = $user;
             }
         }
 
-        return null;
+        return $found;
     }
 
     public function findAllByEmail(Tenant $tenant, EmailAddress $email): array

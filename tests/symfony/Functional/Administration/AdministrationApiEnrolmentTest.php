@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Administration;
 
 use App\Administration\AdministrationAnswer;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
 use Beffroi\Core\Domain\Enrolment\EnrolmentTicket;
 use Beffroi\Core\Domain\Event\EnrolmentTicketIssued;
 use Beffroi\Core\Domain\Event\PersonCreated;
@@ -80,6 +81,52 @@ final class AdministrationApiEnrolmentTest extends AdministrationTestCase
         ]);
     }
 
+    /**
+     * RFC 8265 §3.3.4, RFC 7644 §5
+     */
+    #[Test]
+    public function theUsernameAPairTheReindexSetAsideSharesIsAConflict(): void
+    {
+        // Given
+        self::personOf01('carol', 'carol');
+        self::personOf01('Carol', 'other-carol');
+        self::reindex();
+        $token = $this->administratorToken(self::user('alice'));
+
+        // When
+        $response = $this->api('/users', $token, method: 'POST', content: '{"username": "CAROL"}');
+
+        // Then
+        static::assertSame([Response::HTTP_CONFLICT, 'conflict', []], [
+            $response->getStatusCode(),
+            self::error($response),
+            self::authored(PersonCreated::NAME),
+        ]);
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function noPersonIsCreatedWhileTheUsernamesOfTheTenantAreNotAllComparedByTheirForm(): void
+    {
+        // Given
+        $token = $this->administratorToken(self::user('alice'));
+        self::entityManager()
+            ->getConnection()
+            ->executeStatement('DELETE FROM ' . BlindIndexDerivations::TABLE);
+
+        // When
+        $response = $this->api('/users', $token, method: 'POST', content: '{"username": "bob"}');
+
+        // Then
+        static::assertSame([Response::HTTP_SERVICE_UNAVAILABLE, 'temporarily_unavailable', []], [
+            $response->getStatusCode(),
+            self::error($response),
+            self::authored(PersonCreated::NAME),
+        ]);
+    }
+
     #[Test]
     #[DataProvider('provideRequestsThatNameNoPerson')]
     public function aRequestThatNamesNoPersonCreatesNobody(string $content, string $contentType): void
@@ -108,6 +155,7 @@ final class AdministrationApiEnrolmentTest extends AdministrationTestCase
         yield 'no username' => ['{"email": "dave@example.com"}', 'application/json'];
         yield 'a username that is no string' => ['{"username": 7}', 'application/json'];
         yield 'an empty username' => ['{"username": " "}', 'application/json'];
+        yield 'a username RFC 8265 §3.3 refuses' => ['{"username": "dave\\ud83d\\ude42"}', 'application/json'];
         yield 'an address that is no email address' => ['{"username": "dave", "email": "dave"}', 'application/json'];
         yield 'an address verified that is not given' => ['{"username": "dave", "email_verified": true}', 'application/json'];
         yield 'a verification that is no boolean' => ['{"username": "dave", "email": "dave@example.com", "email_verified": "true"}', 'application/json'];

@@ -42,6 +42,7 @@ use Beffroi\Core\Domain\Identity\UserSource;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\LinkedIdentityRepositoryInterface;
 use Beffroi\Core\Port\UserRepositoryInterface;
@@ -68,6 +69,11 @@ final class JustInTimeProvisioningTest extends TestCase
     private const string SUBJECT = 'a7f3c2e1-alice';
 
     private const string ADDRESS = 'alice@acme.example';
+
+    /**
+     * An address, and no username: a Roman numeral has a compatibility equivalent (RFC 8265 §3.6, example 10).
+     */
+    private const string NO_USERNAME = "henry\u{2163}@acme.example";
 
     private Tenant $tenant;
 
@@ -328,6 +334,82 @@ final class JustInTimeProvisioningTest extends TestCase
         static::assertSame(UpstreamProvisioningRefusalReason::OutsideItsDomains, $refusal->reason);
     }
 
+    /**
+     * RFC 8265 §3.3, §3.6
+     */
+    #[Test]
+    public function aLaterSignInUnderAnAddressThatIsNoUsernameWritesTheAddressAndKeepsTheUsername(): void
+    {
+        // Given
+        $alice = $this->signIn();
+
+        // When
+        $this->signIn(self::NO_USERNAME);
+
+        // Then
+        static::assertSame([self::NO_USERNAME, self::ADDRESS], [$alice->email?->value, $alice->username]);
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function aFirstSignInWhileTheUsernamesOfTheTenantAreNotAllComparedIsRefused(): void
+    {
+        // Given
+        $users = new readonly class($this->users) implements UserRepositoryInterface {
+            public function __construct(
+                private InMemoryUserRepository $stored,
+            ) {
+            }
+
+            public function find(Uuid $id): ?User
+            {
+                return $this->stored->find($id);
+            }
+
+            public function findBySubject(Tenant $tenant, Subject $subject): ?User
+            {
+                return $this->stored->findBySubject($tenant, $subject);
+            }
+
+            public function findByUsername(Tenant $tenant, string $username): ?User
+            {
+                return $this->stored->findByUsername($tenant, $username);
+            }
+
+            public function findAllByEmail(Tenant $tenant, EmailAddress $email): array
+            {
+                return $this->stored->findAllByEmail($tenant, $email);
+            }
+
+            public function save(User $user): void
+            {
+                throw new UsernameUniquenessPendingException('No person is created meanwhile.');
+            }
+        };
+        $this->provisioning = $this->provisioningDrawing(new SymfonyUuidGenerator(), users: $users);
+
+        // When
+        $refusal = $this->failToSignIn(self::ADDRESS);
+
+        // Then
+        static::assertSame(UpstreamProvisioningRefusalReason::UsernameUniquenessPending, $refusal->reason);
+    }
+
+    /**
+     * RFC 8265 §3.3, §3.6
+     */
+    #[Test]
+    public function aFirstSignInWhoseAddressIsNoUsernameIsRefused(): void
+    {
+        // When
+        $refusal = $this->failToSignIn(self::NO_USERNAME);
+
+        // Then
+        static::assertSame(UpstreamProvisioningRefusalReason::UsernameRefused, $refusal->reason);
+    }
+
     #[Test]
     #[DataProvider('provideAddressesBobHolds')]
     public function anAddressAnotherPersonHoldsIsRefused(string $address): void
@@ -436,6 +518,7 @@ final class JustInTimeProvisioningTest extends TestCase
         yield 'outside the domains of the provider' => ['alice@initech.example', []];
         yield 'held by another person' => ['bob@acme.example', []];
         yield 'the username of another person' => ['carol@acme.example', []];
+        yield 'no username' => [self::NO_USERNAME, []];
         yield 'a claim the profile refuses' => [
             self::ADDRESS,
             [

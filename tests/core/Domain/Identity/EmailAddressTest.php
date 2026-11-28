@@ -72,6 +72,9 @@ final class EmailAddressTest extends TestCase
         yield 'after the last at sign of a quoted local part' => ['"alice@home"@acme.example', 'acme.example'];
     }
 
+    /**
+     * RFC 5321 §2.4, RFC 6532 §3.1
+     */
     #[Test]
     #[DataProvider('provideMailboxes')]
     public function itTellsTheSameMailbox(string $one, string $other, bool $same): void
@@ -89,6 +92,8 @@ final class EmailAddressTest extends TestCase
         yield 'the domain in another case' => ['alice@acme.example', 'alice@ACME.example', true];
         yield 'the local part in another case' => ['alice@acme.example', 'Alice@acme.example', true];
         yield 'a local part in Unicode in another case' => ['zoé@acme.example', 'ZOÉ@acme.example', true];
+        yield 'a local part of conjoining jamo and of the syllable they compose' => ["\u{1100}\u{1161}@acme.example", "\u{AC00}@acme.example", true];
+        yield 'a local part of a compatibility ideograph and of its unified ideograph' => ["\u{F900}@acme.example", "\u{8C48}@acme.example", true];
         yield 'another domain' => ['alice@acme.example', 'alice@acme.test', false];
         yield 'another local part' => ['alice@acme.example', 'bob@acme.example', false];
     }

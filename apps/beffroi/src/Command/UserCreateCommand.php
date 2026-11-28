@@ -11,6 +11,8 @@ use Beffroi\Core\Application\Identity\UserAlreadyExistsException;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Exception\InvalidArgumentException;
+use Beffroi\Core\Exception\UsernameRefusedException;
+use Beffroi\Core\Exception\UsernameUniquenessPendingException;
 use function sprintf;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -59,11 +61,11 @@ final readonly class UserCreateCommand
                 $emailVerified,
                 $subject === null ? null : new Subject($subject),
             );
-        } catch (InvalidArgumentException $exception) {
+        } catch (InvalidArgumentException|UsernameRefusedException $exception) {
             $io->error(PrintedText::inBlock($exception->getMessage()));
 
             return Command::INVALID;
-        } catch (UserAlreadyExistsException $exception) {
+        } catch (UserAlreadyExistsException|UsernameUniquenessPendingException $exception) {
             $io->error(PrintedText::inBlock($exception->getMessage()));
 
             return Command::FAILURE;

@@ -349,6 +349,7 @@ final class PasskeyLoginTest extends PasskeyTestCase
         $other = new Tenant(Uuid::v7(), 'other', new Issuer('https://other.test'), 'Other', self::now());
         $bob = User::create(Uuid::v7(), $other, new Subject('bob-subject'), 'bob', self::now());
         self::entityManager()->persist($other);
+        self::derivations()->record($other, 0, 0);
         self::service('test.beffroi.users', UserRepositoryInterface::class)->save($bob);
         self::service('test.beffroi.credentials', CredentialRepositoryInterface::class)
             ->save(
