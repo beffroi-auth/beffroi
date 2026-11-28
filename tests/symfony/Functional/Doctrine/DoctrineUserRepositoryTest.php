@@ -266,8 +266,8 @@ final class DoctrineUserRepositoryTest extends DatabaseTestCase
         yield 'an unknown username' => [
             static fn (UserRepositoryInterface $users): ?User => $users->findByUsername(self::tenant(), 'carol'),
         ];
-        yield 'a username in another case' => [
-            static fn (UserRepositoryInterface $users): ?User => $users->findByUsername(self::tenant(), 'ALICE'),
+        yield 'a username the profile of RFC 8265 §3.3 refuses' => [
+            static fn (UserRepositoryInterface $users): ?User => $users->findByUsername(self::tenant(), 'alice smith'),
         ];
         yield 'an unknown address' => [
             static fn (UserRepositoryInterface $users): ?User => $users->findAllByEmail(self::tenant(), new EmailAddress('carol@example.com'))[0] ?? null,

@@ -216,18 +216,21 @@ final class UserColumnsTest extends DatabaseTestCase
         static::assertTrue($read->id->equals($saved->id));
     }
 
+    /**
+     * RFC 8265 §3.3.4
+     */
     #[Test]
-    public function aUsernameDifferingByItsCaseFindsNobody(): void
+    public function aUsernameDifferingByItsCaseFindsTheSamePerson(): void
     {
         // Given
-        self::ada();
+        $saved = self::ada();
         self::reload();
 
         // When
         $read = self::users()->findByUsername(self::tenant(), 'Ada-Lovelace');
 
         // Then
-        static::assertNull($read);
+        static::assertTrue($read?->id->equals($saved->id));
     }
 
     /**
