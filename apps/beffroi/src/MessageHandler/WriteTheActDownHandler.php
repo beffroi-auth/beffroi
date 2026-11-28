@@ -7,9 +7,9 @@ namespace App\MessageHandler;
 use Beffroi\Core\Application\Journal\ActRecording;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
+use Beffroi\Core\Domain\Event\MayConcernAClientInterface;
 use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
 use Beffroi\Core\Domain\Event\SaysWhyItWasRefusedInterface;
-use Beffroi\Oidc\Domain\Event\MayConcernAClientInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler(bus: 'event.bus')]
