@@ -27,10 +27,12 @@ use App\Message\TellUserOfCredentialChange;
 use Beffroi\Core\Domain\Credential\CredentialChange;
 use Beffroi\Core\Domain\Event\CredentialEnrolled;
 use App\Messenger\SealedBodySerializer;
+use App\Messenger\SealedStamps;
 use App\Messenger\TenantStamp;
 use App\Tests\Symfony\Fixture\AmbientTenant;
 use App\Tests\Symfony\Fixture\AskWhatIsKnown;
 use App\Tests\Symfony\Fixture\EnrichTheProvenance;
+use App\Tests\Symfony\Fixture\NamedByNoRule;
 use App\Tests\Symfony\Fixture\SomethingHappened;
 use App\Tests\Symfony\Fixture\WokenWhenRead;
 use App\Tests\Symfony\Fixture\WriteBeforeAnswering;
@@ -41,6 +43,7 @@ use Beffroi\Core\Bridge\Key\OpenedKeys;
 use Beffroi\Core\Bridge\Key\SealedKeyProvider;
 use Beffroi\Core\Domain\Event\UserAuthenticated;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
+use Beffroi\Core\Domain\Key\GeneratedKeyPair;
 use Beffroi\Core\Domain\Key\TenantKey;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Exception\KmsUnavailableException;
@@ -51,6 +54,8 @@ use Beffroi\Core\Tests\Fixture\Fixtures;
 use Beffroi\Core\Tests\Fixture\Keys;
 use DateTimeImmutable;
 use function explode;
+use function implode;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -61,13 +66,18 @@ use function sprintf;
 use stdClass;
 use function str_replace;
 use function strlen;
+use function substr_replace;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\MessageDecodingFailedException;
 use Symfony\Component\Messenger\Exception\UnrecoverableExceptionInterface;
+use Symfony\Component\Messenger\Stamp\BusNameStamp;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\ErrorDetailsStamp;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
 use Symfony\Component\Messenger\Stamp\SentToFailureTransportStamp;
 use Symfony\Component\Messenger\Stamp\StampInterface;
+use Symfony\Component\Messenger\Stamp\TransportMessageIdStamp;
 use Symfony\Component\Scheduler\Generator\MessageContext;
 use Symfony\Component\Scheduler\Messenger\ScheduledStamp;
 use Symfony\Component\Scheduler\Trigger\PeriodicalTrigger;
@@ -85,6 +95,12 @@ final class SealedBodySerializerTest extends TestCase
     private const string USERNAME = 'alice@acme.example';
 
     private const string SUBJECT = 'alice-of-acme-0001';
+
+    private const string ADDRESS = 'bob.martin@example.org';
+
+    private const string REFUSAL = 'The relay refused the recipient <' . self::ADDRESS . '>.';
+
+    private const string CARRIED = 'a value only this stamp carries';
 
     private Tenant $tenant;
 
@@ -418,12 +434,12 @@ final class SealedBodySerializerTest extends TestCase
     }
 
     #[Test]
-    public function aFailedMessageIsNamedDatedAndExplainedWithoutItsBodyBeingOpened(): void
+    public function aFailedMessageIsNamedAndDatedWithoutItsBodyBeingOpened(): void
     {
         // Given
         $message = new SomethingHappened('a page was rendered');
         $encoded = $this->serializer->encode(new Envelope($message));
-        $refused = $this->serializerOf($this->tenant, new SealedKeyProvider(new InMemoryTenantKeyRepository(), Keys::opened()));
+        $refused = $this->aProcessThatHoldsAnotherMessageKey();
         $failure = $refused->decode($encoded);
         $redeliveredAt = new DateTimeImmutable('2026-10-09T12:00:00+00:00');
 
@@ -441,9 +457,12 @@ final class SealedBodySerializerTest extends TestCase
             static fn (RedeliveryStamp $stamp): string => $stamp->getRedeliveredAt()->format(DateTimeImmutable::RFC3339),
             self::stampsOf(RedeliveryStamp::class, $written['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . RedeliveryStamp::class] ?? ''),
         ));
-        static::assertSame(['the vault did not answer'], array_map(
-            static fn (ErrorDetailsStamp $stamp): string => $stamp->getExceptionMessage(),
-            self::stampsOf(ErrorDetailsStamp::class, $written['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . ErrorDetailsStamp::class] ?? ''),
+        static::assertSame(['async_priority_low'], array_map(
+            static fn (SentToFailureTransportStamp $stamp): string => $stamp->getOriginalReceiverName(),
+            self::stampsOf(
+                SentToFailureTransportStamp::class,
+                $written['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . SentToFailureTransportStamp::class] ?? '',
+            ),
         ));
     }
 
@@ -452,7 +471,7 @@ final class SealedBodySerializerTest extends TestCase
     {
         // Given
         $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
-        $refused = $this->serializerOf($this->tenant, new SealedKeyProvider(new InMemoryTenantKeyRepository(), Keys::opened()));
+        $refused = $this->aProcessThatHoldsAnotherMessageKey();
         $written = $refused->encode($refused->decode($encoded)->with(
             new RedeliveryStamp(1, new DateTimeImmutable('2026-10-09T12:00:00+00:00')),
             ErrorDetailsStamp::create(new KmsUnavailableException('the vault did not answer')),
@@ -464,6 +483,275 @@ final class SealedBodySerializerTest extends TestCase
         // Then
         static::assertSame('2026-10-09T12:00:00+00:00', $read->last(RedeliveryStamp::class)?->getRedeliveredAt()->format(DateTimeImmutable::RFC3339));
         static::assertSame('the vault did not answer', $read->last(ErrorDetailsStamp::class)?->getFlattenException()?->getMessage());
+    }
+
+    #[Test]
+    public function theErrorDetailsOfAHandlerThatFailedGiveNoneOfItsMessageAway(): void
+    {
+        // Given
+        $failed = new Envelope(new SomethingHappened('a page was rendered'), [
+            new RedeliveryStamp(1, new DateTimeImmutable('2026-10-09T12:00:00+00:00')),
+            self::aFailureThatNamesAnAddress(),
+        ]);
+
+        // When
+        $headers = $this->serializer->encode($failed)['headers'] ?? [];
+
+        // Then
+        self::assertNoHeaderGivesAway(self::ADDRESS, $headers);
+    }
+
+    #[Test]
+    public function theErrorDetailsOfAHandlerThatFailedReadBackInTheWorker(): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(
+            new Envelope(
+                new SomethingHappened('a page was rendered'),
+                [
+                    self::aFailureThatNamesAnAddress(),
+                ],
+            ),
+        );
+
+        // When
+        $read = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame(self::REFUSAL, $read->last(ErrorDetailsStamp::class)?->getExceptionMessage());
+        static::assertSame(self::REFUSAL, $read->last(ErrorDetailsStamp::class)->getFlattenException()?->getMessage());
+    }
+
+    #[Test]
+    public function onlyTheStampsNamedInClearAreWrittenInClear(): void
+    {
+        // Given
+        $triggeredAt = new DateTimeImmutable('2026-10-09T12:00:00+00:00');
+        $envelope = new Envelope(new AdvanceKeyLifecycle(), [
+            new BusNameStamp('command.bus'),
+            new RedeliveryStamp(2, $triggeredAt),
+            new SentToFailureTransportStamp('async_priority_medium'),
+            new DelayStamp(4000),
+            new HandledStamp('what the handler returned', 'App\MessageHandler\AdvanceKeyLifecycleHandler::__invoke'),
+            new TransportMessageIdStamp('42'),
+            new ScheduledStamp(new MessageContext('beffroi', 'advance-key-lifecycle', new PeriodicalTrigger(60, $triggeredAt), $triggeredAt)),
+            self::aFailureThatNamesAnAddress(),
+            new NamedByNoRule(self::CARRIED),
+        ]);
+
+        // When
+        $headers = $this->serializer->encode($envelope)['headers'] ?? [];
+
+        // Then
+        static::assertEqualsCanonicalizing(
+            [
+                SealedBodySerializer::TYPE_HEADER,
+                SealedBodySerializer::STAMP_HEADER_PREFIX . TenantStamp::class,
+                SealedBodySerializer::STAMP_HEADER_PREFIX . RedeliveryStamp::class,
+                SealedBodySerializer::STAMP_HEADER_PREFIX . BusNameStamp::class,
+                SealedBodySerializer::STAMP_HEADER_PREFIX . SentToFailureTransportStamp::class,
+                SealedBodySerializer::STAMP_HEADER_PREFIX . SealedStamps::class,
+            ],
+            array_keys($headers),
+        );
+    }
+
+    #[Test]
+    public function aStampNoRuleNamesIsSealed(): void
+    {
+        // Given
+        $envelope = new Envelope(new SomethingHappened('a page was rendered'), [new NamedByNoRule(self::CARRIED)]);
+
+        // When
+        $headers = $this->serializer->encode($envelope)['headers'] ?? [];
+
+        // Then
+        static::assertArrayNotHasKey(SealedBodySerializer::STAMP_HEADER_PREFIX . NamedByNoRule::class, $headers);
+        self::assertNoHeaderGivesAway(self::CARRIED, $headers);
+    }
+
+    #[Test]
+    public function aStampNoRuleNamesReadsBackWithItsMessage(): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered'), [
+            new NamedByNoRule(self::CARRIED),
+        ]));
+
+        // When
+        $read = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame(self::CARRIED, $read->last(NamedByNoRule::class)?->carried);
+    }
+
+    #[Test]
+    public function theErrorDetailsOfABodyThatDoesNotOpenAreSealedToo(): void
+    {
+        // Given
+        $refused = $this->aProcessThatHoldsAnotherMessageKey();
+        $failure = $refused->decode($this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered'))));
+
+        // When
+        $headers = $refused->encode($failure->with(
+            new RedeliveryStamp(1, new DateTimeImmutable('2026-10-09T12:00:00+00:00')),
+            self::aFailureThatNamesAnAddress(),
+        ))['headers'] ?? [];
+
+        // Then
+        self::assertNoHeaderGivesAway(self::ADDRESS, $headers);
+    }
+
+    #[Test]
+    public function aStampWrittenInClearBeforeStampsWereSealedStillReadsBack(): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . ErrorDetailsStamp::class] = base64_encode(serialize([
+            self::aFailureThatNamesAnAddress(),
+        ]));
+
+        // When
+        $read = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame(self::REFUSAL, $read->last(ErrorDetailsStamp::class)?->getExceptionMessage());
+    }
+
+    #[Test]
+    #[DataProvider('provideWorkersThatWriteAMessageAgain')]
+    public function aStampWrittenInClearBeforeStampsWereSealedIsSealedWhenItsMessageIsWrittenAgain(bool $opensTheBody): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . ErrorDetailsStamp::class] = base64_encode(serialize([
+            self::aFailureThatNamesAnAddress(),
+        ]));
+        $worker = $opensTheBody ? $this->serializer : $this->aProcessThatHoldsAnotherMessageKey();
+
+        // When
+        $headers = $worker->encode($worker
+            ->decode($encoded)
+            ->with(
+                new RedeliveryStamp(1, new DateTimeImmutable('2026-10-09T12:00:00+00:00')),
+            ))['headers'] ?? [];
+
+        // Then
+        self::assertNoHeaderGivesAway(self::ADDRESS, $headers);
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function provideWorkersThatWriteAMessageAgain(): iterable
+    {
+        yield 'a worker that opens its body' => [true];
+        yield 'a worker that cannot open its body' => [false];
+    }
+
+    #[Test]
+    public function aHeaderThatDoesNotReadBackGoesOnSealedWhateverStampItNames(): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . BusNameStamp::class] = base64_encode(serialize([
+            self::aFailureThatNamesAnAddress(),
+        ]));
+        $refused = $this->aProcessThatHoldsAnotherMessageKey();
+
+        // When
+        $headers = $refused->encode($refused->decode($encoded))['headers'] ?? [];
+
+        // Then
+        self::assertNoHeaderGivesAway(self::ADDRESS, $headers);
+    }
+
+    #[Test]
+    public function theStampsSealedForAnotherTenantGoOnAsTheyCame(): void
+    {
+        // Given
+        $other = Fixtures::tenant('other', 'https://id.other.example');
+        $this->keys->save($this->messageKey($other));
+        $ofTheOther = $this->serializerOf($other, new SealedKeyProvider($this->keys, Keys::opened()));
+        $encoded = $ofTheOther->encode(new Envelope(new SomethingHappened('something of another tenant'), [
+            new NamedByNoRule(self::CARRIED),
+        ]));
+        $strayed = $this->serializer->encode($this->serializer->decode($encoded)->with(self::aFailureThatNamesAnAddress()));
+
+        // When
+        $read = $ofTheOther->decode($strayed);
+
+        // Then
+        static::assertInstanceOf(SomethingHappened::class, $read->getMessage());
+        static::assertSame(self::CARRIED, $read->last(NamedByNoRule::class)?->carried);
+    }
+
+    #[Test]
+    public function stampsSealedForThisTenantThatDoNotOpenAreAFailureOfTheMessage(): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered'), [
+            new NamedByNoRule(self::CARRIED),
+        ]));
+        $header = SealedBodySerializer::STAMP_HEADER_PREFIX . SealedStamps::class;
+        $parts = explode('.', self::stampsOf(SealedStamps::class, $encoded['headers'][$header] ?? '')[0]->jwe);
+        $parts[3] = substr_replace($parts[3], $parts[3][8] === 'A' ? 'B' : 'A', 8, 1);
+        $encoded['headers'][$header] = base64_encode(serialize([new SealedStamps(implode('.', $parts))]));
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame('The stamps sealed with the message do not open.', self::failureOf($decoded)->getMessage());
+    }
+
+    #[Test]
+    #[DataProvider('provideSealedStampsThatDoNotReadBack')]
+    public function sealedStampsThatDoNotReadBackAreAStampThatDoesNotReadBack(string $sealed, string $refusal): void
+    {
+        // Given
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . SealedStamps::class] = base64_encode(serialize([
+            new SealedStamps($this->sealer()->seal($this->tenant, $sealed)),
+        ]));
+
+        // When
+        $decoded = $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame($refusal, self::failureOf($decoded)->getMessage());
+        static::assertSame($this->tenant->slug, $decoded->last(TenantStamp::class)?->slug);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function provideSealedStampsThatDoNotReadBack(): iterable
+    {
+        yield 'no list of headers' => ['the stamps, written by hand', 'The stamps sealed with the message do not read back.'];
+        yield 'a header that is no base64' => [
+            serialize([SealedBodySerializer::STAMP_HEADER_PREFIX . ErrorDetailsStamp::class => 'no base64 at all!']),
+            sprintf('The header of the stamp "%s" does not read back.', ErrorDetailsStamp::class),
+        ];
+    }
+
+    #[Test]
+    public function sealedStampsBringNoObjectToLife(): void
+    {
+        // Given
+        WokenWhenRead::$woken = 0;
+        $encoded = $this->serializer->encode(new Envelope(new SomethingHappened('a page was rendered')));
+        $encoded['headers'][SealedBodySerializer::STAMP_HEADER_PREFIX . SealedStamps::class] = base64_encode(serialize([
+            new SealedStamps($this->sealer()->seal($this->tenant, serialize([
+                SealedBodySerializer::STAMP_HEADER_PREFIX . WokenWhenRead::class => new WokenWhenRead(),
+            ]))),
+        ]));
+
+        // When
+        $this->serializer->decode($encoded);
+
+        // Then
+        static::assertSame(0, WokenWhenRead::$woken);
     }
 
     #[Test]
@@ -704,9 +992,21 @@ final class SealedBodySerializerTest extends TestCase
         );
     }
 
-    private function messageKey(Tenant $tenant): TenantKey
+    /**
+     * A worker of the same tenant whose key the bodies of this test are not sealed to, as after that key left: it seals,
+     * and it opens what it sealed itself.
+     */
+    private function aProcessThatHoldsAnotherMessageKey(): SealedBodySerializer
     {
-        $pair = Keys::messagePair();
+        $keys = new InMemoryTenantKeyRepository();
+        $keys->save($this->messageKey($this->tenant, Keys::otherMessagePair()));
+
+        return $this->serializerOf($this->tenant, new SealedKeyProvider($keys, Keys::opened()));
+    }
+
+    private function messageKey(Tenant $tenant, ?GeneratedKeyPair $pair = null): TenantKey
+    {
+        $pair ??= Keys::messagePair();
         $key = new TenantKey(
             $pair->kid,
             $tenant,
@@ -719,6 +1019,27 @@ final class SealedBodySerializerTest extends TestCase
         $key->activate(Fixtures::now());
 
         return $key;
+    }
+
+    private function sealer(): JwtLibraryMessageBodySealer
+    {
+        return new JwtLibraryMessageBodySealer(new SealedKeyProvider($this->keys, Keys::opened()), Algorithms::messageSealing());
+    }
+
+    private static function aFailureThatNamesAnAddress(): ErrorDetailsStamp
+    {
+        return ErrorDetailsStamp::create(new InvalidArgumentException(self::REFUSAL));
+    }
+
+    /**
+     * @param array<string, string> $headers
+     */
+    private static function assertNoHeaderGivesAway(string $value, array $headers): void
+    {
+        foreach ($headers as $name => $header) {
+            static::assertStringNotContainsString($value, $header, sprintf('the header "%s" gives "%s" away.', $name, $value));
+            static::assertStringNotContainsString($value, (string) base64_decode($header, true), sprintf('the header "%s" gives "%s" away.', $name, $value));
+        }
     }
 
     private static function failureOf(Envelope $envelope): MessageDecodingFailedException

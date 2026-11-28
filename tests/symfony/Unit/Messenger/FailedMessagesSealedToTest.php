@@ -7,6 +7,8 @@ namespace App\Tests\Symfony\Unit\Messenger;
 use App\Messenger\FailedMessagesSealedTo;
 use App\Messenger\LaneDsn;
 use App\Messenger\MessengerContract;
+use App\Messenger\SealedBodySerializer;
+use App\Messenger\SealedStamps;
 use App\Tests\Symfony\Fixture\QueuedBodies;
 use Beffroi\Core\Bridge\InMemory\InMemoryTenantKeyRepository;
 use Beffroi\Core\Bridge\JwtLibrary\JwtLibraryMessageBodySealer;
@@ -22,6 +24,8 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use function base64_encode;
+use function serialize;
 use function str_replace;
 
 /**
@@ -53,6 +57,18 @@ final class FailedMessagesSealedToTest extends TestCase
     {
         // Given
         $this->sendTo(MessengerContract::FAILURE_DSN, $this->sealed());
+
+        // When / Then
+        static::assertTrue(new FailedMessagesSealedTo($this->connection)->holds($this->messageKey));
+    }
+
+    #[Test]
+    public function aMessageKeyTheSealedStampsOfAFailedMessageAreSealedToIsHeld(): void
+    {
+        // Given
+        $this->sendTo(MessengerContract::FAILURE_DSN, 'a body sealed to a key this tenant no longer holds', [
+            SealedBodySerializer::STAMP_HEADER_PREFIX . SealedStamps::class => base64_encode(serialize([new SealedStamps($this->sealed())])),
+        ]);
 
         // When / Then
         static::assertTrue(new FailedMessagesSealedTo($this->connection)->holds($this->messageKey));
@@ -113,9 +129,12 @@ final class FailedMessagesSealedToTest extends TestCase
         return new JwtLibraryMessageBodySealer(new SealedKeyProvider($this->keys, Keys::opened()), Algorithms::messageSealing())->seal($this->tenant, 'a:0:{}');
     }
 
-    private function sendTo(string $dsn, string $body): void
+    /**
+     * @param array<string, string> $headers
+     */
+    private function sendTo(string $dsn, string $body, array $headers = []): void
     {
-        QueuedBodies::send($this->connection, $dsn, $body);
+        QueuedBodies::send($this->connection, $dsn, $body, $headers);
     }
 
     private function key(KeyAlgorithmInterface $algorithm, GeneratedKeyPair $pair): TenantKey

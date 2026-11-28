@@ -6,15 +6,21 @@ namespace App\Messenger;
 
 use __PHP_Incomplete_Class;
 use function array_any;
+use function array_filter;
+use function array_intersect_key;
 use function array_map;
 use function array_values;
 use function base64_decode;
 use function base64_encode;
 use DateTimeImmutable;
+use Beffroi\Core\Bridge\JwtLibrary\SealedMessageBody;
 use Beffroi\Core\Exception\InvalidJweException;
+use Beffroi\Core\Exception\KeyNotFoundException;
+use Beffroi\Core\Exception\KmsUnavailableException;
 use Beffroi\Core\Port\AmbientTenantInterface;
 use Beffroi\Core\Port\MessageBodyOpenerInterface;
 use Beffroi\Core\Port\MessageBodySealerInterface;
+use function in_array;
 use function is_array;
 use function is_object;
 use function is_string;
@@ -29,9 +35,11 @@ use Symfony\Component\ErrorHandler\Exception\FlattenException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\MessageDecodingFailedException;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
+use Symfony\Component\Messenger\Stamp\BusNameStamp;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Messenger\Stamp\NonSendableStampInterface;
 use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
+use Symfony\Component\Messenger\Stamp\SentToFailureTransportStamp;
 use Symfony\Component\Messenger\Stamp\StampInterface;
 use Symfony\Component\Messenger\Transport\Serialization\SerializerInterface;
 use Symfony\Component\Scheduler\Generator\MessageContext;
@@ -50,10 +58,26 @@ final readonly class SealedBodySerializer implements SerializerInterface
     public const string TYPE_HEADER = 'type';
 
     /**
+     * The stamps written in clear, each read before a body opens or when it never does, none carrying anything of the
+     * message: the tenant the body opens under, the count of its retries, the bus a worker hands it to, the transport
+     * a failure came from, and the other stamps, sealed. Every other stamp, of Messenger or of this provider, named
+     * here or not, is sealed with the others.
+     *
+     * @var list<class-string<StampInterface>>
+     */
+    public const array STAMPS_IN_CLEAR = [
+        TenantStamp::class,
+        RedeliveryStamp::class,
+        BusNameStamp::class,
+        SentToFailureTransportStamp::class,
+        SealedStamps::class,
+    ];
+
+    /**
      * What a stamp of the component holds besides scalars: the exception of an ErrorDetailsStamp, the moment of a
      * RedeliveryStamp, and that moment as the clock of the component writes it when the stamp is given none, the
      * context of a ScheduledStamp, whose trigger crosses as its description only. Whoever writes to the transport
-     * writes the headers, and no key seals them.
+     * writes the headers, and whoever reads the public half of a message key can seal stamps: no seal proves an origin.
      *
      * @var list<class-string>
      */
@@ -91,12 +115,17 @@ final readonly class SealedBodySerializer implements SerializerInterface
         if ($failed !== null) {
             $headers = [
                 self::TYPE_HEADER => $failed['headers'][self::TYPE_HEADER] ?? $message::class,
-                ...self::encodeStamps($envelope),
+                ...$this->encodeStamps($envelope, $failed['headers']),
             ];
 
             return [
                 'body' => $failed['body'],
-                'headers' => $headers + $failed['headers'],
+                'headers' => $headers
+                    + array_filter(
+                        $failed['headers'],
+                        static fn (string $name): bool => ! str_starts_with($name, self::STAMP_HEADER_PREFIX),
+                        ARRAY_FILTER_USE_KEY,
+                    ),
             ];
         }
         $tenant = $this->tenants->provide();
@@ -106,9 +135,29 @@ final readonly class SealedBodySerializer implements SerializerInterface
             'body' => $this->sealer->seal($tenant, serialize($message)),
             'headers' => [
                 self::TYPE_HEADER => $message::class,
-                ...self::encodeStamps($envelope),
+                ...$this->encodeStamps($envelope, []),
             ],
         ];
+    }
+
+    /**
+     * The compact JWEs of the sealed stamps a set of headers carries, read as the decoding reads them.
+     *
+     * @param array<array-key, mixed> $headers
+     *
+     * @return list<string>
+     */
+    public static function sealedStampsIn(array $headers): array
+    {
+        $header = self::STAMP_HEADER_PREFIX . SealedStamps::class;
+        $sealed = [];
+        foreach (self::decodeStamps(array_intersect_key(self::headers(['headers' => $headers]), [$header => true])) as $stamp) {
+            if ($stamp instanceof SealedStamps) {
+                $sealed[] = $stamp->jwe;
+            }
+        }
+
+        return $sealed;
     }
 
     /**
@@ -118,7 +167,7 @@ final readonly class SealedBodySerializer implements SerializerInterface
      */
     public function decode(array $encodedEnvelope): Envelope
     {
-        $stamps = self::decodeStamps($encodedEnvelope, $stampFailure);
+        $stamps = $this->openStamps(self::decodeStamps(self::headers($encodedEnvelope), $stampFailure), $stampFailure, $sealFailure);
         $body = $encodedEnvelope['body'];
         if ($body === '') {
             return MessageDecodingFailedException::wrap($encodedEnvelope, 'An encoded envelope of this provider carries a sealed body.')->with(...$stamps);
@@ -171,6 +220,9 @@ final readonly class SealedBodySerializer implements SerializerInterface
                 is_string($type) ? $type : 'nothing',
             ))->with(...$stamps);
         }
+        if ($sealFailure !== null) {
+            return MessageDecodingFailedException::wrap($encodedEnvelope, 'The stamps sealed with the message do not open.', 0, $sealFailure)->with(...$stamps);
+        }
 
         return new Envelope($message, $stamps);
     }
@@ -202,16 +254,96 @@ final readonly class SealedBodySerializer implements SerializerInterface
     }
 
     /**
+     * A stamp header of a body that failed to decode, which no stamp of the envelope replaces, goes on sealed whatever
+     * class it names: nothing read what it holds.
+     *
+     * @param array<string, string> $failedHeaders
+     *
      * @return array<string, string>
+     *
+     * @throws KeyNotFoundException when the tenant has no active message key, rather than writing a stamp in the clear
      */
-    private static function encodeStamps(Envelope $envelope): array
+    private function encodeStamps(Envelope $envelope, array $failedHeaders): array
     {
-        $headers = [];
+        $clear = [];
+        $sealed = [];
         foreach ($envelope->all() as $class => $stamps) {
-            $headers[self::STAMP_HEADER_PREFIX . $class] = base64_encode(serialize(array_values($stamps)));
+            if ($class === SealedStamps::class) {
+                continue;
+            }
+            $header = self::STAMP_HEADER_PREFIX . $class;
+            $value = base64_encode(serialize(array_values($stamps)));
+            if (in_array($class, self::STAMPS_IN_CLEAR, true)) {
+                $clear[$header] = $value;
+            } else {
+                $sealed[$header] = $value;
+            }
+        }
+        foreach ($failedHeaders as $name => $value) {
+            if (str_starts_with($name, self::STAMP_HEADER_PREFIX) && $name !== self::STAMP_HEADER_PREFIX . SealedStamps::class && ! isset($clear[$name])) {
+                $sealed[$name] ??= $value;
+            }
+        }
+        $sealedStamps = $envelope->all(SealedStamps::class);
+        if ($sealed !== []) {
+            $sealedStamps[] = new SealedStamps($this->sealer->seal($this->tenants->provide(), serialize($sealed)));
+        }
+        if ($sealedStamps !== []) {
+            $clear[self::STAMP_HEADER_PREFIX . SealedStamps::class] = base64_encode(serialize(array_values($sealedStamps)));
         }
 
-        return $headers;
+        return $clear;
+    }
+
+    /**
+     * The stamps sealed for the tenant of this process are opened, whatever tenant a header in clear names, and read as
+     * the headers in clear are; the ones whose seal names another tenant go on as they came. Sealed stamps that do not
+     * open are a failure of the message, reported once its body opened: without them, a handler that already ran would
+     * run again.
+     *
+     * @param list<StampInterface> $stamps
+     *
+     * @return list<StampInterface>
+     *
+     * @throws KmsUnavailableException
+     */
+    private function openStamps(array $stamps, ?Throwable &$stampFailure, ?InvalidJweException &$sealFailure): array
+    {
+        $opened = [];
+        $tenant = null;
+        foreach ($stamps as $stamp) {
+            if (! $stamp instanceof SealedStamps) {
+                $opened[] = $stamp;
+
+                continue;
+            }
+            $tenant ??= $this->tenants->provide();
+            $sealedFor = SealedMessageBody::tenantOf($stamp->jwe);
+            if ($sealedFor !== null && $sealedFor !== $tenant->slug) {
+                $opened[] = $stamp;
+
+                continue;
+            }
+            try {
+                $headers = @unserialize($this->opener->open($tenant, $stamp->jwe), [
+                    'allowed_classes' => false,
+                ]);
+            } catch (InvalidJweException $exception) {
+                $sealFailure ??= $exception;
+                $opened[] = $stamp;
+
+                continue;
+            }
+            if (! is_array($headers)) {
+                $stampFailure ??= new MessageDecodingFailedException('The stamps sealed with the message do not read back.');
+                $opened[] = $stamp;
+
+                continue;
+            }
+            $opened = [...$opened, ...self::decodeStamps(self::headers(['headers' => $headers]), $stampFailure)];
+        }
+
+        return $opened;
     }
 
     /**
@@ -219,13 +351,12 @@ final readonly class SealedBodySerializer implements SerializerInterface
      * When the stamp that counts them is the one that does not read back, the failure is not retried: without its
      * count, the message would be retried forever.
      *
-     * @param array{body?: string, headers?: array<string, string>, extra?: array<string, mixed>} $encodedEnvelope
+     * @param array<string, string> $headers
      *
      * @return list<StampInterface>
      */
-    private static function decodeStamps(array $encodedEnvelope, ?Throwable &$failure = null): array
+    private static function decodeStamps(array $headers, ?Throwable &$failure = null): array
     {
-        $headers = self::headers($encodedEnvelope);
         $stamps = [];
         foreach ($headers as $name => $value) {
             if (! str_starts_with($name, self::STAMP_HEADER_PREFIX)) {
@@ -273,7 +404,7 @@ final readonly class SealedBodySerializer implements SerializerInterface
     }
 
     /**
-     * @param array{body?: string, headers?: array<string, string>, extra?: array<string, mixed>} $encodedEnvelope
+     * @param array{body?: string, headers?: mixed, extra?: array<string, mixed>} $encodedEnvelope
      *
      * @return array<string, string>
      */
