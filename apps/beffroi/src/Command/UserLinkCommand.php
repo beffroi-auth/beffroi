@@ -28,7 +28,7 @@ final readonly class UserLinkCommand
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'The username of the user of this tenant.')]
+        #[Argument(description: 'The username of the user of this tenant, or their identifier.')]
         string $username,
         #[Argument(description: 'The upstream provider, as the registration that trusts it names it (the "identity_provider" of a trusted issuer).')]
         string $provider,

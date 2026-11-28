@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Command;
 
 use App\Command\UserReindexCommand;
-use App\Doctrine\PersonalData\EncryptedColumnTypes;
-use Beffroi\Core\Domain\Identity\User;
+use App\Doctrine\PersonalData\BlindIndexDerivations;
+use App\Doctrine\PersonalData\BlindIndexedColumns;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Port\UserRepositoryInterface;
+use IntlChar;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use function sprintf;
-use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Console\Command\Command;
 
+/**
+ * A row of 0.1 holds its username as written, and the tag the Verbatim projection derived of it under the name of the
+ * column; its tenant recorded no derivation.
+ */
 final class ReindexTest extends ConsoleTestCase
 {
     #[Test]
@@ -52,13 +57,29 @@ final class ReindexTest extends ConsoleTestCase
     }
 
     /**
-     * RFC 8265 §3.3.4: the upgrade of a tag derived from the username as written.
+     * RFC 8265 §3.3.4
      */
     #[Test]
-    public function aPersonWhoseTagWasDerivedFromTheUsernameAsWrittenIsFoundUnderAnotherCase(): void
+    public function beforeTheReindexAPersonOf01IsFoundUnderTheirUsernameAsWritten(): void
     {
         // Given
-        $bob = self::writtenBefore('Bob', 'bob');
+        $bob = self::personOf01('Bob', 'bob');
+
+        // When
+        $found = self::users()->findByUsername(self::tenant(), 'Bob');
+
+        // Then
+        static::assertTrue($found?->id->equals($bob->id));
+    }
+
+    /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function afterTheReindexAPersonOf01IsFoundUnderAnotherCaseOfTheirUsername(): void
+    {
+        // Given
+        $bob = self::personOf01('Bob', 'bob');
 
         // When
         self::console(UserReindexCommand::NAME);
@@ -68,20 +89,37 @@ final class ReindexTest extends ConsoleTestCase
     }
 
     /**
+     * RFC 8265 §3.3.4
+     */
+    #[Test]
+    public function beforeTheReindexTheNameAsWrittenOfAPairFindsThePersonWrittenSo(): void
+    {
+        // Given
+        self::personOf01('alice', 'alice');
+        $other = self::personOf01('Alice', 'other-alice');
+
+        // When
+        $found = self::users()->findByUsername(self::tenant(), 'Alice');
+
+        // Then
+        static::assertTrue($found?->id->equals($other->id));
+    }
+
+    /**
      * RFC 8265 §3.3
      */
     #[Test]
     public function itNamesAPersonWhoseUsernameTheProfileRefuses(): void
     {
         // Given
-        $jean = self::writtenBefore('Jean Dupont', 'jean');
+        $jean = self::personOf01('Jean Dupont', 'jean');
 
         // When
         $tester = self::console(UserReindexCommand::NAME);
 
         // Then
         static::assertStringContainsString(
-            'RFC 8265 §3.3 refuses the username of 1 person(s), who sign in under it as written until an administrator renames them.',
+            'RFC 8265 §3.3 refuses the username of 1 person(s), who sign in under it as written until an administrator renames them, and at the latest until 1.0.0.',
             self::flattened($tester),
         );
         static::assertMatchesRegularExpression(sprintf('/^\s*%s\s+Jean Dupont\s*$/m', $jean->id->toRfc4122()), $tester->getDisplay(true));
@@ -94,7 +132,7 @@ final class ReindexTest extends ConsoleTestCase
     public function aPersonWhoseUsernameTheProfileRefusesIsStillFoundAsWritten(): void
     {
         // Given
-        $jean = self::writtenBefore('Jean Dupont', 'jean');
+        $jean = self::personOf01('Jean Dupont', 'jean');
 
         // When
         self::console(UserReindexCommand::NAME);
@@ -110,15 +148,15 @@ final class ReindexTest extends ConsoleTestCase
     public function itNamesThePersonsWhoseUsernamesTheProfileComparesAsOne(): void
     {
         // Given
-        $alice = self::user('alice', 'alice-subject');
-        $other = self::writtenBefore('Alice', 'other-alice');
+        $alice = self::personOf01('alice', 'alice');
+        $other = self::personOf01('Alice', 'other-alice');
 
         // When
         $tester = self::console(UserReindexCommand::NAME);
 
         // Then
         static::assertStringContainsString(
-            '2 persons have usernames RFC 8265 §3.3.4 compares as one: their blind indexes were left as they were. Rename all of them but one, then run this command again.',
+            '2 persons have usernames RFC 8265 §3.3.4 compares as one, and no lookup finds them until they are renamed.',
             self::flattened($tester),
         );
         static::assertMatchesRegularExpression(
@@ -131,63 +169,148 @@ final class ReindexTest extends ConsoleTestCase
      * RFC 8265 §3.3.4
      */
     #[Test]
-    public function thePersonsTheProfileComparesAsOneKeepTheirTags(): void
+    public function itSaysWhomTheOtherSpellingsOfAPairNamedBefore(): void
     {
         // Given
-        self::user('alice', 'alice-subject');
-        $other = self::writtenBefore('Alice', 'other-alice');
-
-        // When
-        self::console(UserReindexCommand::NAME);
-
-        // Then
-        static::assertSame('derived-before-other-alice', self::entityManager()
-            ->getConnection()
-            ->fetchOne(
-                'SELECT username_index FROM beffroi_user WHERE id = ?',
-                [$other->id],
-                [UuidType::NAME],
-            ));
-    }
-
-    #[Test]
-    public function itFailsWhileAPersonIsLeftToRename(): void
-    {
-        // Given
-        self::writtenBefore('Jean Dupont', 'jean');
+        $alice = self::personOf01('alice', 'alice');
+        self::personOf01('Alice', 'other-alice');
 
         // When
         $tester = self::console(UserReindexCommand::NAME);
 
         // Then
-        static::assertSame(Command::FAILURE, $tester->getStatusCode());
+        static::assertStringContainsString(
+            sprintf('Before, each username named the person written so, and any other spelling named %s.', $alice->id->toRfc4122()),
+            self::flattened($tester),
+        );
     }
 
     /**
-     * A person written before RFC 8265 §3.3 applied: their username as it was kept, and a tag of their own.
+     * RFC 8265 §3.3.4: neither person of a pair is found under the name of the other.
      */
-    private static function writtenBefore(string $username, string $name): User
+    #[Test]
+    #[DataProvider('provideSpellingsOfAPair')]
+    public function afterTheReindexNoSpellingOfAPairFindsAnyOfIt(string $spelling): void
     {
-        $user = self::user($name, $name . '-subject');
-        self::entityManager()
-            ->getConnection()
-            ->update(
-                'beffroi_user',
-                [
-                    'username' => $username,
-                    'username_index' => 'derived-before-' . $name,
-                ],
-                [
-                    'id' => $user->id,
-                ],
-                [
-                    'username' => EncryptedColumnTypes::name('user', 'string'),
-                    'id' => UuidType::NAME,
-                ],
-            );
-        self::reload();
+        // Given
+        self::personOf01('alice', 'alice');
+        self::personOf01('Alice', 'other-alice');
 
-        return $user;
+        // When
+        self::console(UserReindexCommand::NAME);
+
+        // Then
+        static::assertNull(self::users()->findByUsername(self::tenant(), $spelling));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideSpellingsOfAPair(): iterable
+    {
+        yield 'the enforced form' => ['alice'];
+        yield 'the other username' => ['Alice'];
+        yield 'a third spelling' => ['ALICE'];
+    }
+
+    /**
+     * RFC 8265 §3.3.4: a change of a person the reindex set aside is written, and leaves them where no lookup finds them.
+     */
+    #[Test]
+    public function aPersonOfAPairIsChangedOtherwiseThanRenamedAndStaysSetAside(): void
+    {
+        // Given
+        self::personOf01('alice', 'alice');
+        $other = self::personOf01('Alice', 'other-alice');
+        self::console(UserReindexCommand::NAME);
+        $person = self::users()->find($other->id) ?? static::fail('The person is not stored.');
+        $person->changeEmail(new EmailAddress('alice.martin@acme.example'), false, self::now());
+
+        // When
+        self::users()->save($person);
+
+        // Then
+        self::reload();
+        static::assertSame(
+            ['alice.martin@acme.example', null],
+            [self::users()->find($other->id)?->email?->value, self::users()->findByUsername(self::tenant(), 'Alice')],
+        );
+    }
+
+    #[Test]
+    public function aRunThatNamesPersonsEndsWithItsOwnStatus(): void
+    {
+        // Given
+        self::personOf01('Jean Dupont', 'jean');
+
+        // When
+        $tester = self::console(UserReindexCommand::NAME);
+
+        // Then
+        static::assertSame(UserReindexCommand::PERSONS_NAMED, $tester->getStatusCode());
+    }
+
+    #[Test]
+    public function itRecordsTheDerivationAndTheVersionOfUnicodeItDerivedUnder(): void
+    {
+        // Given
+        self::personOf01('Bob', 'bob');
+
+        // When
+        self::console(UserReindexCommand::NAME);
+
+        // Then
+        $recorded = self::derivations()->recorded(self::tenant());
+        static::assertSame(
+            [BlindIndexedColumns::DERIVATION, IntlChar::UNICODE_VERSION],
+            [$recorded?->derivation, $recorded?->unicodeVersion],
+        );
+    }
+
+    #[Test]
+    public function whenDueItLeavesATenantWhoseTagsAreDerivedUnderThisBuild(): void
+    {
+        // Given
+        self::user('alice', 'alice-subject');
+
+        // When
+        $tester = self::console(UserReindexCommand::NAME, [
+            '--when-due' => true,
+        ]);
+
+        // Then
+        static::assertStringContainsString(
+            sprintf('The blind indexes of the tenant "%s" are derived under the projections of this build.', self::tenant()->slug),
+            self::flattened($tester),
+        );
+    }
+
+    #[Test]
+    #[DataProvider('provideDerivationsDue')]
+    public function whenDueItDerivesATenantWhoseTagsAreDerivedUnderAnother(string $statement): void
+    {
+        // Given
+        $bob = self::personOf01('Bob', 'bob');
+        self::derivations()->record(self::tenant(), 0, 0);
+        self::entityManager()->getConnection()->executeStatement($statement);
+
+        // When
+        self::console(UserReindexCommand::NAME, [
+            '--when-due' => true,
+        ]);
+
+        // Then
+        static::assertTrue(self::users()->findByUsername(self::tenant(), 'bob')?->id->equals($bob->id));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideDerivationsDue(): iterable
+    {
+        yield 'none, as 0.1 left it' => ['DELETE FROM ' . BlindIndexDerivations::TABLE];
+        yield 'under another version of Unicode' => ['UPDATE ' . BlindIndexDerivations::TABLE . " SET unicode_version = '15.1'"];
+        yield 'under an earlier derivation' => ['UPDATE ' . BlindIndexDerivations::TABLE . ' SET derivation = 0'];
     }
 
     private static function users(): UserRepositoryInterface

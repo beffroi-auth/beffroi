@@ -39,7 +39,7 @@ final readonly class GroupAddMemberCommand
         SymfonyStyle $io,
         #[Argument(description: 'The name of the group, exactly as the tenant holds it.')]
         string $group,
-        #[Argument(description: 'The username of the user.')]
+        #[Argument(description: 'The username of the user, or their identifier.')]
         string $username,
     ): int {
         $tenant = $this->tenant->orTold($io);
