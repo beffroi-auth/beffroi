@@ -15,5 +15,12 @@
         <field name="name" type="string" column="name" length="255"/>
         <field name="source" type="string" column="source" length="32" enum-type="Beffroi\Core\Domain\Group\GroupSource"/>
         <field name="createdAt" type="datetime_immutable" column="created_at"/>
+        <field name="updatedAt" type="datetime_immutable" column="updated_at"/>
+        <!-- A group the table held before the column came is at the first version. -->
+        <field name="version" type="integer" column="version">
+            <options>
+                <option name="default">1</option>
+            </options>
+        </field>
     </entity>
 </doctrine-mapping>

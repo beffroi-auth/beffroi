@@ -91,6 +91,7 @@ final readonly class LocalMemberships
         }
         $now = $this->clock->now();
         $membership = new GroupMembership($this->uuids->timeOrdered(), $group, $user, GroupSource::Local, $now);
+        $group->membershipChanged($now);
         $this->memberships->save($membership);
         $this->events->dispatch(new GroupMembershipAdded($group->tenant, $user->subject, $group->name, $now, $context, $administrator));
 
@@ -106,8 +107,10 @@ final readonly class LocalMemberships
         if ($membership->source->isManaged()) {
             throw GroupMembershipException::givenByADirectory($group->name);
         }
+        $now = $this->clock->now();
+        $group->membershipChanged($now);
         $this->memberships->remove($membership);
-        $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->name, $this->clock->now(), $context, $administrator));
+        $this->events->dispatch(new GroupMembershipRemoved($group->tenant, $user->subject, $group->name, $now, $context, $administrator));
     }
 
     private function membershipOf(Group $group, User $user): ?GroupMembership

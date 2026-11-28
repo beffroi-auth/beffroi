@@ -61,9 +61,11 @@ final readonly class UpstreamMemberships
         }
 
         foreach ($left as $membership) {
+            $membership->group->membershipChanged($now);
             $this->memberships->remove($membership);
         }
         foreach ($joined as $membership) {
+            $membership->group->membershipChanged($now);
             $this->memberships->save($membership);
         }
     }

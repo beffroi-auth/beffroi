@@ -113,6 +113,25 @@ final class DoctrineUserRepositoryTest extends DatabaseTestCase
         static::assertEquals(self::now()->modify('+1 hour'), $found->updatedAt);
     }
 
+    /**
+     * RFC 7644 §3.14
+     */
+    #[Test]
+    public function theVersionAChangeRaisesIsWrittenOnSave(): void
+    {
+        // Given
+        $user = self::user();
+        $user->rename('alice2', self::now()->modify('+1 hour'));
+        self::users()->save($user);
+        self::reload();
+
+        // When
+        $found = self::users()->find($user->id) ?? static::fail('The user was not stored.');
+
+        // Then
+        static::assertSame(2, $found->version);
+    }
+
     #[Test]
     public function whatItsSourceHoldsIsWrittenOnSave(): void
     {

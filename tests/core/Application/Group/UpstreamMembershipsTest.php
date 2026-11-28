@@ -241,4 +241,56 @@ final class UpstreamMembershipsTest extends TestCase
 
         return $sources;
     }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1 and §4.2
+     *
+     * @param list<string> $before   what the provider asserted at the sign-in before
+     * @param list<string> $asserted
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function aMemberASignInAddsOrTakesBackRaisesTheVersionOfTheGroupOnceAndDatesIt(array $before, array $asserted): void
+    {
+        // Given
+        $this->upstream->replace($this->user, $before, $this->mapping);
+        $version = $this->sales->version;
+        $this->clock->modify('+1 minute');
+
+        // When
+        $this->upstream->replace($this->user, $asserted, $this->mapping);
+
+        // Then
+        static::assertSame(
+            [$version + 1, $this->clock->now()->getTimestamp()],
+            [$this->sales->version, $this->sales->updatedAt->getTimestamp()],
+        );
+    }
+
+    /**
+     * @return iterable<string, array{list<string>, list<string>}>
+     */
+    public static function provideChangesOfTheMembers(): iterable
+    {
+        yield 'joined' => [[], ['sales-guid']];
+        yield 'left' => [['sales-guid'], []];
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1
+     */
+    #[Test]
+    public function aSignInThatChangesNoMembershipLeavesTheVersionOfTheGroup(): void
+    {
+        // Given
+        $this->upstream->replace($this->user, ['sales-guid'], $this->mapping);
+        $was = [$this->sales->version, $this->sales->updatedAt];
+        $this->clock->modify('+1 minute');
+
+        // When
+        $this->upstream->replace($this->user, ['sales-guid'], $this->mapping);
+
+        // Then
+        static::assertSame($was, [$this->sales->version, $this->sales->updatedAt]);
+    }
 }

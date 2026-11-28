@@ -105,6 +105,26 @@ final class GroupsTest extends DatabaseTestCase
         static::assertTrue($found?->id->equals($group->id));
     }
 
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1
+     */
+    #[Test]
+    public function theVersionAndTheLastChangeOfARenamingAreWrittenOnSave(): void
+    {
+        // Given
+        $group = new Group(Uuid::v7(), self::tenant(), 'admins', GroupSource::Local, self::now());
+        self::groupsOfTheTenant()->save($group);
+        $group->rename('administrators', self::now()->modify('+1 hour'));
+        self::groupsOfTheTenant()->save($group);
+        self::reload();
+
+        // When
+        $found = self::listedGroups()->find(self::tenant(), $group->id) ?? static::fail('The group was not stored.');
+
+        // Then
+        static::assertEquals([2, self::now()->modify('+1 hour')], [$found->version, $found->updatedAt]);
+    }
+
     private static function listedGroups(): GroupsOfATenantInterface
     {
         return self::service('test.beffroi.groups_of_a_tenant', GroupsOfATenantInterface::class);

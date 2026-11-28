@@ -42,6 +42,11 @@ final class User implements ClassifiedFieldsInterface
     public private(set) ?MailEncryptionKey $mailEncryption = null;
     public private(set) ChosenChannels $notificationChannels;
 
+    /**
+     * Raised once by every change of the person, never by a call that changes nothing (RFC 7644 §3.14).
+     */
+    public private(set) int $version = 1;
+
     public function __construct(
         public private(set) Uuid $id,
         public readonly Tenant $tenant,
@@ -92,8 +97,12 @@ final class User implements ClassifiedFieldsInterface
 
     public function rename(string $username, DateTimeImmutable $now): void
     {
-        $this->username = self::normalizeUsername($username);
-        $this->updatedAt = $now;
+        $username = self::normalizeUsername($username);
+        if ($username === $this->username) {
+            return;
+        }
+        $this->username = $username;
+        $this->changed($now);
     }
 
     /**
@@ -102,12 +111,16 @@ final class User implements ClassifiedFieldsInterface
     public function changeEmail(?EmailAddress $email, bool $verified, DateTimeImmutable $now): void
     {
         self::assertVerifiable($email, $verified, 'email address');
-        if ($email?->value !== $this->email?->value) {
+        $another = $email?->value !== $this->email?->value;
+        if (! $another && $verified === $this->emailVerified) {
+            return;
+        }
+        if ($another) {
             $this->mailEncryption = null;
         }
         $this->email = $email;
         $this->emailVerified = $verified;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     /**
@@ -122,9 +135,12 @@ final class User implements ClassifiedFieldsInterface
                 PlainText::MAX_PHONE_NUMBER_LENGTH,
             ));
         }
+        if ($phoneNumber === $this->phoneNumber && $verified === $this->phoneNumberVerified) {
+            return;
+        }
         $this->phoneNumber = $phoneNumber;
         $this->phoneNumberVerified = $verified;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function verifiedEmail(): ?EmailAddress
@@ -154,8 +170,11 @@ final class User implements ClassifiedFieldsInterface
         if (! $key->isValidAt($now)) {
             throw new MailEncryptionRefusedException(MailEncryptionRefusal::NotValidNow, 'The certificate or the key is not valid at this moment.');
         }
+        if ($key->toDocument() === $this->mailEncryption?->toDocument()) {
+            return;
+        }
         $this->mailEncryption = $key;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function writeMailInClear(DateTimeImmutable $now): void
@@ -164,7 +183,7 @@ final class User implements ClassifiedFieldsInterface
             return;
         }
         $this->mailEncryption = null;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function verifiedPhoneNumber(): ?string
@@ -174,14 +193,21 @@ final class User implements ClassifiedFieldsInterface
 
     public function updateProfile(Profile $profile, DateTimeImmutable $now): void
     {
+        if ($profile->toDocument() === $this->profile->toDocument()) {
+            return;
+        }
         $this->profile = $profile;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function changeAddress(?Address $address, DateTimeImmutable $now): void
     {
-        $this->address = $address?->isEmpty() === true ? null : $address;
-        $this->updatedAt = $now;
+        $address = $address?->isEmpty() === true ? null : $address;
+        if ($address?->toDocument() === $this->address?->toDocument()) {
+            return;
+        }
+        $this->address = $address;
+        $this->changed($now);
     }
 
     /**
@@ -192,14 +218,20 @@ final class User implements ClassifiedFieldsInterface
         if ($source->provider !== $this->source->provider) {
             throw new InvalidArgumentException('What a source holds of a person changes, and the provider that created the person does not.');
         }
+        if ($source->toDocument() === $this->source->toDocument()) {
+            return;
+        }
         $this->source = $source;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function chooseChannels(ChosenChannels $chosen, DateTimeImmutable $now): void
     {
+        if ($chosen->toDocument() === $this->notificationChannels->toDocument()) {
+            return;
+        }
         $this->notificationChannels = $chosen;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function disable(DateTimeImmutable $now): void
@@ -208,7 +240,7 @@ final class User implements ClassifiedFieldsInterface
             return;
         }
         $this->disabledAt = $now;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function enable(DateTimeImmutable $now): void
@@ -217,7 +249,7 @@ final class User implements ClassifiedFieldsInterface
             return;
         }
         $this->disabledAt = null;
-        $this->updatedAt = $now;
+        $this->changed($now);
     }
 
     public function isEnabled(): bool
@@ -233,6 +265,12 @@ final class User implements ClassifiedFieldsInterface
     public function maySayOfThemselves(string $claim): bool
     {
         return $this->tenant->selfServedClaims->opens($claim) && ! $this->source->holds($claim);
+    }
+
+    private function changed(DateTimeImmutable $now): void
+    {
+        $this->updatedAt = $now;
+        ++$this->version;
     }
 
     /**
@@ -279,6 +317,7 @@ final class User implements ClassifiedFieldsInterface
             'notificationChannels' => new Sealed('user'),
             'createdAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'updatedAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
+            'version' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'disabledAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'id' => new NoPersonalDatum(Reason::DRAWN_AT_RANDOM),
             'tenant' => new NoPersonalDatum(Reason::THE_TENANT),

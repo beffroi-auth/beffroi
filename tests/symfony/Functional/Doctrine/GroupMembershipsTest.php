@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Symfony\Functional\Doctrine;
 
 use Beffroi\Core\Application\Group\UpstreamMemberships;
+use Beffroi\Core\Bridge\Uid\SymfonyUuidGenerator;
 use Beffroi\Core\Domain\Group\Group;
 use Beffroi\Core\Domain\Group\GroupMapping;
 use Beffroi\Core\Domain\Group\GroupMembership;
@@ -14,9 +15,12 @@ use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Port\GroupMembershipRepositoryInterface;
 use Beffroi\Core\Port\GroupsOfAPersonInterface;
 use Beffroi\Core\Port\MembersOfAGroupInterface;
+use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use function sprintf;
 use function array_map;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -170,6 +174,51 @@ final class GroupMembershipsTest extends DatabaseTestCase
 
         // Then
         static::assertSame(1, $count);
+    }
+
+    /**
+     * RFC 7644 §3.14, RFC 7643 §3.1 and §4.2
+     *
+     * @param list<string> $before   what the provider asserted at the sign-in before
+     * @param list<string> $asserted
+     */
+    #[Test]
+    #[DataProvider('provideChangesOfTheMembers')]
+    public function aMemberASignInAddsOrTakesBackRaisesTheVersionOfTheGroupInTheTable(array $before, array $asserted): void
+    {
+        // Given
+        $user = self::user();
+        $sales = self::group('sales');
+        $mapping = new GroupMapping(['sales-guid' => $sales]);
+        self::upstream(self::now())->replace($user, $before, $mapping);
+        $version = $sales->version;
+
+        // When
+        self::upstream(self::now()->modify('+1 hour'))->replace($user, $asserted, $mapping);
+
+        // Then
+        self::reload();
+        $found = self::entityManager()->find(Group::class, $sales->id) ?? static::fail('The group was not stored.');
+        static::assertEquals([$version + 1, self::now()->modify('+1 hour')], [$found->version, $found->updatedAt]);
+    }
+
+    /**
+     * @return iterable<string, array{list<string>, list<string>}>
+     */
+    public static function provideChangesOfTheMembers(): iterable
+    {
+        yield 'joined' => [[], ['sales-guid']];
+        yield 'left' => [['sales-guid'], []];
+    }
+
+    private static function upstream(DateTimeImmutable $now): UpstreamMemberships
+    {
+        return new UpstreamMemberships(
+            self::service('test.beffroi.groups_of_a_person', GroupsOfAPersonInterface::class),
+            self::memberships(),
+            new SymfonyUuidGenerator(),
+            new MockClock($now),
+        );
     }
 
     private static function members(): MembersOfAGroupInterface

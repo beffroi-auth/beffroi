@@ -29,6 +29,16 @@ final class Group implements ClassifiedFieldsInterface
      */
     private const string EDGE_WHITESPACE = '/^[\s\p{Z}\x{85}]|[\s\p{Z}\x{85}]\z/u';
 
+    /**
+     * RFC 7643 §3.1: a group never changed since its creation was last changed when it was created.
+     */
+    public private(set) DateTimeImmutable $updatedAt;
+
+    /**
+     * Raised once by every change of the group, its members included (RFC 7644 §3.14).
+     */
+    public private(set) int $version = 1;
+
     public function __construct(
         public private(set) Uuid $id,
         public readonly Tenant $tenant,
@@ -36,7 +46,8 @@ final class Group implements ClassifiedFieldsInterface
         public readonly GroupSource $source,
         public readonly DateTimeImmutable $createdAt,
     ) {
-        $this->rename($name);
+        self::assertName($name);
+        $this->updatedAt = $createdAt;
     }
 
     /**
@@ -45,7 +56,31 @@ final class Group implements ClassifiedFieldsInterface
      * @throws InvalidArgumentException when the name is empty, too long, not in NFC, begins or ends with whitespace, or is
      *                                  not plain text
      */
-    public function rename(string $name): void
+    public function rename(string $name, DateTimeImmutable $now): void
+    {
+        self::assertName($name);
+        if ($name === $this->name) {
+            return;
+        }
+        $this->name = $name;
+        $this->changed($now);
+    }
+
+    public function membershipChanged(DateTimeImmutable $now): void
+    {
+        $this->changed($now);
+    }
+
+    private function changed(DateTimeImmutable $now): void
+    {
+        $this->updatedAt = $now;
+        ++$this->version;
+    }
+
+    /**
+     * @throws InvalidArgumentException
+     */
+    private static function assertName(string $name): void
     {
         if ($name === '') {
             throw new InvalidArgumentException('A group name must not be empty.');
@@ -62,7 +97,6 @@ final class Group implements ClassifiedFieldsInterface
         if (! PlainText::holds($name, self::NAME_MAX_LENGTH)) {
             throw new InvalidArgumentException('A group name must be plain text, with no control, format or line separator character.');
         }
-        $this->name = $name;
     }
 
     /**
@@ -74,6 +108,8 @@ final class Group implements ClassifiedFieldsInterface
             'name' => new NoPersonalDatum('names a group of the tenant, an organisational unit and not a person'),
             'source' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'createdAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
+            'updatedAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
+            'version' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'id' => new NoPersonalDatum(Reason::DRAWN_AT_RANDOM),
             'tenant' => new NoPersonalDatum(Reason::THE_TENANT),
         ];
