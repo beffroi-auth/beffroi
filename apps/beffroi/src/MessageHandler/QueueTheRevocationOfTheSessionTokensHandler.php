@@ -7,13 +7,12 @@ namespace App\MessageHandler;
 use App\Message\RevokeTheTokensOfTheSession;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\DispatchAfterCurrentBusStamp;
 
 /**
- * Sent once the end is handled whole: a handler of it that fails drops the command, and the end handled again sends it
- * again, so that it is sent once.
+ * Sent at once, and not after the end is handled: a message held for later is one a failing handler of the end drops,
+ * which has the retry run every handler again and write the end a second time. A retry that runs this one again sends
+ * the command again, which announces nothing the second time.
  */
 #[AsMessageHandler(bus: 'event.bus')]
 final readonly class QueueTheRevocationOfTheSessionTokensHandler
@@ -25,13 +24,13 @@ final readonly class QueueTheRevocationOfTheSessionTokensHandler
 
     public function __invoke(AuthenticationSessionEnded $event): void
     {
-        $this->commandBus->dispatch(Envelope::wrap(new RevokeTheTokensOfTheSession(
+        $this->commandBus->dispatch(new RevokeTheTokensOfTheSession(
             $event->tenant,
             $event->session->id,
             $event->occurredAt,
             $event->subject(),
             $event->context,
-            $event->administrator,
-        ), [new DispatchAfterCurrentBusStamp()]));
+            $event->author(),
+        ));
     }
 }

@@ -7,6 +7,7 @@ namespace App\Tests\Symfony\Functional\Command;
 use App\Command\UserRevokeSessionCommand;
 use App\Tests\Symfony\Functional\Controller\TokensOfASession;
 use function array_map;
+use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Session\SessionEnd;
 use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
 use PHPUnit\Framework\Attributes\Test;
@@ -65,7 +66,7 @@ final class SessionsTest extends ConsoleTestCase
     }
 
     /**
-     * Decision 0022, Architecture §5.5
+     * Decisions 0022 and 0066, Architecture §5.5
      */
     #[Test]
     public function theTokensASessionEndedAtTheConsoleLostAreAnActFromTheConsole(): void
@@ -78,7 +79,7 @@ final class SessionsTest extends ConsoleTestCase
         self::end('alice', $session->id->toString());
 
         // Then
-        static::assertSame([['oidc-demo', 1, 1, null, true]], array_map(
+        static::assertEquals([['oidc-demo', 1, 1, new TheHost(), true]], array_map(
             static fn (SessionTokensRevoked $act): array => [
                 $act->clientId,
                 $act->refreshTokens,

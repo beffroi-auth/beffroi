@@ -24,7 +24,7 @@ final readonly class RevokeTheTokensOfTheSessionHandler
             $command->tenant,
             $command->subject,
             $command->context,
-            $command->administrator,
+            $command->author,
         );
     }
 }

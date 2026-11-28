@@ -47,6 +47,7 @@ final class SchemaTest extends DatabaseTestCase
         'beffroi_backchannel_authentication_request',
         'beffroi_refresh_token',
         'beffroi_refresh_token_family',
+        'beffroi_announced_session_end',
         'beffroi_access_token',
         'beffroi_client_access_token',
         'beffroi_subject_access_token',

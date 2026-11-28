@@ -6,6 +6,7 @@ namespace App\Tests\Symfony\Functional\Controller;
 
 use App\Http\SessionsPage;
 use function array_map;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Journal\JournalEntry;
@@ -99,8 +100,8 @@ final class AccountSessionsTest extends BrowserTestCase
         $this->browser->request('POST', '/account/sessions/' . $other->id . '/revoke', ['_token' => $token]);
 
         // Then
-        static::assertSame([[$alice->subject->value, 'oidc-demo', null]], array_map(
-            static fn (JournalEntry $act): array => [$act->subject?->value, $act->client, $act->author?->value],
+        static::assertEquals([[$alice->subject->value, 'oidc-demo', new ThePerson()]], array_map(
+            static fn (JournalEntry $act): array => [$act->subject?->value, $act->client, $act->author],
             self::entityManager()->getRepository(JournalEntry::class)->findBy(['act' => SessionTokensRevoked::NAME]),
         ));
     }

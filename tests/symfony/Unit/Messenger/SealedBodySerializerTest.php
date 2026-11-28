@@ -133,6 +133,7 @@ final class SealedBodySerializerTest extends TestCase
             Fixtures::now(),
             Fixtures::user()->subject,
             Fixtures::context(),
+            new ThePerson(),
         )];
         yield 'a change told to a person' => [new TellUserOfCredentialChange(
             new CredentialChange(Fixtures::user(), CredentialEnrolled::NAME, Fixtures::now(), 'passkey'),

@@ -7,6 +7,7 @@ namespace App\Tests\Symfony\Functional\Controller;
 use function array_filter;
 use function array_map;
 use function base64_encode;
+use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
@@ -290,12 +291,12 @@ final class EndSessionControllerTest extends BrowserTestCase
                 $ended,
                 self::currentSecond(),
                 self::context(),
-                new Subject('administrator-subject'),
+                new AnAdministrator(new Subject('administrator-subject')),
             ));
 
         // Then
-        static::assertSame([['oidc-demo', 1, 1, 'administrator-subject']], array_map(
-            static fn (SessionTokensRevoked $act): array => [$act->clientId, $act->refreshTokens, $act->accessTokens, $act->author()?->value],
+        static::assertEquals([['oidc-demo', 1, 1, new AnAdministrator(new Subject('administrator-subject'))]], array_map(
+            static fn (SessionTokensRevoked $act): array => [$act->clientId, $act->refreshTokens, $act->accessTokens, $act->author()],
             self::events(SessionTokensRevoked::class),
         ));
     }

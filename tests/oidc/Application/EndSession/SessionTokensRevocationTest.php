@@ -7,6 +7,9 @@ namespace Beffroi\Oidc\Tests\Application\EndSession;
 use function array_map;
 use function count;
 use DateTimeImmutable;
+use Beffroi\Core\Domain\Author\AnAdministrator;
+use Beffroi\Core\Domain\Author\AuthorInterface;
+use Beffroi\Core\Domain\Author\ThePerson;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
@@ -18,6 +21,7 @@ use Beffroi\Core\Tests\Fixture\WritesAsTheyCome;
 use Beffroi\Oidc\Application\EndSession\SessionTokensRevocation;
 use Beffroi\Oidc\Application\Token\RefreshTokenRevocation;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryAccessTokenRepository;
+use Beffroi\Oidc\Bridge\InMemory\InMemoryAnnouncedSessionEnds;
 use Beffroi\Oidc\Bridge\InMemory\InMemoryRefreshTokenRepository;
 use Beffroi\Oidc\Domain\Client\Client;
 use Beffroi\Oidc\Domain\Event\SessionTokensRevoked;
@@ -54,6 +58,8 @@ final class SessionTokensRevocationTest extends TestCase
 
     private WritesAsTheyCome $writes;
 
+    private InMemoryAnnouncedSessionEnds $announced;
+
     private SessionTokensRevocation $revocation;
 
     protected function setUp(): void
@@ -67,6 +73,7 @@ final class SessionTokensRevocationTest extends TestCase
         $this->events = new RecordingEventDispatcher();
         $this->context = Fixtures::context($this->endedAt);
         $this->writes = new WritesAsTheyCome();
+        $this->announced = new InMemoryAnnouncedSessionEnds();
         $this->revocation = $this->revocationRecordedBy($this->events);
     }
 
@@ -143,11 +150,12 @@ final class SessionTokensRevocationTest extends TestCase
             new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens),
             $accessTokens,
             $this->writes,
+            new InMemoryAnnouncedSessionEnds(),
             $this->events,
         );
 
         // When
-        $revocation->sessionEnded($this->session->id, $this->endedAt, $this->alice->tenant, $this->alice->subject, $this->context);
+        $revocation->sessionEnded($this->session->id, $this->endedAt, $this->alice->tenant, $this->alice->subject, $this->context, new ThePerson());
 
         // Then
         static::assertSame([1, true], [$this->writes->units, $accessTokens->removedInTheUnit]);
@@ -188,7 +196,7 @@ final class SessionTokensRevocationTest extends TestCase
         // Then
         $act = $this->events->of(SessionTokensRevoked::class)[0] ?? static::fail('The end of the session raised no act.');
         static::assertEquals(
-            [$this->alice->tenant, $this->alice->subject, $this->session->id, $this->endedAt, $this->context, null],
+            [$this->alice->tenant, $this->alice->subject, $this->session->id, $this->endedAt, $this->context, new ThePerson()],
             [$act->tenant, $act->subject(), $act->sessionId, $act->occurredAt, $act->context, $act->author()],
         );
     }
@@ -201,14 +209,14 @@ final class SessionTokensRevocationTest extends TestCase
     {
         // Given
         $this->refreshToken('current', $this->session);
-        $administrator = new Subject('administrator-subject');
+        $administrator = new AnAdministrator(new Subject('administrator-subject'));
 
         // When
         $this->endTheSessionAsAnAdministrator($administrator);
 
         // Then
         static::assertSame([$administrator], array_map(
-            static fn (SessionTokensRevoked $act): ?Subject => $act->author(),
+            static fn (SessionTokensRevoked $act): AuthorInterface => $act->author(),
             $this->events->of(SessionTokensRevoked::class),
         ));
     }
@@ -258,6 +266,39 @@ final class SessionTokensRevocationTest extends TestCase
         yield 'rotated before the end' => ['-2 days', '-1 day', null];
         yield 'expired before the end' => ['-31 days', null, null];
         yield 'revoked before the end' => ['-2 days', null, '-1 day'];
+    }
+
+    /**
+     * Decision 0022
+     */
+    #[Test]
+    public function aRefreshTokenAnotherActRevokedAfterTheEndIsNotCounted(): void
+    {
+        // Given
+        $this->refreshToken('given-back', $this->session)->revoke($this->endedAt->modify('+30 seconds'));
+
+        // When
+        $this->endTheSession();
+
+        // Then
+        static::assertSame([], $this->counted());
+    }
+
+    #[Test]
+    public function aSecondRunOfTheRevocationAnnouncesNothing(): void
+    {
+        // Given
+        $this->refreshToken('current', $this->session);
+        $this->accessToken('opaque', $this->client);
+        $this->endTheSession();
+        $this->events = new RecordingEventDispatcher();
+        $revocation = $this->revocationRecordedBy($this->events);
+
+        // When
+        $revocation->sessionEnded($this->session->id, $this->endedAt, $this->alice->tenant, $this->alice->subject, $this->context, new ThePerson());
+
+        // Then
+        static::assertSame([], $this->events->events);
     }
 
     /**
@@ -354,24 +395,24 @@ final class SessionTokensRevocationTest extends TestCase
         $this->refreshToken('held', $this->session);
         $this->accessToken('opaque', $this->client);
         $this->revocation->outlived($this->session->id, $this->endedAt);
-        $administrator = new Subject('administrator-subject');
+        $administrator = new AnAdministrator(new Subject('administrator-subject'));
 
         // When
         $this->endTheSessionAsAnAdministrator($administrator);
 
         // Then
-        static::assertSame([['oidc-demo', 1, 1, 'administrator-subject']], array_map(
-            static fn (SessionTokensRevoked $act): array => [$act->clientId, $act->refreshTokens, $act->accessTokens, $act->author()?->value],
+        static::assertEquals([['oidc-demo', 1, 1, $administrator]], array_map(
+            static fn (SessionTokensRevoked $act): array => [$act->clientId, $act->refreshTokens, $act->accessTokens, $act->author()],
             $this->events->of(SessionTokensRevoked::class),
         ));
     }
 
     private function endTheSession(): void
     {
-        $this->revocation->sessionEnded($this->session->id, $this->endedAt, $this->alice->tenant, $this->alice->subject, $this->context);
+        $this->revocation->sessionEnded($this->session->id, $this->endedAt, $this->alice->tenant, $this->alice->subject, $this->context, new ThePerson());
     }
 
-    private function endTheSessionAsAnAdministrator(Subject $administrator): void
+    private function endTheSessionAsAnAdministrator(AnAdministrator $administrator): void
     {
         $this->revocation->sessionEnded(
             $this->session->id,
@@ -390,6 +431,7 @@ final class SessionTokensRevocationTest extends TestCase
             new RefreshTokenRevocation($this->refreshTokens, $this->refreshTokens),
             $this->accessTokens,
             $this->writes,
+            $this->announced,
             $events,
         );
     }

@@ -16,6 +16,8 @@ use Beffroi\Core\Domain\Author\TheHost;
 use Beffroi\Core\Domain\Author\AnAdministrator;
 use Beffroi\Core\Domain\Author\ADirectory;
 use Beffroi\Core\Domain\Author\AClient;
+use Beffroi\Core\Domain\Author\AnUnauthenticatedCaller;
+use Beffroi\Core\Domain\Author\AnUpstreamProvider;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Event\DomainEventInterface;
 use Beffroi\Core\Domain\Session\AuthenticationSession;
@@ -298,27 +300,27 @@ final class EventsLeaveTheProcessTest extends TestCase
             $next->expiresAt,
             $context,
         )];
-        yield 'the tokens of a client revoked at the end of a session' => [new SessionTokensRevoked(
-            $now,
-            $session->tenant,
-            $clientId,
-            $subject,
-            $session->id,
-            2,
-            1,
-            $context,
-        )];
-        yield 'the tokens of a client revoked at the end of a session an administrator ended' => [new SessionTokensRevoked(
-            $now,
-            $session->tenant,
-            $clientId,
-            $subject,
-            $session->id,
-            1,
-            0,
-            $context,
-            new Subject('administrator-subject'),
-        )];
+        foreach ([
+            'the person' => new ThePerson(),
+            'an administrator' => new AnAdministrator(new Subject('administrator-subject')),
+            'a client' => new AClient($clientId),
+            'a directory' => new ADirectory('Entra ID'),
+            'an upstream provider' => new AnUpstreamProvider('Acme SSO'),
+            'an unauthenticated caller' => new AnUnauthenticatedCaller(),
+            'the host' => new TheHost(),
+        ] as $kind => $author) {
+            yield 'the tokens of a client revoked at the end of a session ended by ' . $kind => [new SessionTokensRevoked(
+                $now,
+                $session->tenant,
+                $clientId,
+                $subject,
+                $session->id,
+                2,
+                1,
+                $context,
+                $author,
+            )];
+        }
         yield 'an access token revoked' => [new TokenRevoked(
             $now,
             $client->tenant,

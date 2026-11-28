@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Beffroi\Oidc\Domain\Event;
 
+use Beffroi\Core\Domain\Author\AuthorInterface;
 use DateTimeImmutable;
 use Beffroi\Core\Domain\Event\ConcernsAPersonInterface;
-use Beffroi\Core\Domain\Event\NamesItsAuthorInterface;
 use Beffroi\Core\Domain\Identity\Subject;
 use Beffroi\Core\Domain\Session\RequestContext;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Symfony\Component\Uid\Uuid;
 
-final readonly class SessionTokensRevoked implements ConcernsAClientInterface, ConcernsAPersonInterface, NamesItsAuthorInterface
+final readonly class SessionTokensRevoked implements ConcernsAClientInterface, ConcernsAPersonInterface
 {
     public const string NAME = 'session_tokens.revoked';
 
     /**
      * @param non-negative-int $refreshTokens the refresh tokens of the client the end of the session revoked
      * @param non-negative-int $accessTokens the opaque access tokens of the client the end of the session removed
-     * @param Subject|null $administrator the administrator of the tenant who ended the session, by the subject of their account
+     * @param AuthorInterface $author who ended the session
      */
     public function __construct(
         public DateTimeImmutable $occurredAt,
@@ -30,7 +30,7 @@ final readonly class SessionTokensRevoked implements ConcernsAClientInterface, C
         public int $refreshTokens,
         public int $accessTokens,
         public RequestContext $context,
-        public ?Subject $administrator = null,
+        public AuthorInterface $author,
     ) {
     }
 
@@ -44,8 +44,8 @@ final readonly class SessionTokensRevoked implements ConcernsAClientInterface, C
         return $this->subject;
     }
 
-    public function author(): ?Subject
+    public function author(): AuthorInterface
     {
-        return $this->administrator;
+        return $this->author;
     }
 }
