@@ -50,6 +50,21 @@ deptrac:
     - name: 'SamlBridge'
       collectors:
         - { type: directory, value: '../src/saml/src/Bridge/.*' }
+    # beffroi/scim (src/scim/spec/scim.md section 2), the SCIM module, at the level of beffroi/oidc and beffroi/saml:
+    # the same four layers, nothing of another protocol either way, and nothing of the core sees it.
+    - name: 'ScimDomain'
+      collectors:
+        - { type: directory, value: '../src/scim/src/Domain/.*' }
+        - { type: directory, value: '../src/scim/src/Exception/.*' }
+    - name: 'ScimPort'
+      collectors:
+        - { type: directory, value: '../src/scim/src/Port/.*' }
+    - name: 'ScimApplication'
+      collectors:
+        - { type: directory, value: '../src/scim/src/Application/.*' }
+    - name: 'ScimBridge'
+      collectors:
+        - { type: directory, value: '../src/scim/src/Bridge/.*' }
     - name: 'App'
       collectors:
         - { type: directory, value: '../apps/beffroi/src/.*' }
@@ -342,6 +357,36 @@ deptrac:
       - 'XmlCore'
       - 'XmlDsig'
       - 'XmlEnc'
+    ScimDomain:
+      - 'CoreDomain'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Uid'
+    ScimPort:
+      - 'ScimDomain'
+      - 'CoreDomain'
+      - 'CorePort'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Uid'
+    ScimApplication:
+      - 'ScimDomain'
+      - 'ScimPort'
+      - 'CoreDomain'
+      - 'CorePort'
+      - 'CoreApplication'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Uid'
+    ScimBridge:
+      - 'ScimDomain'
+      - 'ScimPort'
+      - 'ScimApplication'
+      - 'CoreDomain'
+      - 'CorePort'
+      - 'Psr'
+      - 'PsrClock'
+      - 'Uid'
     App:
       - 'CoreDomain'
       - 'CorePort'
