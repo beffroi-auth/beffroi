@@ -6,6 +6,8 @@ namespace App\Sms;
 
 use App\Messenger\NotificationNotDeliveredException;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Notification\ChannelSnapshot;
+use Beffroi\Core\Domain\Notification\ReplacedChannel;
 use Closure;
 use Psr\Log\LoggerInterface;
 use SensitiveParameter;
@@ -17,7 +19,8 @@ use Symfony\Component\Notifier\Transport\TransportInterface;
 
 /**
  * Texts the number of a person once it is verified, and no other, but for the confirmation that establishes a
- * number, which goes to that number before it is verified (decision 0048).
+ * number, which goes to that number before it is verified (decision 0048), and for the notice of a change, which goes
+ * to the number it replaced as well while the person held it verified (decision 0049).
  */
 final readonly class SmsSender
 {
@@ -47,6 +50,24 @@ final readonly class SmsSender
         }
 
         return $this->text($user, $verified, $text);
+    }
+
+    /**
+     * Decision 0049, CNIL délibération n° 2022-100 point 55: the notice of a change goes to the number it replaced,
+     * which the person held verified before it.
+     *
+     * @return bool false for a channel that is not a number, or when the deployment cannot send a text at all, and
+     *              which is sent nothing
+     *
+     * @throws NotificationNotDeliveredException when the transport did not take the text
+     */
+    public function sendToTheReplaced(User $user, ReplacedChannel $replaced, string $text): bool
+    {
+        if ($replaced->claim !== ChannelSnapshot::PHONE_NUMBER) {
+            return false;
+        }
+
+        return $this->text($user, $replaced->value, $text);
     }
 
     /**

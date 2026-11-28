@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Identity;
 
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Tests\Fixture\FakeChannelChangeWindow;
+use Beffroi\Core\Tests\Fixture\RecordingCredentialChangeNotifier;
 use Beffroi\Core\Domain\Identity\UpstreamProvider;
 use Beffroi\Core\Domain\Identity\EmailDomain;
 use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
@@ -39,6 +42,8 @@ use Beffroi\Core\Tests\Fixture\Fixtures;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use function sprintf;
+use function array_map;
+use Beffroi\Core\Domain\Credential\CredentialChange;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -74,6 +79,8 @@ final class UserProvisionerTest extends TestCase
 
     private FixedClaims $claims;
 
+    private RecordingCredentialChangeNotifier $notifier;
+
     protected function setUp(): void
     {
         $this->tenant = Fixtures::tenant();
@@ -83,6 +90,7 @@ final class UserProvisionerTest extends TestCase
         $this->clock = new MockClock('2026-09-15T12:00:00+00:00');
         $this->upstreamProviders = new InMemoryUpstreamProviders();
         $this->claims = new FixedClaims([new Zoneinfo(), new Locale(self::KNOWN_LOCALES)]);
+        $this->notifier = new RecordingCredentialChangeNotifier();
         $breaches = BreachedPasswordsOfARecord::holding([self::BREACHED]);
         $this->provisioner = $this->provisionerAsking($breaches);
     }
@@ -236,6 +244,46 @@ final class UserProvisionerTest extends TestCase
         static::assertNull($user->phoneNumber);
         static::assertFalse($user->phoneNumberVerified);
         static::assertNull($user->address);
+    }
+
+    /**
+     * Decision 0049, NIST SP 800-63A-4 §5.3, CNIL délibération n° 2022-100 point 55
+     */
+    #[Test]
+    public function aNumberTheOperatorChangesIsToldToTheOneItReplaced(): void
+    {
+        // Given
+        $user = $this->provisioner->create($this->tenant, 'alice');
+        $user->changePhoneNumber('+44 1865 000000', true, $this->clock->now());
+
+        // When
+        $this->provisioner->setProfile($user, Profile::empty(), '+44 1865 999999');
+
+        // Then
+        static::assertSame(
+            [[ChannelChangeNotice::ACT, 'phone_number', '+44 1865 000000']],
+            array_map(
+                static fn (CredentialChange $change): array => [$change->act, $change->kind, $change->replaced?->value],
+                $this->notifier->told,
+            ),
+        );
+    }
+
+    /**
+     * Decision 0049
+     */
+    #[Test]
+    public function aProfileThatLeavesTheNumberAsItWasTellsNothing(): void
+    {
+        // Given
+        $user = $this->provisioner->create($this->tenant, 'alice');
+        $user->changePhoneNumber('+44 1865 000000', true, $this->clock->now());
+
+        // When
+        $this->provisioner->setProfile($user, new Profile(givenName: 'Alice'), '+44 1865 000000', true);
+
+        // Then
+        static::assertSame([], $this->notifier->told);
     }
 
     #[Test]
@@ -663,6 +711,7 @@ final class UserProvisionerTest extends TestCase
             new SymfonyUuidGenerator(),
             $this->clock,
             $this->claims,
+            new ChannelChangeNotice(new FakeChannelChangeWindow(), $this->notifier),
         );
     }
 }

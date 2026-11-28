@@ -8,7 +8,8 @@ use function sprintf;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 
 /**
- * The channels a change is told through, each found again by its name.
+ * The channels a change is told through, each found again by its name, and those that tell a change to the channel it
+ * replaced, apart.
  */
 final readonly class CredentialChangeChannels
 {
@@ -16,6 +17,11 @@ final readonly class CredentialChangeChannels
      * @var list<string>
      */
     private array $names;
+
+    /**
+     * @var array<string, list<string>> by the claim of the channel they reach once replaced
+     */
+    private array $replacing;
 
     /**
      * @var array<string, CredentialChangeChannelInterface>
@@ -30,6 +36,7 @@ final readonly class CredentialChangeChannels
     public function __construct(iterable $channels)
     {
         $names = [];
+        $replacing = [];
         $named = [];
         foreach ($channels as $channel) {
             $name = $channel->name();
@@ -39,10 +46,15 @@ final readonly class CredentialChangeChannels
                     $name,
                 ));
             }
-            $names[] = $name;
+            if ($channel instanceof ReplacedChannelInterface) {
+                $replacing[$channel->claim()][] = $name;
+            } else {
+                $names[] = $name;
+            }
             $named[$name] = $channel;
         }
         $this->names = $names;
+        $this->replacing = $replacing;
         $this->channels = $named;
     }
 
@@ -52,6 +64,16 @@ final readonly class CredentialChangeChannels
     public function names(): array
     {
         return $this->names;
+    }
+
+    /**
+     * @param string $claim the claim of a channel a change replaced, OIDC Core §5.1
+     *
+     * @return list<string> the names of the channels that tell the change to it, in the order they were given
+     */
+    public function reaching(string $claim): array
+    {
+        return $this->replacing[$claim] ?? [];
     }
 
     public function named(string $name): ?CredentialChangeChannelInterface

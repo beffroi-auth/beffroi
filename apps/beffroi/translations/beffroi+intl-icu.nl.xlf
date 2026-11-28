@@ -1101,6 +1101,10 @@
         <source>credential_change.backup_codes.renewed</source>
         <target>Op {when} zijn de back-upcodes van uw account vernieuwd.</target>
       </trans-unit>
+      <trans-unit id="credential_change.channel.changed" resname="credential_change.channel.changed">
+        <source>credential_change.channel.changed</source>
+        <target>{kind, select, email {Op {when} is het e-mailadres van uw account gewijzigd.} phone_number {Op {when} is het telefoonnummer van uw account gewijzigd.} other {Op {when} is een manier om u te bereiken gewijzigd.}}</target>
+      </trans-unit>
       <trans-unit id="c7a1e4f9b3" resname="locale.choose">
         <source>locale.choose</source>
         <target>Taal</target>

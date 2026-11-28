@@ -6,8 +6,10 @@ namespace App\Mail;
 
 use App\Messenger\NotificationNotDeliveredException;
 use Beffroi\Core\Domain\Identity\EmailAddress;
+use Beffroi\Core\Domain\Identity\MailEncryptionKey;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Key\MailSigningKey;
+use Beffroi\Core\Domain\Notification\ReplacedChannel;
 use Beffroi\Core\Exception\KmsUnavailableException;
 use Beffroi\Core\Exception\RuntimeException as CoreRuntimeException;
 use Beffroi\Core\Port\MailSigningKeyRepositoryInterface;
@@ -44,7 +46,20 @@ final readonly class MailProtection
      */
     public function of(User $user, EmailAddress $sender, Email $mail): Message
     {
-        return $this->encrypted($user, $this->signed($user, $sender, $mail));
+        return $this->protected($user, $user->mailEncryption, $sender, $mail);
+    }
+
+    /**
+     * Decision 0049, decision 0051: the notice of a change to the address it replaced, encrypted to what the person gave
+     * for that address, which the change took back from her.
+     *
+     * @throws NotificationNotDeliveredException when the tenant signs and cannot sign this mail, when the person asked
+     *                                           for it encrypted and it cannot be, or when the KMS does not open the
+     *                                           signing key
+     */
+    public function ofTheReplaced(User $user, ReplacedChannel $replaced, EmailAddress $sender, Email $mail): Message
+    {
+        return $this->protected($user, $replaced->mailEncryption, $sender, $mail);
     }
 
     /**
@@ -56,15 +71,25 @@ final readonly class MailProtection
      */
     public function ofAConfirmation(User $user, EmailAddress $sender, Email $mail): Message
     {
-        return $this->signed($user, $sender, $mail);
+        return $this->signed($user, $user->mailEncryption, $sender, $mail);
     }
 
     /**
      * @throws NotificationNotDeliveredException
      */
-    private function signed(User $user, EmailAddress $sender, Email $mail): Message
+    private function protected(User $user, ?MailEncryptionKey $encryption, EmailAddress $sender, Email $mail): Message
     {
-        [$signer, $key] = $this->signingKey($user);
+        return $this->encrypted($user, $encryption, $this->signed($user, $encryption, $sender, $mail));
+    }
+
+    /**
+     * @param MailEncryptionKey|null $encryption what the person gave, whose format the mail is signed in when the tenant holds a key of it
+     *
+     * @throws NotificationNotDeliveredException
+     */
+    private function signed(User $user, ?MailEncryptionKey $encryption, EmailAddress $sender, Email $mail): Message
+    {
+        [$signer, $key] = $this->signingKey($user, $encryption?->kind);
         if ($signer === null || $key === null) {
             return $mail;
         }
@@ -94,9 +119,8 @@ final readonly class MailProtection
     /**
      * @return array{MailSignerInterface|null, MailSigningKey|null}
      */
-    private function signingKey(User $user): array
+    private function signingKey(User $user, ?string $asked): array
     {
-        $asked = $user->mailEncryption?->kind;
         $first = [null, null];
         foreach ($this->signers as $signer) {
             $key = $this->keys->current($user->tenant, $signer->kind());
@@ -117,9 +141,8 @@ final readonly class MailProtection
     /**
      * @throws NotificationNotDeliveredException
      */
-    private function encrypted(User $user, Message $mail): Message
+    private function encrypted(User $user, ?MailEncryptionKey $key, Message $mail): Message
     {
-        $key = $user->mailEncryption;
         if ($key === null) {
             return $mail;
         }

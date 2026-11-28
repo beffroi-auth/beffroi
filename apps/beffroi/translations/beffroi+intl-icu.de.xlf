@@ -1101,6 +1101,10 @@
         <source>credential_change.backup_codes.renewed</source>
         <target>Die Backup-Codes Ihres Kontos wurden am {when} erneuert.</target>
       </trans-unit>
+      <trans-unit id="credential_change.channel.changed" resname="credential_change.channel.changed">
+        <source>credential_change.channel.changed</source>
+        <target>{kind, select, email {Die E-Mail-Adresse Ihres Kontos wurde} phone_number {Die Telefonnummer Ihres Kontos wurde} other {Ein Weg, Sie zu erreichen, wurde}} am {when} geändert.</target>
+      </trans-unit>
       <trans-unit id="c7a1e4f9b3" resname="locale.choose">
         <source>locale.choose</source>
         <target>Sprache</target>

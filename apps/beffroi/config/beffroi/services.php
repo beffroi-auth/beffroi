@@ -53,12 +53,17 @@ use Beffroi\Core\Port\MonotonicClockInterface;
 use App\Account\ApplicationHoldings;
 use App\Ciba\QueuedPendingApprovalNotifier;
 use App\Credential\CredentialChangeChannels;
+use App\Credential\MailToTheReplacedAddressChannel;
+use App\Credential\RateLimitedChannelChangeWindow;
+use App\Credential\SmsToTheReplacedNumberChannel;
 use App\Credential\CredentialChangeNotices;
 use App\Credential\QueuedCredentialChangeNotifier;
 use App\Credential\WebPushCredentialChangeChannel;
 use App\Credential\MailCredentialChangeChannel;
 use App\Credential\SmsCredentialChangeChannel;
 use Beffroi\Core\Port\CredentialChangeNotifierInterface;
+use Beffroi\Core\Port\ChannelChangeWindowInterface;
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
 use App\Cache\SeenOnce;
 use App\Client\ClientAssertionReplayGuard;
 use App\Client\SoftwareStatementReplayGuard;
@@ -1037,6 +1042,8 @@ return static function (ContainerConfigurator $container): void {
     $services->set(WebPushCredentialChangeChannel::class);
     $services->set(MailCredentialChangeChannel::class);
     $services->set(SmsCredentialChangeChannel::class);
+    $services->set(MailToTheReplacedAddressChannel::class);
+    $services->set(SmsToTheReplacedNumberChannel::class);
     $services->set(AccountAccess::class);
     $services->set(ProviderScript::class);
     // The home of the account shows these sections in the order they are wired.
@@ -1265,7 +1272,8 @@ return static function (ContainerConfigurator $container): void {
     // WebPushSection::CHANNEL_TAG is for a deployment's own channels; the provider tags none.
     $services->set(QueuedPendingApprovalNotifier::class);
     $services->alias(PendingApprovalNotifierInterface::class, QueuedPendingApprovalNotifier::class);
-    // The channels of the deployment, then web push, mail and SMS, each while its role is on.
+    // The channels of the deployment, then web push, mail and SMS, each while its role is on, mail and SMS each with the
+    // channel that reaches the address or the number a change replaced.
     $services->set('beffroi.pending_approval_channels', SwitchedServices::class)->args([
         inline_service(SwitchedServices::class)->args([
             inline_service(SwitchedServices::class)->args([
@@ -1283,7 +1291,8 @@ return static function (ContainerConfigurator $container): void {
         '$channels' => service('beffroi.pending_approval_channels'),
     ]);
     // WebPushSection::CREDENTIAL_CHANGE_CHANNEL_TAG is for a deployment's own channels; the provider tags none.
-    // The channels of the deployment, then web push, mail and SMS, each while its role is on.
+    // The channels of the deployment, then web push, mail and SMS, each while its role is on, mail and SMS each with the
+    // channel that reaches the address or the number a change replaced.
     $services->set(CredentialChangeChannels::class)->args([
         inline_service(SwitchedServices::class)->args([
             inline_service(SwitchedServices::class)->args([
@@ -1293,14 +1302,17 @@ return static function (ContainerConfigurator $container): void {
                     iterator([service(WebPushCredentialChangeChannel::class)]),
                 ]),
                 service(MailSection::ROLE),
-                iterator([service(MailCredentialChangeChannel::class)]),
+                iterator([service(MailCredentialChangeChannel::class), service(MailToTheReplacedAddressChannel::class)]),
             ]),
             service(SmsSection::ROLE),
-            iterator([service(SmsCredentialChangeChannel::class)]),
+            iterator([service(SmsCredentialChangeChannel::class), service(SmsToTheReplacedNumberChannel::class)]),
         ]),
     ]);
     $services->set(QueuedCredentialChangeNotifier::class);
     $services->alias(CredentialChangeNotifierInterface::class, QueuedCredentialChangeNotifier::class);
+    $services->set(RateLimitedChannelChangeWindow::class)->args([service('limiter.' . RateLimitedChannelChangeWindow::LIMITER)]);
+    $services->alias(ChannelChangeWindowInterface::class, RateLimitedChannelChangeWindow::class);
+    $services->set(ChannelChangeNotice::class);
     // An address is established by the code and the link sent there (NIST SP 800-63B-4 §4.2.1.2): each kind while the
     // channel that reaches it is on, the email address by mail and the phone number by SMS.
     $services->set(DoctrineEmailConfirmationRepository::class)->tag('beffroi.dead_records');

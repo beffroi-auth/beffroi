@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Ticket;
 
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Tests\Fixture\FakeChannelChangeWindow;
 use Beffroi\Core\Application\Authentication\DecoyHash;
 use Beffroi\Core\Application\Authentication\OtherSessionsTermination;
 use Beffroi\Core\Application\Authentication\SessionTerminator;
@@ -120,6 +122,7 @@ final class PasswordTicketRedemptionTest extends TestCase
                 new SymfonyUuidGenerator(),
                 $this->clock,
                 new FixedClaims([]),
+                new ChannelChangeNotice(new FakeChannelChangeWindow(), new RecordingCredentialChangeNotifier()),
             ),
             new OtherSessionsTermination($this->sessions, new SessionTerminator($this->sessions, $this->clock, $this->events)),
             $this->clock,

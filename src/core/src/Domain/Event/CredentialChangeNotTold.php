@@ -17,7 +17,7 @@ final readonly class CredentialChangeNotTold implements ConcernsAPersonInterface
     public const string NAME = 'credential_change.not_told';
 
     /**
-     * @param string $act     the name the journal wrote the change down under
+     * @param string $act     the name of the act the notice told
      * @param string $channel the name of the channel that gave up
      * @param string $reason  why its last attempt failed
      */

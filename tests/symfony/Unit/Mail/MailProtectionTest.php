@@ -16,6 +16,7 @@ use Beffroi\Core\Bridge\InMemory\InMemoryMailSigningKeyRepository;
 use Beffroi\Core\Domain\Identity\EmailAddress;
 use Beffroi\Core\Domain\Identity\MailEncryptionKey;
 use Beffroi\Core\Domain\Identity\User;
+use Beffroi\Core\Domain\Notification\ReplacedChannel;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Tests\Fixture\Fixtures;
 use DateTimeImmutable;
@@ -251,6 +252,52 @@ final class MailProtectionTest extends TestCase
 
         // When
         $this->protect($person, self::mail());
+    }
+
+    /**
+     * Decision 0049, decision 0051
+     */
+    #[Test]
+    public function aMailToTheAddressAChangeReplacedIsEncryptedToWhatThePersonGaveForIt(): void
+    {
+        // Given
+        $person = $this->person();
+        $replaced = ReplacedChannel::address(new EmailAddress('alice@acme.example'), new Smime()->read(MailFixtures::read('person-certificate.pem')));
+        $person->changeEmail(new EmailAddress('alice@elsewhere.example'), false, new DateTimeImmutable(self::NOW));
+
+        // When
+        $protected = MailProtections::over($this->keys, new MockClock(self::NOW))
+            ->ofTheReplaced($person, $replaced, new EmailAddress(MailSigningKeys::SENDER), self::mail())
+            ->toString();
+
+        // Then
+        static::assertStringContainsString('Open your account to answer.', self::decrypted($protected));
+    }
+
+    /**
+     * Decision 0049, decision 0051
+     */
+    #[Test]
+    public function aMailToTheAddressAChangeReplacedIsNeverEncryptedToWhatThePersonGaveForTheNextOne(): void
+    {
+        // Given
+        $person = $this->person();
+        $replaced = ReplacedChannel::address(new EmailAddress('alice@acme.example'), null);
+        $person->changeEmail(new EmailAddress('alice@elsewhere.example'), true, new DateTimeImmutable(self::NOW));
+        $person->encryptMailTo(new MailEncryptionKey(
+            'elsewhere',
+            'material',
+            'ABCD',
+            [new EmailAddress('alice@elsewhere.example')],
+        ), new DateTimeImmutable(self::NOW));
+
+        // When
+        $protected = MailProtections::over($this->keys, new MockClock(self::NOW))
+            ->ofTheReplaced($person, $replaced, new EmailAddress(MailSigningKeys::SENDER), self::mail())
+            ->toString();
+
+        // Then
+        static::assertStringContainsString('Open your account to answer.', $protected);
     }
 
     private function protect(User $user, Email $mail, string $now = self::NOW, string $sender = MailSigningKeys::SENDER): Message

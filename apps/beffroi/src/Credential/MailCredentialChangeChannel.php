@@ -27,6 +27,6 @@ final readonly class MailCredentialChangeChannel implements CredentialChangeChan
     public function tell(User $user, CredentialChange $change): void
     {
         $notice = $this->notices->of($user, $change);
-        $this->sender->send($user, $notice->subject, $notice->body . "\n\n" . $notice->accountPage . "\n");
+        $this->sender->send($user, $notice->subject, $notice->mailText());
     }
 }

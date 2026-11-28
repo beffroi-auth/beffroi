@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Beffroi\Core\Tests\Application\Identity;
 
+use Beffroi\Core\Application\Notification\ChannelChangeNotice;
+use Beffroi\Core\Tests\Fixture\FakeChannelChangeWindow;
+use Beffroi\Core\Tests\Fixture\RecordingCredentialChangeNotifier;
 use Beffroi\Core\Application\Identity\FederatedDomains;
 use Beffroi\Core\Bridge\InMemory\InMemoryUpstreamProviders;
 use Beffroi\Core\Application\Credential\ActiveCredentials;
@@ -111,6 +114,7 @@ final class JustInTimeProvisioningTest extends TestCase
             new SymfonyUuidGenerator(),
             $this->clock,
             new FixedClaims(),
+            new ChannelChangeNotice(new FakeChannelChangeWindow(), new RecordingCredentialChangeNotifier()),
         );
         $this->linker = new IdentityLinker($this->identities, new SymfonyUuidGenerator(), $this->clock);
         $this->memberships = new InMemoryGroupMembershipRepository();
