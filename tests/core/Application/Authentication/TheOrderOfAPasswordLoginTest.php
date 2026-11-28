@@ -79,6 +79,7 @@ final class TheOrderOfAPasswordLoginTest extends TestCase
                 $clock,
                 $this->events,
                 new FederatedDomains(new InMemoryUpstreamProviders()),
+                $credentials,
             ),
             new SessionOpener(
                 new InMemoryAuthenticationSessionRepository(),

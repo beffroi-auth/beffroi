@@ -108,12 +108,15 @@ final readonly class PasswordChange
     }
 
     /**
+     * The bytes as typed are a form of the password in use only when its hash predates the profile: the person is
+     * signed in, and the time of the answer says nothing a session does not already know.
+     *
      * @throws LogicException when no hasher of this deployment handles the algorithm the stored hash names
      */
     private function verifies(PasswordCredential $credential, #[SensitiveParameter] string $typed): bool
     {
-        $verifies = fn (#[SensitiveParameter] string $form): bool => $this->hasher->verify($credential->hash, $form);
+        $password = $credential->hashedAsTyped ? TypedPassword::orAsTyped($typed) : TypedPassword::of($typed);
 
-        return TypedPassword::of($typed)?->verifiedBy($verifies) !== null;
+        return $password?->verifiedBy(fn (#[SensitiveParameter] string $form): bool => $this->hasher->verify($credential->hash, $form)) === true;
     }
 }

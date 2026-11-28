@@ -340,6 +340,7 @@ use Beffroi\Core\Port\CanPageActiveSubscriptionsInterface;
 use Beffroi\Core\Port\CanPageActsOfAPersonInterface;
 use Beffroi\Core\Port\CanPageChangesOfAPersonInterface;
 use Beffroi\Core\Port\CanPageCredentialsInterface;
+use Beffroi\Core\Port\PasswordsHashedAsTypedInterface;
 use App\Doctrine\Repository\DoctrineClaimHistory;
 use Beffroi\Core\Application\Archive\Chapter\ChangesChapter;
 use Beffroi\Core\Application\Identity\ClaimHistoryRetention;
@@ -1454,6 +1455,7 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(CredentialRepositoryInterface::class, DoctrineCredentialRepository::class);
     $services->alias(CanPageCredentialsInterface::class, DoctrineCredentialRepository::class);
     $services->alias(CanForgetCredentialsInterface::class, DoctrineCredentialRepository::class);
+    $services->alias(PasswordsHashedAsTypedInterface::class, DoctrineCredentialRepository::class);
     $services->set(ConditionalCredentialWrite::class);
     $services->set(DoctrineTotpUses::class);
     $services->alias(TotpUsesInterface::class, DoctrineTotpUses::class);

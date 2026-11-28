@@ -8,6 +8,7 @@ use function hash_equals;
 use Beffroi\Core\Domain\Credential\Credential;
 use Beffroi\Core\Domain\Credential\CredentialQuestion;
 use Beffroi\Core\Domain\Credential\ExternallyIdentifiedCredentialInterface;
+use Beffroi\Core\Domain\Credential\PasswordCredential;
 use Beffroi\Core\Domain\Identity\User;
 use Beffroi\Core\Domain\Tenant\Tenant;
 use Beffroi\Core\Domain\Listing\Listing;
@@ -15,10 +16,15 @@ use Beffroi\Core\Domain\Listing\Pagination;
 use Beffroi\Core\Port\CanForgetCredentialsInterface;
 use Beffroi\Core\Port\CanPageCredentialsInterface;
 use Beffroi\Core\Port\CredentialRepositoryInterface;
+use Beffroi\Core\Port\PasswordsHashedAsTypedInterface;
 use Symfony\Component\Uid\Uuid;
 use function usort;
 
-final class InMemoryCredentialRepository implements CanForgetCredentialsInterface, CanPageCredentialsInterface, CredentialRepositoryInterface
+final class InMemoryCredentialRepository implements
+    CanForgetCredentialsInterface,
+    CanPageCredentialsInterface,
+    CredentialRepositoryInterface,
+    PasswordsHashedAsTypedInterface
 {
     /**
      * @var array<string, Credential>
@@ -89,5 +95,13 @@ final class InMemoryCredentialRepository implements CanForgetCredentialsInterfac
     public function forget(Credential $credential): void
     {
         unset($this->credentials[$credential->id->toRfc4122()]);
+    }
+
+    public function remainIn(Tenant $tenant): bool
+    {
+        return array_any(
+            $this->credentials,
+            fn ($credential) => $credential instanceof PasswordCredential && $credential->hashedAsTyped && $credential->tenant->equals($tenant),
+        );
     }
 }

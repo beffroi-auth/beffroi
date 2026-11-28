@@ -204,6 +204,48 @@ final class PasswordCredentialTest extends TestCase
         static::assertSame($found, $credential->breachFoundAt);
     }
 
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aPasswordPosedNowIsNotHashedAsTyped(): void
+    {
+        // When / Then
+        static::assertFalse(self::credential()->hashedAsTyped);
+    }
+
+    /**
+     * Decision 0065, RFC 8265 §8.2
+     */
+    #[Test]
+    public function aRehashLeavesNoHashOfTheBytesAsTyped(): void
+    {
+        // Given
+        $credential = Fixtures::hashedAsTyped(self::credential());
+
+        // When
+        $credential->rehash(new PasswordHash(new Argon2id(), '$argon2id$enforced'), new DateTimeImmutable('2026-10-11T08:00:00+00:00'));
+
+        // Then
+        static::assertFalse($credential->hashedAsTyped);
+    }
+
+    /**
+     * Decision 0065, RFC 8265 §8.2
+     */
+    #[Test]
+    public function aPasswordChangeLeavesNoHashOfTheBytesAsTyped(): void
+    {
+        // Given
+        $credential = Fixtures::hashedAsTyped(self::credential());
+
+        // When
+        $credential->changePassword(new PasswordHash(new Argon2id(), '$argon2id$posed'), new DateTimeImmutable('2026-10-11T08:00:00+00:00'));
+
+        // Then
+        static::assertFalse($credential->hashedAsTyped);
+    }
+
     private static function credential(): PasswordCredential
     {
         return new PasswordCredential(Uuid::v7(), Fixtures::user(), new PasswordHash(new Argon2id(), '$argon2id$old'), Fixtures::now());

@@ -12,6 +12,7 @@ use Beffroi\Core\Bridge\Password\Algorithm\Pbkdf2Sha256;
 use Beffroi\Core\Bridge\Password\Algorithm\Pbkdf2Sha512;
 use Beffroi\Core\Domain\Credential\PasswordAlgorithmInterface;
 use Beffroi\Core\Domain\Credential\PasswordCredential;
+use function array_map;
 use Beffroi\Core\Domain\Event\AuthenticationFailed;
 use Beffroi\Core\Domain\Event\AuthenticationFailureReason;
 use Beffroi\Core\Domain\Event\AuthenticationSessionEnded;
@@ -353,6 +354,43 @@ final class LoginTest extends BrowserTestCase
         static::assertSame('alice', $failures[0]->identifier);
         static::assertTrue($failures[0]->user?->id->equals($user->id));
         static::assertSame('127.0.0.1', $failures[0]->context->ipAddress);
+    }
+
+    /**
+     * RFC 8265 §4.1, decision 0006
+     */
+    #[Test]
+    public function aPasswordTheProfileRefusesGoesBackToTheLoginPageLikeAWrongOne(): void
+    {
+        // Given
+        self::userWithPassword('alice', self::PASSWORD);
+        $interaction = $this->authorize();
+
+        // When
+        $this->submitLogin($interaction, 'alice', "my cat is a \u{0009}by");
+
+        // Then
+        static::assertSame('/login?interaction=' . $interaction, $this->browser->getResponse()->headers->get('Location'));
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aPasswordTheProfileRefusesIsRecordedWithAReasonOfItsOwn(): void
+    {
+        // Given
+        self::userWithPassword('alice', self::PASSWORD);
+        $interaction = $this->authorize();
+
+        // When
+        $this->submitLogin($interaction, 'alice', "my cat is a \u{0009}by");
+
+        // Then
+        static::assertSame([AuthenticationFailureReason::DisallowedCharacter], array_map(
+            static fn (AuthenticationFailed $failure): AuthenticationFailureReason => $failure->reason,
+            self::events(AuthenticationFailed::class),
+        ));
     }
 
     /**

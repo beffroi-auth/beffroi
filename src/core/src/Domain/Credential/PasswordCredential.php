@@ -26,6 +26,12 @@ final class PasswordCredential extends Credential implements ProvingCredentialIn
 
     public private(set) ?DateTimeImmutable $breachFoundAt = null;
 
+    /**
+     * A hash computed over the bytes as they were typed, before the provider enforced the OpaqueString profile
+     * (decision 0065): a row written before the profile is read so, and every hash written since clears it.
+     */
+    public private(set) bool $hashedAsTyped = false;
+
     public function __construct(
         Uuid $id,
         User $user,
@@ -60,12 +66,14 @@ final class PasswordCredential extends Credential implements ProvingCredentialIn
     {
         $this->hash = $hash;
         $this->hashChangedAt = $now;
+        $this->hashedAsTyped = false;
     }
 
     public function changePassword(PasswordHash $hash, DateTimeImmutable $now): void
     {
         $this->hash = $hash;
         $this->hashChangedAt = $now;
+        $this->hashedAsTyped = false;
         $this->breachCheckedAt = null;
         $this->breachFoundAt = null;
     }
@@ -107,6 +115,7 @@ final class PasswordCredential extends Credential implements ProvingCredentialIn
             'hashChangedAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'breachCheckedAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
             'breachFoundAt' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
+            'hashedAsTyped' => new NoPersonalDatum(Reason::NAMES_NO_PERSON),
         ];
     }
 }

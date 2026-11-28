@@ -10,25 +10,20 @@ use Closure;
 use SensitiveParameter;
 
 /**
- * A password typed where one is verified (RFC 8265 §4.2.3, §8.2): its enforced form, and the bytes as they were typed
- * when they differ, which only a hash computed over them before the profile was enforced holds.
+ * A password typed where one is verified (RFC 8265 §4.2.3, §8.2): its enforced form, and, while a hash computed before
+ * the provider enforced the profile can be the one verified, the bytes as they were typed when they differ.
  */
 final readonly class TypedPassword
 {
-    public string $enforced;
-
     /**
-     * @var list<string>
+     * @param list<string> $forms
      */
-    private array $forms;
-
-    /**
-     * @throws PasswordRefusedException
-     */
-    private function __construct(#[SensitiveParameter] string $typed)
-    {
-        $this->enforced = OpaqueString::enforce($typed);
-        $this->forms = $typed === $this->enforced ? [$typed] : [$this->enforced, $typed];
+    private function __construct(
+        #[SensitiveParameter]
+        public string $enforced,
+        #[SensitiveParameter]
+        private array $forms,
+    ) {
     }
 
     /**
@@ -37,15 +32,28 @@ final readonly class TypedPassword
      */
     public static function of(#[SensitiveParameter] string $typed): ?self
     {
-        try {
-            return new self($typed);
-        } catch (PasswordRefusedException) {
-            return null;
-        }
+        $enforced = self::enforced($typed);
+
+        return $enforced === null ? null : new self($enforced, [$enforced]);
     }
 
     /**
-     * @return list<string> the enforced form, then the bytes as typed when they differ
+     * The bytes as typed are a second form, which only a hash computed over them before the profile was enforced holds.
+     *
+     * @return self|null null when OpaqueString refuses what was typed
+     */
+    public static function orAsTyped(#[SensitiveParameter] string $typed): ?self
+    {
+        $enforced = self::enforced($typed);
+        if ($enforced === null) {
+            return null;
+        }
+
+        return new self($enforced, $enforced === $typed ? [$enforced] : [$enforced, $typed]);
+    }
+
+    /**
+     * @return list<string> the enforced form, then the bytes as typed when they are a form of their own
      */
     public function forms(): array
     {
@@ -57,17 +65,18 @@ final readonly class TypedPassword
      * form, and a refusal then costs as many verifications whichever form a hash was computed over.
      *
      * @param Closure(string): bool $verifies
-     *
-     * @return string|null the form that verified
      */
-    public function verifiedBy(Closure $verifies): ?string
+    public function verifiedBy(Closure $verifies): bool
     {
-        foreach ($this->forms as $form) {
-            if ($verifies($form)) {
-                return $form;
-            }
-        }
+        return array_any($this->forms, fn ($form) => $verifies($form));
+    }
 
-        return null;
+    private static function enforced(#[SensitiveParameter] string $typed): ?string
+    {
+        try {
+            return OpaqueString::enforce($typed);
+        } catch (PasswordRefusedException) {
+            return null;
+        }
     }
 }

@@ -171,4 +171,46 @@ final class InMemoryRepositoriesTest extends TestCase
         // When / Then
         static::assertNull($repository->findByExternalId($this->tenant, PasswordCredential::class, '$argon2id$x'));
     }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aTenantHoldsAPasswordHashedAsTypedWhileOneOfItsPersonsDoes(): void
+    {
+        // Given
+        $repository = new InMemoryCredentialRepository();
+        $repository->save(Fixtures::hashedAsTyped(Fixtures::password($this->alice)));
+
+        // When / Then
+        static::assertTrue($repository->remainIn($this->tenant));
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aTenantWhosePasswordsWereAllPosedUnderTheProfileHoldsNoneHashedAsTyped(): void
+    {
+        // Given
+        $repository = new InMemoryCredentialRepository();
+        $repository->save(Fixtures::password($this->alice));
+
+        // When / Then
+        static::assertFalse($repository->remainIn($this->tenant));
+    }
+
+    /**
+     * Decision 0065
+     */
+    #[Test]
+    public function aPasswordHashedAsTypedInAnotherTenantIsNotOneOfThisTenant(): void
+    {
+        // Given
+        $repository = new InMemoryCredentialRepository();
+        $repository->save(Fixtures::hashedAsTyped(Fixtures::password(Fixtures::user($this->other, 'bob', 'bob-subject'))));
+
+        // When / Then
+        static::assertFalse($repository->remainIn($this->tenant));
+    }
 }

@@ -438,13 +438,13 @@ final class PasswordChangeTest extends TestCase
     }
 
     /**
-     * RFC 8265 §6.2
+     * RFC 8265 §6.2, decision 0065
      */
     #[Test]
-    public function aPasswordInUseHashedAsItWasTypedIsAcceptedTypedSo(): void
+    public function aPasswordInUseHashedAsItWasTypedBeforeTheProfileIsAcceptedTypedSo(): void
     {
         // Given
-        $credential = $this->passwordInUse("correct\u{00A0}horse battery staple");
+        $credential = Fixtures::hashedAsTyped($this->passwordInUse("correct\u{00A0}horse battery staple"));
 
         // When
         $this->change->change($this->alice, "correct\u{00A0}horse battery staple", Fixtures::plainPassword(self::POSED), Fixtures::context());
@@ -460,7 +460,7 @@ final class PasswordChangeTest extends TestCase
     public function aPasswordInUseTheProfileRefusesIsNotTheOneInUse(): void
     {
         // Given
-        $this->passwordInUse("my cat is a \u{0009}by");
+        Fixtures::hashedAsTyped($this->passwordInUse("my cat is a \u{0009}by"));
 
         // When
         try {
